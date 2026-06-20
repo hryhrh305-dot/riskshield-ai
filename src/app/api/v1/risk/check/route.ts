@@ -8,7 +8,7 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const deepseek = new OpenAI({ apiKey: process.env.DEEPSEEK_API_KEY, baseURL: "https://api.deepseek.com" });
 
 const disposableDomains = new Set([
   "mailinator.com", "guerrillamail.com", "10minutemail.com", "tempmail.com",
@@ -72,8 +72,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const userMsg = "Email: " + (email || "N/A") + ", IP: " + (ip || "N/A") + ", Risk score: " + riskScore + ", Reasons: " + (reasons.join(", ") || "none");
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+    const completion = await deepseek.chat.completions.create({
+      model: "deepseek-chat",
       messages: [
         {
           role: "system",
