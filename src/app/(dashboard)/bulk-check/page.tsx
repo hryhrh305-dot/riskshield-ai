@@ -59,35 +59,22 @@ export default function BulkCheckPage() {
   async function downloadXLSX() {
     if (!results || results.length === 0) return;
     setXlsxDownloading(true);
-    try {
-      const res = await fetch('/api/bulk-check?format=xlsx', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emails: results.map(r => r.email) }),
-      });
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = 'riskshield-results.xlsx'; a.click();
-        URL.revokeObjectURL(url);
-      } else {
-        throw new Error('Server XLSX failed');
-      }
-    } catch {
-      const headers = ['email','risk_score','risk_level','disposable','hasMX','reasons','recommendation'];
-      const rows = results.map(r => [
-        r.email || '', r.risk_score ?? '', r.risk_level || '',
-        r.disposable ? 'Yes' : 'No', r.hasMX ? 'Yes' : 'No',
-        String.fromCharCode(34) + (r.reasons || []).join('; ').replace(/"/g, String.fromCharCode(34).repeat(2)) + String.fromCharCode(34),
-        String.fromCharCode(34) + (r.recommendation || '').replace(/"/g, String.fromCharCode(34).repeat(2)) + String.fromCharCode(34)
-      ].join(','));
-      const csv = '\uFEFF' + headers.join(',') + '\n' + rows.join('\n');
-      const blob = new Blob([csv], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = 'riskshield-results.xlsx'; a.click();
-      URL.revokeObjectURL(url);
-    }
-    finally { setXlsxDownloading(false); }
+    var hdrs = ["email","risk_score","risk_level","disposable","hasMX","reasons","recommendation"];
+    var rows = results.map(function(r) {
+      return [
+        r.email || "", String(r.risk_score ?? ""), r.risk_level || "",
+        r.disposable ? "Yes" : "No", r.hasMX ? "Yes" : "No",
+        String.fromCharCode(34) + (r.reasons || []).join("; ").replace(/"/g, String.fromCharCode(34).repeat(2)) + String.fromCharCode(34),
+        String.fromCharCode(34) + (r.recommendation || "").replace(/"/g, String.fromCharCode(34).repeat(2)) + String.fromCharCode(34)
+      ].join(",");
+    });
+    var csv = String.fromCharCode(0xFEFF) + hdrs.join(",") + String.fromCharCode(10) + rows.join(String.fromCharCode(10));
+    var blob = new Blob([csv], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a"); a.href = url; a.download = "riskshield-results.xlsx";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+    setXlsxDownloading(false);
   }
 
   function exportCSV(filter: "all" | "clean" | "risky") {
