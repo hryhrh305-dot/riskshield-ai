@@ -1,6 +1,10 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
-import { plans, PlanKey } from "@/lib/plans";
+import { plans, type PlanKey } from "@/lib/plans";
+
+const CREEM_API_KEY = "creem_test_touUwTvdYVMlsjo2ztA0q";
+const CREEM_PRODUCT_ID = "prod_2cn5Ks85DNUADF1GmU96GE";
+const NEXT_PUBLIC_APP_URL = "https://574269.xyz";
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,21 +25,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
     }
 
-    // Create Creem checkout
     const response = await fetch("https://api.creem.io/v1/checkouts", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": process.env.CREEM_API_KEY!,
+        "x-api-key": CREEM_API_KEY,
       },
       body: JSON.stringify({
-        product_id: process.env.CREEM_PRODUCT_ID,
+        product_id: CREEM_PRODUCT_ID,
         request_id: crypto.randomUUID(),
-        success_url: process.env.NEXT_PUBLIC_APP_URL + "/dashboard?checkout=success",
-        metadata: {
-          user_id: user.id,
-          plan: planKey,
-        },
+        success_url: NEXT_PUBLIC_APP_URL + "/dashboard?checkout=success",
+        metadata: { user_id: user.id, plan: planKey },
       }),
     });
 

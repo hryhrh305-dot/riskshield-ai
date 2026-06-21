@@ -1,0 +1,551 @@
+▲ Next.js 16.2.9 (Turbopack)
+- Local:         http://localhost:3001
+- Network:       http://192.168.1.9:3001
+- Environments: .env.local
+✓ Ready in 8.2s
+⚠ Slow filesystem detected. The benchmark took 288ms. If D:\ai-saas-mvp\.next/dev is a network drive, consider moving it to a local folder.
+See more: https://nextjs.org/docs/app/guides/local-development
+○ Compiling middleware ...
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+
+ GET / 200 in 4.2s (next.js: 3.9s, application-code: 296ms)
+ GET /login 200 in 181ms (next.js: 39ms, proxy.ts: 7ms, application-code: 134ms)
+ GET /risk-check 200 in 284ms (next.js: 152ms, application-code: 132ms)
+ POST /api/web-risk 401 in 216ms (next.js: 192ms, application-code: 24ms)
+ GET /risk-check 200 in 172ms (next.js: 18ms, application-code: 153ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/risk-check" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html
++                         lang="en"
+-                         lang="zh-CN"
++                         className="geist_a71539c9-module__T19VSG__variable geist_mono_8d43a2aa-module__8Li5zG__varia..."
+-                         className="geist_a71539c9-module__T19VSG__variable geist_mono_8d43a2aa-module__8Li5zG__varia..."
+                        >
+                  ...
+ 
+ GET /api/web-risk 200 in 1795ms (next.js: 7ms, application-code: 1788ms)
+[RiskCheck] a3a96004-597a-4875-af55-24cd53692453 plan: starter credits_before: 99 total: 1
+[RiskCheck] credit success: true remaining: 98
+ POST /api/web-risk 200 in 5.4s (next.js: 4ms, application-code: 5.4s)
+ GET /api/web-risk 200 in 1280ms (next.js: 5ms, application-code: 1275ms)
+[RiskCheck] a3a96004-597a-4875-af55-24cd53692453 plan: starter credits_before: 98 total: 2
+[RiskCheck] credit success: true remaining: 97
+ POST /api/web-risk 200 in 6.3s (next.js: 4ms, application-code: 6.3s)
+ GET /api/web-risk 200 in 634ms (next.js: 4ms, application-code: 630ms)
+[RiskCheck] a3a96004-597a-4875-af55-24cd53692453 plan: starter credits_before: 97 total: 3
+[RiskCheck] credit success: true remaining: 96
+ POST /api/web-risk 200 in 2.1s (next.js: 4ms, application-code: 2.1s)
+ GET /api/web-risk 200 in 819ms (next.js: 20ms, application-code: 799ms)
+ GET /dashboard 200 in 620ms (next.js: 233ms, proxy.ts: 333ms, application-code: 54ms)
+[browser] GoTrueClient@sb-njhjiavnidssjvnkcxfo-auth-token:1 (2.108.2) 2026-06-21T00:18:48.060Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. (src/lib/api-auth.ts:5:35)
+✓ Compiled in 570ms
+ GET /dashboard 200 in 1580ms (next.js: 514ms, proxy.ts: 1015ms, application-code: 50ms)
+ GET /login 200 in 965ms (next.js: 150ms, proxy.ts: 5ms, application-code: 810ms)
+ GET /risk-check 200 in 585ms (next.js: 161ms, application-code: 424ms)
+ GET /api/web-risk 200 in 1758ms (next.js: 667ms, application-code: 1091ms)
+ GET /dashboard 200 in 667ms (next.js: 5ms, proxy.ts: 460ms, application-code: 202ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/dashboard" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html
++                         lang="en"
+-                         lang="zh-CN"
++                         className="geist_a71539c9-module__T19VSG__variable geist_mono_8d43a2aa-module__8Li5zG__varia..."
+-                         className="geist_a71539c9-module__T19VSG__variable geist_mono_8d43a2aa-module__8Li5zG__varia..."
+                        >
+                  ...
+ 
+[browser] GoTrueClient@sb-njhjiavnidssjvnkcxfo-auth-token:1 (2.108.2) 2026-06-21T00:20:51.365Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. (src/lib/supabase.ts:7:29)
+ GET /dashboard 200 in 510ms (next.js: 5ms, proxy.ts: 440ms, application-code: 66ms)
+[browser] GoTrueClient@sb-njhjiavnidssjvnkcxfo-auth-token:1 (2.108.2) 2026-06-21T00:20:56.393Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. (src/lib/supabase.ts:7:29)
+ GET /login 200 in 55ms (next.js: 5ms, proxy.ts: 4ms, application-code: 47ms)
+ GET /dashboard 200 in 573ms (next.js: 5ms, proxy.ts: 506ms, application-code: 62ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/dashboard" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html
++                         lang="en"
+-                         lang="zh-CN"
++                         className="geist_a71539c9-module__T19VSG__variable geist_mono_8d43a2aa-module__8Li5zG__varia..."
+-                         className="geist_a71539c9-module__T19VSG__variable geist_mono_8d43a2aa-module__8Li5zG__varia..."
+                        >
+                  ...
+ 
+[browser] GoTrueClient@sb-njhjiavnidssjvnkcxfo-auth-token:1 (2.108.2) 2026-06-21T00:21:52.060Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. (src/lib/supabase.ts:7:29)
+ GET /dashboard 200 in 1716ms (next.js: 4ms, proxy.ts: 1663ms, application-code: 50ms)
+[browser] GoTrueClient@sb-njhjiavnidssjvnkcxfo-auth-token:1 (2.108.2) 2026-06-21T00:27:10.612Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. (src/lib/supabase.ts:7:29)
+✓ Compiled in 411ms
+ GET /risk-check 200 in 258ms (next.js: 203ms, application-code: 55ms)
+ GET /dashboard 200 in 1386ms (next.js: 76ms, proxy.ts: 1275ms, application-code: 35ms)
+ GET /login 200 in 1514ms (next.js: 282ms, proxy.ts: 3ms, application-code: 1229ms)
+ GET /dashboard 200 in 1625ms (next.js: 100ms, proxy.ts: 947ms, application-code: 578ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/dashboard" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html
++                         lang="en"
+-                         lang="zh-CN"
++                         className="geist_a71539c9-module__T19VSG__variable geist_mono_8d43a2aa-module__8Li5zG__varia..."
+-                         className="geist_a71539c9-module__T19VSG__variable geist_mono_8d43a2aa-module__8Li5zG__varia..."
+                        >
+                  ...
+ 
+[browser] GoTrueClient@sb-njhjiavnidssjvnkcxfo-auth-token:1 (2.108.2) 2026-06-21T00:33:53.064Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. (src/lib/supabase.ts:7:29)
+ GET /login 200 in 59ms (next.js: 6ms, proxy.ts: 8ms, application-code: 45ms)
+ GET /dashboard 200 in 509ms (next.js: 5ms, proxy.ts: 465ms, application-code: 39ms)
+[browser] GoTrueClient@sb-njhjiavnidssjvnkcxfo-auth-token:1 (2.108.2) 2026-06-21T00:34:02.101Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. (src/lib/supabase.ts:7:29)
+ GET / 200 in 908ms (next.js: 645ms, application-code: 263ms)
+[browser] TypeError: Failed to fetch
+    at async loadData (src/app/(dashboard)/dashboard/page.tsx:36:50)
+  34 |     try {
+  35 |       const supabase = createClient();
+> 36 |       const { data: { user }, error: authErr } = await supabase.auth.getUser();
+     |                                                  ^
+  37 |       if (authErr || !user) { setAuthChecked(true); return; }
+  38 |
+  39 |       // Projects (src/app/(dashboard)
+ GET /login 200 in 628ms (next.js: 151ms, proxy.ts: 3ms, application-code: 475ms)
+✓ Compiled in 21.9s
+⨯ ./src/app/(dashboard)/dashboard/page.tsx:48:87
+the name `todayStr` is defined multiple times
+  [90m46 |[0m ...
+  [90m47 |[0m ...);
+[31m[1m>[0m [90m48 |[0m ...().split([32m"T"[0m)[[35m0[0m] + [32m"T00:00:00Z"[0m; [36mconst[0m todayStr = [36mnew[0m [33mDate[0m().toISOString().split([32m"T"[0m)[[35m0[0m...
+  [90m   |[0m                                           [31m[1m^^^^^^^^[0m
+  [90m49 |[0m ...getFullYear(), [36mnew[0m [33mDate[0m().getMonth(), [35m1[0m).toISOString();
+  [90m50 |[0m ...
+  [90m51 |[0m ...
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component Browser]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component SSR]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component]
+
+
+[browser] ./src/app/(dashboard)/dashboard/page.tsx:48:87
+the name `todayStr` is defined multiple times
+  46 | ...
+  47 | ...);
+> 48 | ...().split("T")[0] + "T00:00:00Z"; const todayStr = new Date().toISOString().split("T")[0...
+     |                                           ^^^^^^^^
+  49 | ...getFullYear(), new Date().getMonth(), 1).toISOString();
+  50 | ...
+  51 | ...
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component Browser]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component SSR]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component] 
+[browser] ./src/app/(dashboard)/dashboard/page.tsx:48:87
+the name `todayStr` is defined multiple times
+  46 | ...
+  47 | ...);
+> 48 | ...().split("T")[0] + "T00:00:00Z"; const todayStr = new Date().toISOString().split("T")[0...
+     |                                           ^^^^^^^^
+  49 | ...getFullYear(), new Date().getMonth(), 1).toISOString();
+  50 | ...
+  51 | ...
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component Browser]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component SSR]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component] 
+[browser] ./src/app/(dashboard)/dashboard/page.tsx:48:87
+the name `todayStr` is defined multiple times
+  46 | ...
+  47 | ...);
+> 48 | ...().split("T")[0] + "T00:00:00Z"; const todayStr = new Date().toISOString().split("T")[0...
+     |                                           ^^^^^^^^
+  49 | ...getFullYear(), new Date().getMonth(), 1).toISOString();
+  50 | ...
+  51 | ...
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component Browser]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component SSR]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component] 
+[browser] ./src/app/(dashboard)/dashboard/page.tsx:48:87
+the name `todayStr` is defined multiple times
+  46 | ...
+  47 | ...);
+> 48 | ...().split("T")[0] + "T00:00:00Z"; const todayStr = new Date().toISOString().split("T")[0...
+     |                                           ^^^^^^^^
+  49 | ...getFullYear(), new Date().getMonth(), 1).toISOString();
+  50 | ...
+  51 | ...
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component Browser]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component SSR]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component] 
+ GET /dashboard 500 in 12.5s (next.js: 5.1s, proxy.ts: 1601ms, application-code: 5.8s)
+[browser] ./src/app/(dashboard)/dashboard/page.tsx:48:87
+the name `todayStr` is defined multiple times
+  46 | ...
+  47 | ...);
+> 48 | ...().split("T")[0] + "T00:00:00Z"; const todayStr = new Date().toISOString().split("T")[0...
+     |                                           ^^^^^^^^
+  49 | ...getFullYear(), new Date().getMonth(), 1).toISOString();
+  50 | ...
+  51 | ...
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component Browser]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component SSR]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component] 
+[browser] ./src/app/(dashboard)/dashboard/page.tsx:48:87
+the name `todayStr` is defined multiple times
+  46 | ...
+  47 | ...);
+> 48 | ...().split("T")[0] + "T00:00:00Z"; const todayStr = new Date().toISOString().split("T")[0...
+     |                                           ^^^^^^^^
+  49 | ...getFullYear(), new Date().getMonth(), 1).toISOString();
+  50 | ...
+  51 | ...
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component Browser]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component SSR]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component] 
+⨯ ./src/app/(dashboard)/dashboard/page.tsx:48:87
+the name `todayStr` is defined multiple times
+  [90m46 |[0m ...
+  [90m47 |[0m ...);
+[31m[1m>[0m [90m48 |[0m ...().split([32m"T"[0m)[[35m0[0m] + [32m"T00:00:00Z"[0m; [36mconst[0m todayStr = [36mnew[0m [33mDate[0m().toISOString().split([32m"T"[0m)[[35m0[0m...
+  [90m   |[0m                                           [31m[1m^^^^^^^^[0m
+  [90m49 |[0m ...getFullYear(), [36mnew[0m [33mDate[0m().getMonth(), [35m1[0m).toISOString();
+  [90m50 |[0m ...
+  [90m51 |[0m ...
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component Browser]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component SSR]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component]
+
+
+[browser] ./src/app/(dashboard)/dashboard/page.tsx:48:87
+the name `todayStr` is defined multiple times
+  46 | ...
+  47 | ...);
+> 48 | ...().split("T")[0] + "T00:00:00Z"; const todayStr = new Date().toISOString().split("T")[0...
+     |                                           ^^^^^^^^
+  49 | ...getFullYear(), new Date().getMonth(), 1).toISOString();
+  50 | ...
+  51 | ...
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component Browser]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component SSR]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component] 
+ GET /dashboard 500 in 12.0s (next.js: 53ms, proxy.ts: 11.9s, application-code: 15ms)
+[browser] ./src/app/(dashboard)/dashboard/page.tsx:48:87
+the name `todayStr` is defined multiple times
+  46 | ...
+  47 | ...);
+> 48 | ...().split("T")[0] + "T00:00:00Z"; const todayStr = new Date().toISOString().split("T")[0...
+     |                                           ^^^^^^^^
+  49 | ...getFullYear(), new Date().getMonth(), 1).toISOString();
+  50 | ...
+  51 | ...
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component Browser]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component SSR]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component] 
+⨯ ./src/app/(dashboard)/dashboard/page.tsx:48:87
+the name `todayStr` is defined multiple times
+  [90m46 |[0m ...
+  [90m47 |[0m ...);
+[31m[1m>[0m [90m48 |[0m ...().split([32m"T"[0m)[[35m0[0m] + [32m"T00:00:00Z"[0m; [36mconst[0m todayStr = [36mnew[0m [33mDate[0m().toISOString().split([32m"T"[0m)[[35m0[0m...
+  [90m   |[0m                                           [31m[1m^^^^^^^^[0m
+  [90m49 |[0m ...getFullYear(), [36mnew[0m [33mDate[0m().getMonth(), [35m1[0m).toISOString();
+  [90m50 |[0m ...
+  [90m51 |[0m ...
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component Browser]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component SSR]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component]
+
+
+ GET /dashboard 500 in 354ms (next.js: 9ms, proxy.ts: 337ms, application-code: 9ms)
+[browser] ./src/app/(dashboard)/dashboard/page.tsx:48:87
+the name `todayStr` is defined multiple times
+  46 | ...
+  47 | ...);
+> 48 | ...().split("T")[0] + "T00:00:00Z"; const todayStr = new Date().toISOString().split("T")[0...
+     |                                           ^^^^^^^^
+  49 | ...getFullYear(), new Date().getMonth(), 1).toISOString();
+  50 | ...
+  51 | ...
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component Browser]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component SSR]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component] 
+⨯ ./src/app/(dashboard)/dashboard/page.tsx:48:87
+the name `todayStr` is defined multiple times
+  [90m46 |[0m ...
+  [90m47 |[0m ...);
+[31m[1m>[0m [90m48 |[0m ...().split([32m"T"[0m)[[35m0[0m] + [32m"T00:00:00Z"[0m; [36mconst[0m todayStr = [36mnew[0m [33mDate[0m().toISOString().split([32m"T"[0m)[[35m0[0m...
+  [90m   |[0m                                           [31m[1m^^^^^^^^[0m
+  [90m49 |[0m ...getFullYear(), [36mnew[0m [33mDate[0m().getMonth(), [35m1[0m).toISOString();
+  [90m50 |[0m ...
+  [90m51 |[0m ...
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component Browser]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component SSR]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component]
+
+
+ GET /dashboard 500 in 452ms (next.js: 9ms, proxy.ts: 435ms, application-code: 9ms)
+[browser] Uncaught Error: ./src/app/(dashboard)/dashboard/page.tsx:48:87
+the name `todayStr` is defined multiple times
+  46 | ...
+  47 | ...);
+> 48 | ...().split("T")[0] + "T00:00:00Z"; const todayStr = new Date().toISOString().split("T")[0...
+     |                                           ^^^^^^^^
+  49 | ...getFullYear(), new Date().getMonth(), 1).toISOString();
+  50 | ...
+  51 | ...
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component Browser]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component SSR]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component]
+
+
+    at <unknown> (Error: ./src/app/(dashboard)/dashboard/page.tsx:48:87)
+    at <unknown> (Error: (./src/app/(dashboard)/dashboard/page.tsx:48:87)
+[browser] ./src/app/(dashboard)/dashboard/page.tsx:48:87
+the name `todayStr` is defined multiple times
+  46 | ...
+  47 | ...);
+> 48 | ...().split("T")[0] + "T00:00:00Z"; const todayStr = new Date().toISOString().split("T")[0...
+     |                                           ^^^^^^^^
+  49 | ...getFullYear(), new Date().getMonth(), 1).toISOString();
+  50 | ...
+  51 | ...
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component Browser]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component SSR]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component] 
+[browser] ./src/app/(dashboard)/dashboard/page.tsx:48:87
+the name `todayStr` is defined multiple times
+  46 | ...
+  47 | ...);
+> 48 | ...().split("T")[0] + "T00:00:00Z"; const todayStr = new Date().toISOString().split("T")[0...
+     |                                           ^^^^^^^^
+  49 | ...getFullYear(), new Date().getMonth(), 1).toISOString();
+  50 | ...
+  51 | ...
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component Browser]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/(dashboard)/dashboard/page.tsx [Client Component SSR]
+    ./src/app/(dashboard)/dashboard/page.tsx [Server Component] 
+✓ Finished filesystem cache database compaction in 20.1s
+✓ Compiled in 667ms

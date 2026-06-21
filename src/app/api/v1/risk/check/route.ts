@@ -1,120 +1,93 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import OpenAI from "openai";
-import { validateApiKey, getMonthlyLimit } from "@/lib/api-auth";
+import { costControlCheck } from "@/lib/cost-control";
+import { createResponse } from "@/lib/response";
+import { calculateRiskScore, getAIExplanation } from "@/lib/risk-engine";
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "");
+const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "");
+const supabaseAdmin = createClient(NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-const deepseek = new OpenAI({ apiKey: process.env.DEEPSEEK_API_KEY, baseURL: "https://api.deepseek.com" });
+export async function POST(request: NextRequest) {
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "127.0.0.1";
+  const apiKey = request.headers.get("x-api-key") || request.headers.get("authorization")?.replace("Bearer ", "") || "";
 
-const disposableDomains = new Set([
-  "mailinator.com", "guerrillamail.com", "10minutemail.com", "tempmail.com",
-  "throwaway.email", "yopmail.com", "sharklasers.com", "trashmail.com",
-]);
-
-export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return NextResponse.json({ error: "Missing API key" }, { status: 401 });
+  // ---- UNIFIED COST CONTROL CHECK (7 steps) ----
+  const cc = await costControlCheck({ apiKey, endpoint: "risk/check", ip });
+  if (!cc.allowed) {
+    return NextResponse.json({ error: cc.errorCode, message: cc.errorMessage }, { status: 429 });
   }
 
-  const apiKey = authHeader.slice(7);
-  const { valid, userId, apiKeyId, plan, monthlyUsed, error } = await validateApiKey(apiKey);
-  if (!valid || !userId || !apiKeyId) {
-    return NextResponse.json({ error }, { status: 401 });
+  // Parse body
+  let body: { email?: string; ip?: string } = {};
+  try { body = await request.json(); } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const monthlyLimit = await getMonthlyLimit(plan);
-  if ((monthlyUsed || 0) >= monthlyLimit) {
-    return NextResponse.json(
-      { error: "Monthly limit exceeded. Upgrade your plan." },
-      { status: 429 }
-    );
-  }
+  const email = body.email || null;
+  const requestIP = body.ip || ip;
 
-  let body: { email?: string; ip?: string };
-  try { body = await req.json(); } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  // ---- Risk Scoring Engine ----
+  const riskResult = await calculateRiskScore({ email, ip: requestIP });
 
-  const email = body.email?.trim().toLowerCase();
-  const ip = body.ip?.trim();
+  // ---- AI (Layer 4: only for score >= 70) ----
+  const aiReason = await getAIExplanation(email, requestIP, riskResult.score, riskResult.reasons);
 
-  if (!email && !ip) {
-    return NextResponse.json({ error: "At least one of email or ip is required" }, { status: 400 });
-  }
-
-  let riskScore = 0;
-  const reasons: string[] = [];
-
-  if (email) {
-    const domain = email.split("@")[1] || "";
-    const validFormat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-    if (!validFormat) { riskScore += 30; reasons.push("Invalid email format"); }
-    if (disposableDomains.has(domain)) { riskScore += 30; reasons.push("Disposable email detected"); }
-    if (domain.length < 3) { riskScore += 15; reasons.push("Suspicious domain"); }
-  }
-
-  if (ip) {
-    if (ip === "127.0.0.1" || ip === "::1") { riskScore += 10; reasons.push("Localhost IP"); }
-    if (ip.startsWith("10.") || ip.startsWith("192.168.") || ip.startsWith("172.16.")) {
-      riskScore += 5; reasons.push("Private network IP");
-    }
-  }
-
-  riskScore = Math.min(riskScore, 100);
-
-  let aiReason = "";
-  let recommendation = riskScore >= 60 ? "BLOCK" : riskScore >= 30 ? "REVIEW" : "ALLOW";
-
-  try {
-    const userMsg = "Email: " + (email || "N/A") + ", IP: " + (ip || "N/A") + ", Risk score: " + riskScore + ", Reasons: " + (reasons.join(", ") || "none");
-    const completion = await deepseek.chat.completions.create({
-      model: "deepseek-chat",
-      messages: [
-        {
-          role: "system",
-          content: "You are a fraud detection AI for SaaS platforms. Given an email and/or IP, explain in one short Chinese sentence why this user might be risky, based on the detected reasons. Be concise.",
-        },
-        { role: "user", content: userMsg },
-      ],
-      max_tokens: 80,
-      temperature: 0.3,
-    });
-    aiReason = completion.choices[0]?.message?.content?.trim() || "";
-  } catch {
-    aiReason = reasons.join("; ") || "No suspicious signals detected";
-  }
-
-  const result = {
-    success: true,
-    risk_score: riskScore,
-    decision: recommendation,
-    reasons,
-    ai_reason: aiReason,
+  // ---- Build Response ----
+  const result = createResponse({
+    score: riskResult.score,
+    reasons: riskResult.reasons,
     email: email || null,
-    ip: ip || null,
+    ip: requestIP || null,
+    emailDetails: riskResult.emailDetails,
+    ipDetails: riskResult.ipDetails,
+    aiReason: aiReason || undefined,
+    ipRemaining: cc.ipRemaining,
+    dailyRemaining: cc.dailyRemaining,
+    monthlyRemaining: cc.monthlyRemaining,
+  });
+
+  // Add cost info
+  (result as any).cost = {
+    units_consumed: cc.costUnits,
+    monthly_remaining: cc.monthlyRemaining,
+    daily_remaining: cc.dailyRemaining,
+    per_minute_remaining: cc.perMinuteRemaining,
   };
 
-  const today = new Date().toISOString().split("T")[0];
-  await Promise.all([
-    supabaseAdmin.from("checks").insert({
-      user_id: userId,
-      check_type: "risk",
-      input_value: JSON.stringify({ email, ip }),
-      risk_score: riskScore,
-      result_json: result,
-    }),
-    supabaseAdmin.rpc("increment_api_usage", {
-      p_user_id: userId,
-      p_api_key_id: apiKeyId,
-      p_endpoint: "risk/check",
-      p_date: today,
-    }),
-  ]);
+  // Async: save risk log
+  supabaseAdmin.from("risk_logs").insert({
+    user_id: cc.userId,
+    ip: requestIP,
+    email: email || null,
+    risk_score: riskResult.score,
+    decision: riskResult.decision,
+    reasons: riskResult.reasons,
+    blacklist_hits: riskResult.blacklistHits,
+    ipqs_response: riskResult.ipDetails,
+    cost_units: cc.costUnits,
+    created_at: new Date().toISOString(),
+  }).then(() => {});
 
-  return NextResponse.json(result);
+  // Async: trigger webhook if user has one configured
+  supabaseAdmin.from("profiles").select("webhook_url").eq("id", cc.userId).single().then(({ data: profile }) => {
+    if (profile?.webhook_url) {
+      fetch(profile.webhook_url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event: "risk_check_completed",
+          timestamp: new Date().toISOString(),
+          email: email || null,
+          ip: requestIP || null,
+          risk_score: riskResult.score,
+          decision: riskResult.decision,
+          reasons: riskResult.reasons,
+        }),
+        signal: AbortSignal.timeout(5000),
+      }).catch(() => {});
+    }
+  }).then(() => { /* fire and forget */ });
+
+  return NextResponse.json(result, { status: 200 });
 }

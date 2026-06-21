@@ -1,7 +1,8 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { signIn } from "@/lib/auth";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Shield } from "lucide-react";
 
@@ -10,14 +11,15 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const { error } = await signIn(email, password);
+    const { data, error } = await signIn(email, password);
     if (error) setError(error.message);
-    else window.location.href = "/dashboard";
+    else if (data?.session) router.push("/dashboard");
     setLoading(false);
   }
 

@@ -1,7 +1,8 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { signUp } from "@/lib/auth";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Shield } from "lucide-react";
 
@@ -10,29 +11,25 @@ export default function SignUpPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const router = useRouter();
 
   async function handleSignUp(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const { error } = await signUp(email, password);
-    if (error) setError(error.message);
-    else setSuccess(true);
+    const { data, error } = await signUp(email, password);
+    if (error) {
+      if (error.message?.includes("already") || error.message?.includes("exists")) {
+        setError("This email is already registered. Please sign in instead.");
+      } else {
+        setError(error.message);
+      }
+    } else if (data?.user || data?.session) {
+      router.push("/dashboard");
+    } else {
+      setError("Sign up succeeded but no session. Please try signing in.");
+    }
     setLoading(false);
-  }
-
-  if (success) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 text-center">
-        <div className="max-w-sm">
-          <Shield className="w-10 h-10 text-blue-600 mx-auto" />
-          <h1 className="text-2xl font-bold mt-3">Check Your Email</h1>
-          <p className="text-sm text-gray-500 mt-2">A confirmation link has been sent to {email}.</p>
-          <Link href="/login" className="text-blue-600 text-sm mt-4 inline-block hover:underline">Back to login</Link>
-        </div>
-      </div>
-    );
   }
 
   return (

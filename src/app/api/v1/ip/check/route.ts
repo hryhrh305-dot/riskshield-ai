@@ -1,78 +1,48 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { validateApiKey, getMonthlyLimit } from "@/lib/api-auth";
+import { costControlCheck } from "@/lib/cost-control";
+import { calculateRiskScore } from "@/lib/risk-engine";
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "");
+const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "");
+const supabaseAdmin = createClient(NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return NextResponse.json({ error: "Missing API key" }, { status: 401 });
-  }
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "127.0.0.1";
+  const apiKey = req.headers.get("authorization")?.replace("Bearer ", "") || "";
 
-  const apiKey = authHeader.slice(7);
-  const { valid, userId, apiKeyId, plan, monthlyUsed, error } = await validateApiKey(apiKey);
-  if (!valid || !userId || !apiKeyId) {
-    return NextResponse.json({ error }, { status: 401 });
-  }
-
-  const monthlyLimit = await getMonthlyLimit(plan);
-  if ((monthlyUsed || 0) >= monthlyLimit) {
-    return NextResponse.json(
-      { error: "Monthly limit exceeded. Upgrade your plan." },
-      { status: 429 }
-    );
+  const cc = await costControlCheck({ apiKey, endpoint: "ip/check", ip });
+  if (!cc.allowed) {
+    return NextResponse.json({ error: cc.errorCode, message: cc.errorMessage }, { status: 429 });
   }
 
   let body: { ip?: string };
   try { body = await req.json(); } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
+  const requestIP = body.ip?.trim();
+  if (!requestIP) return NextResponse.json({ error: "IP is required" }, { status: 400 });
 
-  const ip = body.ip?.trim();
-  if (!ip) {
-    return NextResponse.json({ error: "IP is required" }, { status: 400 });
-  }
-
-  // Basic IP analysis
-  const isPrivate =
-    ip.startsWith("10.") ||
-    ip.startsWith("172.16.") ||
-    ip.startsWith("192.168.") ||
-    ip === "127.0.0.1";
-  const isLocalhost = ip === "127.0.0.1" || ip === "::1";
-
-  let riskScore = 0;
-  if (isLocalhost) riskScore += 10;
-  if (isPrivate) riskScore += 5;
+  const riskResult = await calculateRiskScore({ ip: requestIP });
 
   const result = {
     success: true,
-    ip,
-    is_private: isPrivate,
-    is_localhost: isLocalhost,
-    risk_score: riskScore,
+    ip: requestIP,
+    risk_score: riskResult.score,
+    reasons: riskResult.reasons,
+    decision: riskResult.decision,
+    details: riskResult.ipDetails,
+    cost: {
+      units_consumed: cc.costUnits,
+      monthly_remaining: cc.monthlyRemaining,
+      daily_remaining: cc.dailyRemaining,
+    },
   };
 
-  const today = new Date().toISOString().split("T")[0];
-  await Promise.all([
-    supabaseAdmin.from("checks").insert({
-      user_id: userId,
-      check_type: "ip",
-      input_value: ip,
-      risk_score: riskScore,
-      result_json: result,
-    }),
-    supabaseAdmin.rpc("increment_api_usage", {
-      p_user_id: userId,
-      p_api_key_id: apiKeyId,
-      p_endpoint: "ip/check",
-      p_date: today,
-    }),
-  ]);
+  supabaseAdmin.from("checks").insert({
+    user_id: cc.userId, check_type: "ip", input_value: requestIP,
+    risk_score: riskResult.score, result_json: result,
+  }).then(() => {});
 
   return NextResponse.json(result);
 }
