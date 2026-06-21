@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
   // Process emails in parallel with concurrency control (avoids 504 timeout on Vercel)
   const results: any[] = [];
   let creditsConsumed = 0;
-  const CONCURRENCY = 15;
+  const CONCURRENCY = 25;
 
   async function processOneEmail(email: string): Promise<any> {
     const cacheKey = makeResultCacheKey(email, null);
