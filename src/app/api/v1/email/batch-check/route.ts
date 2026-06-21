@@ -241,7 +241,6 @@ export async function POST(req: NextRequest) {
       estimated_savings: Math.round((reviewCount + blockCount) * 0.01 * 100) / 100,
     },
     quota: {
-    quota: {
       monthly_used: monthlyUsed + creditsConsumed,
       monthly_limit: limits.monthlyUnits,
       daily_used: dailyUsed + creditsConsumed,
