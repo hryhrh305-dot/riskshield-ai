@@ -10,7 +10,7 @@
 function getApiBaseUrl_() {
   var props = PropertiesService.getUserProperties();
   var url = props.getProperty("RISKSHIELD_API_BASE_URL");
-  return url || "https://riskshield-fkjvlmia3-risk-shield-ai.vercel.app";
+  return url || "https://574269.xyz";
 }
 
 function setApiBaseUrl_(url) {
