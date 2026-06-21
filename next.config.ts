@@ -1,11 +1,8 @@
-import type { NextConfig } from "next";
+﻿import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Use webpack for builds on Vercel (more stable than Turbopack)
-  turbopack: {
-    // keep turbopack for dev only
-  },
-  // Mark supabase as external to avoid build-time eval
+  // Use webpack for production builds (Turbopack is buggy on Vercel)
+  // Mark supabase/openai as external to prevent build-time eval errors
   serverExternalPackages: ["@supabase/supabase-js", "@supabase/ssr", "openai"],
 };
 
