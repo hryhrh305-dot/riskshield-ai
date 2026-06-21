@@ -215,12 +215,32 @@ export async function POST(req: NextRequest) {
     }))
   ).then(() => {}, () => {});
 
+  // P2-8: Summary - decouple from subjective classification, only show objective stats
+  // P2-9: Batch cost summary by risk level
+  const allowCount = results.filter((r: any) => r.risk_level === "ALLOW").length;
+  const reviewCount = results.filter((r: any) => r.risk_level === "REVIEW").length;
+  const blockCount = results.filter((r: any) => r.risk_level === "BLOCK").length;
+  const totalWasteCost = results.reduce((sum: number, r: any) => sum + (r.estimated_waste_cost || 0), 0);
+
   return NextResponse.json({
     success: true,
     batch_size: batchSize,
     results,
     cached_count: results.filter((r: any) => r.cached).length,
     new_checks: creditsConsumed,
+    summary: {
+      total: batchSize,
+      allow: allowCount,
+      review: reviewCount,
+      block: blockCount,
+      allow_pct: batchSize > 0 ? Math.round((allowCount / batchSize) * 100) : 0,
+      review_pct: batchSize > 0 ? Math.round((reviewCount / batchSize) * 100) : 0,
+      block_pct: batchSize > 0 ? Math.round((blockCount / batchSize) * 100) : 0,
+      estimated_waste_sends: reviewCount + blockCount,
+      estimated_waste_cost_total: Math.round(totalWasteCost * 100) / 100,
+      estimated_savings: Math.round((reviewCount + blockCount) * 0.01 * 100) / 100,
+    },
+    quota: {
     quota: {
       monthly_used: monthlyUsed + creditsConsumed,
       monthly_limit: limits.monthlyUnits,
