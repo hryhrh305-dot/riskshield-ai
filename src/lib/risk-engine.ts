@@ -248,7 +248,7 @@ export async function calculateRiskScore({
 
       // ---- 1a: Disposable / fake registration detection ----
       if (disposableDomains.has(domain)) {
-        riskScore += 45;
+        riskScore += 50;
         reasons.push("Disposable email ?likely fake/temporary registration");
       }
 
@@ -291,7 +291,10 @@ export async function calculateRiskScore({
             // Personal/Genuine email patterns (firstname/lastname format) - reduce risk
       const personalPatterns = [/^[a-z]{2,15}\.[a-z]{2,15}$/, /^[a-z]{3,20}$/, /^[a-z]+\.[a-z]+_[0-9]+$/, /^[a-z]{2,15}[a-z]{2,15}$/];
       let isPersonalEmail = personalPatterns.some(p => p.test(localPart.toLowerCase()));
-      if (isPersonalEmail && !spamKeywords.some(kw => localPart.toLowerCase().includes(kw))) {
+      // Only apply personal pattern discount if NOT disposable and NOT role-based
+      const isDisposableCheck = disposableDomains.has(domain);
+      const isRoleBasedEmail = roleBasedPrefixes.has(localPart);
+      if (isPersonalEmail && !spamKeywords.some(kw => localPart.toLowerCase().includes(kw)) && !isDisposableCheck && !isRoleBasedEmail) {
         riskScore = Math.max(0, riskScore - 10);
         reasons.push("Personal/individual email pattern - higher trust signal");
       }
