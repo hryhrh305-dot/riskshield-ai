@@ -1,16 +1,26 @@
-﻿import OpenAI from "openai";
-import dns from "dns/promises";
+﻿import dns from "dns/promises";
 import { checkBlacklist, autoBlacklistIfHighRisk } from "@/lib/blacklist";
+
+// NOTE: OpenAI/dns imports are dynamic to prevent Vercel build-time evaluation
+
+let _OpenAI: any = null;
+async function getOpenAI() {
+  if (!_OpenAI) {
+    const mod = await import("openai");
+    _OpenAI = mod.default || mod.OpenAI || mod;
+  }
+  return _OpenAI;
+}
 
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || "";
 let _deepseek: any = null;
-function getDeepSeek() {
+async function getDeepSeek() {
   if (!_deepseek) {
+    const OpenAI = await getOpenAI();
     _deepseek = new OpenAI({ apiKey: DEEPSEEK_API_KEY || process.env.DEEPSEEK_API_KEY || "", baseURL: "https://api.deepseek.com" });
   }
   return _deepseek;
 }
-
 // ============ LAYER 1: LOCAL RULES (ZERO COST) ============
 
 export const disposableDomains = new Set([
@@ -956,7 +966,7 @@ export async function getAIExplanation(email: string | null, ip: string | null, 
   if (riskScore < 70) return "";
   try {
     const summary = "Email: " + (email || "N/A") + ", IP: " + (ip || "N/A") + ", Score: " + riskScore + ", Reasons: " + (reasons.join(", ") || "none");
-    const completion = await getDeepSeek().chat.completions.create({
+    const completion = (await getDeepSeek()).chat.completions.create({
       model: "deepseek-chat",
       messages: [{ role: "system", content: "You are a fraud detection AI. Explain in one short Chinese sentence why this request was flagged." }, { role: "user", content: summary }],
       max_tokens: 80, temperature: 0.3,
@@ -1145,3 +1155,8 @@ export async function calculateCompanyHealth(params: {
     },
   };
 }
+
+
+
+
+
