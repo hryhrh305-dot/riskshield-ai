@@ -3,7 +3,16 @@ import { createClient } from "@supabase/supabase-js";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ");
-const supabaseAdmin = createClient(NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+let _supabaseAdmin: any = null;
+function getSupabaseAdmin() {
+  if (!_supabaseAdmin) {
+    const { createClient } = require("@supabase/supabase-js");
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co";
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ";
+    _supabaseAdmin = createClient(url, key);
+  }
+  return _supabaseAdmin;
+}
 
 async function getUserFromRequest(request: NextRequest) {
   try {
@@ -22,7 +31,7 @@ export async function GET(request: NextRequest) {
   const user = await getUserFromRequest(request);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data } = await supabaseAdmin
+  const { data } = await getSupabaseAdmin()
     .from("blacklist")
     .select("*")
     .eq("status", "active")
@@ -46,7 +55,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "type (ip/email/domain) and value are required" }, { status: 400 });
   }
 
-  const existing = await supabaseAdmin
+  const existing = await getSupabaseAdmin()
     .from("blacklist")
     .select("id")
     .eq("type", type)
@@ -58,7 +67,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Already in blacklist" }, { status: 409 });
   }
 
-  await supabaseAdmin.from("blacklist").insert({
+  await getSupabaseAdmin().from("blacklist").insert({
     type,
     value: value.toLowerCase().trim(),
     reason: reason || "Manual add by user",
@@ -79,7 +88,7 @@ export async function DELETE(request: NextRequest) {
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
-  await supabaseAdmin.from("blacklist").update({ status: "removed" }).eq("id", id);
+  await getSupabaseAdmin().from("blacklist").update({ status: "removed" }).eq("id", id);
 
   return NextResponse.json({ success: true });
 }

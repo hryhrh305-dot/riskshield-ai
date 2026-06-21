@@ -5,7 +5,16 @@ import { calculateRiskScore } from "@/lib/risk-engine";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ");
-const supabaseAdmin = createClient(NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+let _supabaseAdmin: any = null;
+function getSupabaseAdmin() {
+  if (!_supabaseAdmin) {
+    const { createClient } = require("@supabase/supabase-js");
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co";
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ";
+    _supabaseAdmin = createClient(url, key);
+  }
+  return _supabaseAdmin;
+}
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "127.0.0.1";
@@ -42,7 +51,7 @@ export async function POST(req: NextRequest) {
     },
   };
 
-  supabaseAdmin.from("checks").insert({
+  getSupabaseAdmin().from("checks").insert({
     user_id: cc.userId, check_type: "email", input_value: email,
     risk_score: riskResult.score, result_json: result,
   }).then(() => {});

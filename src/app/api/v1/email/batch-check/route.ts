@@ -6,7 +6,16 @@ import { planCostLimits } from "@/lib/cost-control";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ");
-const supabaseAdmin = createClient(NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+let _supabaseAdmin: any = null;
+function getSupabaseAdmin() {
+  if (!_supabaseAdmin) {
+    const { createClient } = require("@supabase/supabase-js");
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co";
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ";
+    _supabaseAdmin = createClient(url, key);
+  }
+  return _supabaseAdmin;
+}
 
 const MAX_BATCH_SIZE = 100;
 
@@ -20,7 +29,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Validate API key
-  const { data: keyRows, error: keyError } = await supabaseAdmin
+  const { data: keyRows, error: keyError } = await getSupabaseAdmin()
     .from("api_keys")
     .select("id, user_id, status")
     .eq("key", apiKey)
@@ -34,7 +43,7 @@ export async function POST(req: NextRequest) {
   const keyData = keyRows[0];
 
   // Get profile & plan limits
-  const { data: profile } = await supabaseAdmin
+  const { data: profile } = await getSupabaseAdmin()
     .from("profiles")
     .select("plan, credits_remaining, subscription_status")
     .eq("id", keyData.user_id)
@@ -75,7 +84,7 @@ export async function POST(req: NextRequest) {
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
   const today = now.toISOString().split("T")[0];
 
-  const { data: monthLedger } = await supabaseAdmin
+  const { data: monthLedger } = await getSupabaseAdmin()
     .from("usage_ledger")
     .select("cost_units")
     .eq("user_id", keyData.user_id)
@@ -90,7 +99,7 @@ export async function POST(req: NextRequest) {
     }, { status: 429 });
   }
 
-  const { data: dayLedger } = await supabaseAdmin
+  const { data: dayLedger } = await getSupabaseAdmin()
     .from("usage_ledger")
     .select("cost_units")
     .eq("user_id", keyData.user_id)
@@ -173,15 +182,15 @@ export async function POST(req: NextRequest) {
     }));
 
   if (usageRecords.length > 0) {
-    await supabaseAdmin.from("usage_ledger").insert(usageRecords);
-    await supabaseAdmin
+    await getSupabaseAdmin().from("usage_ledger").insert(usageRecords);
+    await getSupabaseAdmin()
       .from("profiles")
       .update({ credits_remaining: Math.max(0, (profile.credits_remaining || 0) - creditsConsumed) })
       .eq("id", keyData.user_id);
   }
 
   // Write scan_history (async)
-  supabaseAdmin.from("scan_history").insert(
+  getSupabaseAdmin().from("scan_history").insert(
     results.map((r: any) => ({
       user_id: keyData.user_id,
       scan_type: "email",

@@ -4,7 +4,16 @@ import { calculateRiskScore, getAIExplanation, checkDomainAge, getDNSHealthScore
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ");
-const supabaseAdmin = createClient(NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+let _supabaseAdmin: any = null;
+function getSupabaseAdmin() {
+  if (!_supabaseAdmin) {
+    const { createClient } = require("@supabase/supabase-js");
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co";
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ";
+    _supabaseAdmin = createClient(url, key);
+  }
+  return _supabaseAdmin;
+}
 
 async function getUserFromRequest(request: NextRequest) {
   try {
@@ -57,7 +66,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Fetch profile with credits
-  const { data: profile } = await supabaseAdmin
+  const { data: profile } = await getSupabaseAdmin()
     .from("profiles")
     .select("plan, credits_remaining, total_checks")
     .eq("id", user.id)
@@ -102,7 +111,7 @@ export async function POST(request: NextRequest) {
   }
 
   // === STEP 1: Consume credit BEFORE running risk check ===
-  const { data: creditResult, error: creditError } = await supabaseAdmin.rpc("consume_credit", {
+  const { data: creditResult, error: creditError } = await getSupabaseAdmin().rpc("consume_credit", {
     p_user_id: user.id,
   });
   if (creditError) {
@@ -181,7 +190,7 @@ export async function POST(request: NextRequest) {
   console.log("[RiskCheck] cached result for", cacheKey, "(24h TTL)");
 
   // === STEP 4: Write to scan_history and checks (audit log, non-blocking) ===
-  supabaseAdmin.from("scan_history").insert({
+  getSupabaseAdmin().from("scan_history").insert({
     user_id: user.id,
     scan_type: email ? "email" : "ip",
     target: email || requestIP || "unknown",
@@ -189,7 +198,7 @@ export async function POST(request: NextRequest) {
     success: true,
   }).then(() => {}, () => {});
 
-  supabaseAdmin.from("checks").insert({
+  getSupabaseAdmin().from("checks").insert({
     user_id: user.id,
     check_type: email ? "email" : "ip",
     input_value: email || requestIP || "",
@@ -210,7 +219,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ history: [] }, { status: 200 });
   }
 
-  const { data: checks } = await supabaseAdmin
+  const { data: checks } = await getSupabaseAdmin()
     .from("checks")
     .select("id, check_type, input_value, risk_score, created_at")
     .eq("user_id", user.id)

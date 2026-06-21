@@ -6,7 +6,16 @@ import * as XLSX from "xlsx";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ");
-const supabaseAdmin = createClient(NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+let _supabaseAdmin: any = null;
+function getSupabaseAdmin() {
+  if (!_supabaseAdmin) {
+    const { createClient } = require("@supabase/supabase-js");
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co";
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ";
+    _supabaseAdmin = createClient(url, key);
+  }
+  return _supabaseAdmin;
+}
 
 async function getUserFromRequest(request: NextRequest) {
   try {
@@ -195,11 +204,11 @@ export async function POST(request: NextRequest) {
   // Save usage
   // Record bulk usage
   const today = new Date().toISOString().split("T")[0];
-  const { data: todayUsg } = await supabaseAdmin.from("api_usage").select("request_count").eq("user_id", user.id).eq("date", today).maybeSingle();
+  const { data: todayUsg } = await getSupabaseAdmin().from("api_usage").select("request_count").eq("user_id", user.id).eq("date", today).maybeSingle();
   if (todayUsg) {
-    await supabaseAdmin.from("api_usage").update({ request_count: (todayUsg.request_count || 0) + results.length }).eq("user_id", user.id).eq("date", today);
+    await getSupabaseAdmin().from("api_usage").update({ request_count: (todayUsg.request_count || 0) + results.length }).eq("user_id", user.id).eq("date", today);
   } else {
-    await supabaseAdmin.from("api_usage").insert({ user_id: user.id, date: today, request_count: results.length, plan: "free" });
+    await getSupabaseAdmin().from("api_usage").insert({ user_id: user.id, date: today, request_count: results.length, plan: "free" });
   }
 
   const total = results.length;

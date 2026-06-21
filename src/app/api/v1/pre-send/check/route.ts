@@ -6,7 +6,16 @@ import { disposableDomains } from "@/lib/risk-engine";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ");
-const supabaseAdmin = createClient(NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+let _supabaseAdmin: any = null;
+function getSupabaseAdmin() {
+  if (!_supabaseAdmin) {
+    const { createClient } = require("@supabase/supabase-js");
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co";
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ";
+    _supabaseAdmin = createClient(url, key);
+  }
+  return _supabaseAdmin;
+}
 
 const batchCache = new Map<string, { result: Record<string, unknown>; ts: number }>();
 const BATCH_CACHE_TTL = 300000;
@@ -83,7 +92,7 @@ export async function POST(req: NextRequest) {
   const allowed = total - blockedCount;
   const campaignRisk = blockedCount > total * 0.3 ? "HIGH" : blockedCount > total * 0.1 ? "MEDIUM" : "LOW";
 
-  supabaseAdmin.from("risk_logs").insert({
+  getSupabaseAdmin().from("risk_logs").insert({
     user_id: cc.userId,
     ip: targetIP,
     email: JSON.stringify(emails.slice(0, 5)) + "...",

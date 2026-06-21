@@ -2,7 +2,16 @@ import { createClient } from "@supabase/supabase-js";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ");
-const supabaseAdmin = createClient(NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+let _supabaseAdmin: any = null;
+function getSupabaseAdmin() {
+  if (!_supabaseAdmin) {
+    const { createClient } = require("@supabase/supabase-js");
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co";
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ";
+    _supabaseAdmin = createClient(url, key);
+  }
+  return _supabaseAdmin;
+}
 
 // ============ COST UNITS PER ENDPOINT ============
 
@@ -56,7 +65,7 @@ export async function costControlCheck(params: {
   const costUnits = getEndpointCost(endpoint);
 
   // ---- Step 1: Validate API key ----
-  const { data: keyData, error: keyError } = await supabaseAdmin
+  const { data: keyData, error: keyError } = await getSupabaseAdmin()
     .from("api_keys")
     .select("id, user_id, status")
     .eq("key", apiKey)
@@ -68,7 +77,7 @@ export async function costControlCheck(params: {
   }
 
   // ---- Step 2: Check subscription status ----
-  const { data: profile } = await supabaseAdmin
+  const { data: profile } = await getSupabaseAdmin()
     .from("profiles")
     .select("plan, subscription_status, subscription_end")
     .eq("id", keyData.user_id)
@@ -93,13 +102,13 @@ export async function costControlCheck(params: {
   // ---- Step 3: Check monthly cost unit quota ----
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
-  const { data: monthLedger } = await supabaseAdmin
+  const { data: monthLedger } = await getSupabaseAdmin()
     .from("usage_ledger")
     .select("cost_units")
     .eq("user_id", keyData.user_id)
     .gte("created_at", startOfMonth);
 
-  const monthlyUsed = (monthLedger || []).reduce((sum, r) => sum + (r.cost_units || 0), 0);
+  const monthlyUsed = (monthLedger || []).reduce((sum: any, r: any) => sum + (r.cost_units || 0), 0);
   const monthlyRemaining = limits.monthlyUnits - monthlyUsed;
 
   if (monthlyRemaining <= 0) {
@@ -108,13 +117,13 @@ export async function costControlCheck(params: {
 
   // ---- Step 4: Check daily cost unit quota ----
   const today = now.toISOString().split("T")[0];
-  const { data: dayLedger } = await supabaseAdmin
+  const { data: dayLedger } = await getSupabaseAdmin()
     .from("usage_ledger")
     .select("cost_units")
     .eq("user_id", keyData.user_id)
     .gte("created_at", today);
 
-  const dailyUsed = (dayLedger || []).reduce((sum, r) => sum + (r.cost_units || 0), 0);
+  const dailyUsed = (dayLedger || []).reduce((sum: any, r: any) => sum + (r.cost_units || 0), 0);
   const dailyRemaining = limits.dailyUnits - dailyUsed;
 
   if (dailyRemaining <= 0) {
@@ -123,13 +132,13 @@ export async function costControlCheck(params: {
 
   // ---- Step 5: Check per-minute rate limit ----
   const oneMinuteAgo = new Date(Date.now() - 60000).toISOString();
-  const { data: minLedger } = await supabaseAdmin
+  const { data: minLedger } = await getSupabaseAdmin()
     .from("usage_ledger")
     .select("cost_units")
     .eq("user_id", keyData.user_id)
     .gte("created_at", oneMinuteAgo);
 
-  const perMinuteUsed = (minLedger || []).reduce((sum, r) => sum + (r.cost_units || 0), 0);
+  const perMinuteUsed = (minLedger || []).reduce((sum: any, r: any) => sum + (r.cost_units || 0), 0);
   const perMinuteRemaining = limits.perMinute - perMinuteUsed;
 
   if (perMinuteRemaining <= 0) {
@@ -137,14 +146,14 @@ export async function costControlCheck(params: {
   }
 
   // ---- Step 6: Check IP rate limit ----
-  const { data: ipRows } = await supabaseAdmin
+  const { data: ipRows } = await getSupabaseAdmin()
     .from("ip_requests")
     .select("request_count")
     .eq("ip_address", ip)
     .gte("window_start", oneMinuteAgo);
 
   const ipLimit = limits.perMinute * 2; // IP limit = 2x per-minute user limit
-  const ipUsed = (ipRows || []).reduce((sum, r) => sum + (r.request_count || 0), 0);
+  const ipUsed = (ipRows || []).reduce((sum: any, r: any) => sum + (r.request_count || 0), 0);
   const ipRemaining = ipLimit - ipUsed;
 
   if (ipRemaining <= 0) {
@@ -158,7 +167,7 @@ export async function costControlCheck(params: {
   }
 
   // ---- All checks passed -- write usage ledger entry BEFORE response ----
-  await supabaseAdmin.from("usage_ledger").insert({
+  await getSupabaseAdmin().from("usage_ledger").insert({
     user_id: keyData.user_id,
     api_key_id: keyData.id,
     api_key: apiKey.slice(0, 8) + "...",
@@ -171,7 +180,7 @@ export async function costControlCheck(params: {
   });
 
   // Track IP request
-  await supabaseAdmin.from("ip_requests").insert({
+  await getSupabaseAdmin().from("ip_requests").insert({
     ip_address: ip,
     api_key_id: keyData.id,
     user_id: keyData.user_id,
@@ -209,21 +218,21 @@ export async function detectAbuse(userId: string, apiKeyId: string, ip: string):
   const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
 
   // 1. Burst detection: compare last 10 minutes with baseline (avg of last 24h)
-  const { data: recent } = await supabaseAdmin
+  const { data: recent } = await getSupabaseAdmin()
     .from("usage_ledger")
     .select("cost_units")
     .eq("user_id", userId)
     .gte("created_at", tenMinutesAgo);
 
-  const recentUnits = (recent || []).reduce((sum, r) => sum + (r.cost_units || 0), 0);
+  const recentUnits = (recent || []).reduce((sum: any, r: any) => sum + (r.cost_units || 0), 0);
 
-  const { data: baseline } = await supabaseAdmin
+  const { data: baseline } = await getSupabaseAdmin()
     .from("usage_ledger")
     .select("cost_units")
     .eq("user_id", userId)
     .gte("created_at", oneDayAgo);
 
-  const baselineUnits = (baseline || []).reduce((sum, r) => sum + (r.cost_units || 0), 0);
+  const baselineUnits = (baseline || []).reduce((sum: any, r: any) => sum + (r.cost_units || 0), 0);
   // Baseline per 10-minute window: total / 144 (24h = 144 x 10min)
   const avgPerTenMin = baselineUnits / 144 || 1;
   const burstRatio = avgPerTenMin > 0 ? recentUnits / avgPerTenMin : 1;
@@ -235,20 +244,20 @@ export async function detectAbuse(userId: string, apiKeyId: string, ip: string):
   }
 
   // 2. Same IP using multiple API keys
-  const { data: ipKeys } = await supabaseAdmin
+  const { data: ipKeys } = await getSupabaseAdmin()
     .from("usage_ledger")
     .select("api_key_id")
     .eq("ip_address", ip)
     .gte("created_at", oneHourAgo);
 
-  const uniqueKeyCount = new Set((ipKeys || []).map(r => r.api_key_id).filter(Boolean)).size;
+  const uniqueKeyCount = new Set((ipKeys || []).map((r: any) => r.api_key_id).filter(Boolean)).size;
   if (uniqueKeyCount > 3) {
     await logAbuseEvent(userId, apiKeyId, ip, "multiple_keys_per_ip", uniqueKeyCount);
     return { blocked: true, reason: "Multiple API keys from same IP", multipleKeys: true };
   }
 
   // 3. Check existing abuse_events -- if already temporarily blocked
-  const { data: recentBlocks } = await supabaseAdmin
+  const { data: recentBlocks } = await getSupabaseAdmin()
     .from("abuse_events")
     .select("created_at")
     .eq("user_id", userId)
@@ -264,7 +273,7 @@ export async function detectAbuse(userId: string, apiKeyId: string, ip: string):
 }
 
 async function logAbuseEvent(userId: string, apiKeyId: string, ip: string, eventType: string, metric: number) {
-  await supabaseAdmin.from("abuse_events").insert({
+  await getSupabaseAdmin().from("abuse_events").insert({
     user_id: userId,
     api_key_id: apiKeyId,
     ip_address: ip,
@@ -281,13 +290,13 @@ export async function getCostAnalytics(userId: string) {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
 
-  const { data: monthData } = await supabaseAdmin
+  const { data: monthData } = await getSupabaseAdmin()
     .from("usage_ledger")
     .select("cost_units, endpoint, created_at")
     .eq("user_id", userId)
     .gte("created_at", startOfMonth);
 
-  const totalCost = (monthData || []).reduce((sum, r) => sum + (r.cost_units || 0) * 0.001, 0);
+  const totalCost = (monthData || []).reduce((sum: any, r: any) => sum + (r.cost_units || 0) * 0.001, 0);
 
   // Group by endpoint
   const byEndpoint: Record<string, number> = {};
@@ -298,7 +307,7 @@ export async function getCostAnalytics(userId: string) {
 
   return {
     totalCostThisMonth: Math.round(totalCost * 1000) / 1000,
-    totalUnitsThisMonth: (monthData || []).reduce((sum, r) => sum + (r.cost_units || 0), 0),
+    totalUnitsThisMonth: (monthData || []).reduce((sum: any, r: any) => sum + (r.cost_units || 0), 0),
     byEndpoint,
     requestCount: (monthData || []).length,
   };
@@ -309,7 +318,7 @@ export async function getCostAnalytics(userId: string) {
 export async function getTopExpensiveUsers(limit = 10) {
   const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0];
 
-  const { data } = await supabaseAdmin
+  const { data } = await getSupabaseAdmin()
     .from("usage_ledger")
     .select("user_id, cost_units, endpoint")
     .gte("created_at", startOfMonth);
