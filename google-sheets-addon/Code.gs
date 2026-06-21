@@ -248,10 +248,10 @@ function writeResults_(sheet, anchorRange, results) {
 
   // Write headers first (single call)
   var headerRow = startRow;
-  var headerRange = sheet.getRange(headerRow, startCol + 1, 1, 5);
+  var headerRange = sheet.getRange(headerRow, startCol + 1, 1, 6);
   var existingHeaders = headerRange.getValues()[0];
   if (!existingHeaders[0] || String(existingHeaders[0]).indexOf("Risk") === -1) {
-    headerRange.setValues([["Risk Score", "Risk Level", "Reason 1", "Reason 2", "Cached?"]]);
+    headerRange.setValues([["Risk Score", "Risk Level", "Waste Cost", "Recommendation", "Risk Factors", "Cached?"]]);
     headerRow = startRow + 1;
   }
 
@@ -267,8 +267,9 @@ function writeResults_(sheet, anchorRange, results) {
     dataValues.push([
       r.risk_score || 0,
       r.risk_level || "UNKNOWN",
-      reasons[0] || "",
-      reasons[1] || "",
+      r.estimated_waste_cost != null ? "$" + r.estimated_waste_cost.toFixed(2) : "",
+      r.recommendation || "",
+      (r.risk_factors || []).slice(0, 3).join(" | "),
       r.cached ? "Yes (free)" : "New"
     ]);
 
@@ -300,6 +301,7 @@ function columnToLetter_(col) {
   }
   return letter || "A";
 }
+
 
 
 
