@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
     apiKey = (body as any).api_key;
   }
 
-  const validEmails = emails.map((e: string) => e.trim().toLowerCase()).filter((e: string) => e.includes("@") && e.split("@").length === 2);
+  const validEmails = emails.map((e: string) => e.trim().toLowerCase()).filter((e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(e));
   const batchSize = validEmails.length;
 
   // Check quotas

@@ -94,6 +94,8 @@ function scanSelectedEmails() {
 
   var sheet = SpreadsheetApp.getActiveSheet();
   var selection = sheet.getActiveRange();
+  var startRow = selection.getRow();
+  var startCol = selection.getColumn();
   
   if (!selection) {
     ui.alert("No Selection", "Please select one or more cells containing email addresses.", ui.ButtonSet.OK);
@@ -101,6 +103,7 @@ function scanSelectedEmails() {
   }
 
   var emails = [];
+  var emailPositions = []; // [{row, col}] relative to selection start
   var values = selection.getValues();
   var totalCells = 0;
   var skippedCells = 0;
@@ -114,6 +117,7 @@ function scanSelectedEmails() {
       var val = raw.toLowerCase();
       if (val && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(val)) {
         emails.push(val);
+        emailPositions.push({ row: startRow + i, col: startCol + j });
       } else {
         skippedCells++;
         if (skippedSamples.length < 3) skippedSamples.push(raw);
@@ -133,7 +137,7 @@ function scanSelectedEmails() {
     return;
   }
 
-  processBatch_(sheet, selection, emails, apiKey, totalCells, skippedCells, skippedSamples);
+  processBatch_(sheet, selection, emails, apiKey, totalCells, skippedCells, skippedSamples, emailPositions);
 }
 
 // ============ SCAN ENTIRE COLUMN ============
@@ -157,11 +161,13 @@ function scanEntireColumn() {
   var range = sheet.getRange(2, col, lastRow - 1, 1);
   var values = range.getValues();
   var emails = [];
+  var emailPositions = [];
   
   for (var i = 0; i < values.length; i++) {
     var val = String(values[i][0]).trim().toLowerCase();
     if (val && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(val)) {
       emails.push(val);
+      emailPositions.push({ row: i + 2, col: col }); // row starts at 2 (skip header)
     }
   }
 
@@ -178,7 +184,8 @@ function scanEntireColumn() {
   var totalScanned = 0;
   for (var b = 0; b < emails.length; b += MAX_BATCH_SIZE) {
     var batch = emails.slice(b, Math.min(b + MAX_BATCH_SIZE, emails.length));
-    processBatch_(sheet, range.offset(b, 0, batch.length, 1), batch, apiKey);
+    var batchPositions = emailPositions.slice(b, Math.min(b + MAX_BATCH_SIZE, emails.length));
+    processBatch_(sheet, range.offset(b, 0, batch.length, 1), batch, apiKey, undefined, undefined, undefined, batchPositions);
     totalScanned += batch.length;
   }
   
@@ -186,7 +193,7 @@ function scanEntireColumn() {
 }
 
 // ============ CORE: BATCH PROCESSING ============
-function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCells, skippedSamples) {
+function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCells, skippedSamples, emailPositions) {
   var ui = SpreadsheetApp.getUi();
   
   try {
@@ -233,7 +240,7 @@ function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCe
       return;
     }
 
-    writeResults_(sheet, anchorRange, result.results);
+    writeResults_(sheet, anchorRange, result.results, emailPositions);
     
     var cachedCount = result.cached_count || 0;
     var newChecks = result.new_checks || emails.length;
@@ -259,55 +266,51 @@ function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCe
 
 // ============ WRITE RESULTS TO SHEET ============
 
-function writeResults_(sheet, anchorRange, results) {
-  var startRow = anchorRange.getRow();
+function writeResults_(sheet, anchorRange, results, emailPositions) {
   var startCol = anchorRange.getColumn();
   var numResults = results.length;
   if (numResults === 0) return;
 
-  // Write headers first (single call)
-  var headerRow = startRow;
-  var headerRange = sheet.getRange(headerRow, startCol + 1, 1, 6);
+  // Detect email columns: if emailPositions is provided and non-empty,
+  // use each email's real row. Otherwise fall back to continuous rows.
+  var usePositions = (typeof emailPositions !== 'undefined' && emailPositions && emailPositions.length === numResults);
+
+  // Write headers (if not already present) starting at first row
+  var firstRow = usePositions ? emailPositions[0].row : anchorRange.getRow();
+  var headerRange = sheet.getRange(firstRow, startCol + 1, 1, 6);
   var existingHeaders = headerRange.getValues()[0];
   if (!existingHeaders[0] || String(existingHeaders[0]).indexOf("Risk") === -1) {
-    headerRange.setValues([["Risk Score", "Risk Level", "Waste Cost", "Recommendation", "Risk Factors", "Cached?"]]);
-    headerRow = startRow + 1;
+    // Check if headers exist at the anchor range start
+    var altHeaderRange = sheet.getRange(firstRow, startCol + 1, 1, 6);
+    altHeaderRange.setValues([["Risk Score", "Risk Level", "Waste Cost", "Recommendation", "Risk Factors", "Cached?"]]);
   }
 
-  // Build all data arrays in memory, then write in ONE call
-  var dataRange = sheet.getRange(startRow, startCol + 1, numResults, 6);
-  var dataValues = [];
-  var backgrounds = [];
-
+  // Write each result to its corresponding row
   for (var i = 0; i < numResults; i++) {
     var r = results[i];
-    var reasons = r.reasons || [];
-
-    dataValues.push([
+    var rowToWrite = usePositions ? emailPositions[i].row : (anchorRange.getRow() + i);
+    
+    // Get the range for this single row (next 6 columns)
+    var cellRange = sheet.getRange(rowToWrite, startCol + 1, 1, 6);
+    cellRange.setValues([[
       r.risk_score || 0,
       r.risk_level || "UNKNOWN",
       r.estimated_waste_cost != null ? "$" + r.estimated_waste_cost.toFixed(2) : "",
       r.recommendation || "",
       (r.risk_factors || []).slice(0, 3).join(" | "),
       r.cached ? "Yes (free)" : "New"
-    ]);
+    ]]);
 
+    // Color the risk score cell
+    var scoreCell = sheet.getRange(rowToWrite, startCol + 1, 1, 1);
     if (r.risk_score >= 70) {
-      backgrounds.push(["#FEE2E2", null, null, null, null]);
+      scoreCell.setBackground("#FEE2E2");
     } else if (r.risk_score >= 40) {
-      backgrounds.push(["#FEF3C7", null, null, null, null]);
+      scoreCell.setBackground("#FEF3C7");
     } else {
-      backgrounds.push(["#D1FAE5", null, null, null, null]);
+      scoreCell.setBackground("#D1FAE5");
     }
   }
-
-  // Single write for all values
-  dataRange.setValues(dataValues);
-
-  // Single write for all backgrounds (only risk score column)
-  var bgRange = sheet.getRange(startRow, startCol + 1, numResults, 1);
-  var bgValues = backgrounds.map(function(b) { return [b[0]]; });
-  bgRange.setBackgrounds(bgValues);
 }
 
 // ============ HELPERS ============
