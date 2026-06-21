@@ -4,6 +4,22 @@ import { useState } from "react";
 import Link from "next/link";
 import { Upload, FileText, Download, CheckCircle, AlertTriangle, XCircle, ArrowRight, BarChart3, Shield } from "lucide-react";
 
+
+function escXml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function crc32(data) {
+  var table = [];
+  for (var n = 0; n < 256; n++) {
+    var c = n;
+    for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    table[n] = c;
+  }
+  var crc = 0xFFFFFFFF;
+  for (var i = 0; i < data.length; i++) crc = table[(crc ^ data[i]) & 0xFF] ^ (crc >>> 8);
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
 interface BulkResult {
   impact?: string[];
   email: string;
@@ -59,22 +75,89 @@ export default function BulkCheckPage() {
   async function downloadXLSX() {
     if (!results || results.length === 0) return;
     setXlsxDownloading(true);
-    var hdrs = ["email","risk_score","risk_level","disposable","hasMX","reasons","recommendation"];
-    var rows = results.map(function(r) {
-      return [
-        r.email || "", String(r.risk_score ?? ""), r.risk_level || "",
-        r.disposable ? "Yes" : "No", r.hasMX ? "Yes" : "No",
-        String.fromCharCode(34) + (r.reasons || []).join("; ").replace(/"/g, String.fromCharCode(34).repeat(2)) + String.fromCharCode(34),
-        String.fromCharCode(34) + (r.recommendation || "").replace(/"/g, String.fromCharCode(34).repeat(2)) + String.fromCharCode(34)
-      ].join(",");
-    });
-    var csv = String.fromCharCode(0xFEFF) + hdrs.join(",") + String.fromCharCode(10) + rows.join(String.fromCharCode(10));
-    var blob = new Blob([csv], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a"); a.href = url; a.download = "riskshield-results.xlsx";
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
-    setXlsxDownloading(false);
+    try {
+      var cols = ["email","risk_score","risk_level","disposable","hasMX","reasons","recommendation"];
+      var sheetRows = [];
+      sheetRows.push("<row>" + cols.map(function(c) { return "<c t=\"inlineStr\"><is><t>" + escXml(c) + "</t></is></c>"; }).join("") + "</row>");
+      for (var i = 0; i < results.length; i++) {
+        var r = results[i];
+        var vals = [
+          r.email || "", String(r.risk_score ?? ""), r.risk_level || "",
+          r.disposable ? "Yes" : "No", r.hasMX ? "Yes" : "No",
+          (r.reasons || []).join("; "), r.recommendation || ""
+        ];
+        sheetRows.push("<row>" + vals.map(function(v) { return "<c t=\"inlineStr\"><is><t>" + escXml(String(v)) + "</t></is></c>"; }).join("") + "</row>");
+      }
+      var sheetXml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData>" + sheetRows.join("") + "</sheetData></worksheet>";
+      var contentTypesXml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"xml\" ContentType=\"application/xml\"/><Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/><Override PartName=\"/xl/sharedStrings.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml\"/><Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/></Types>";
+      var relsXml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/></Relationships>";
+      var wbRelsXml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/><Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings\" Target=\"sharedStrings.xml\"/><Relationship Id=\"rId3\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/></Relationships>";
+      var workbookXml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheets><sheet name=\"RiskShield Results\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>";
+      var sharedStringsXml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" count=\"0\" uniqueCount=\"0\"></sst>";
+      var stylesXml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"></styleSheet>";
+
+      var files = [
+        { name: "[Content_Types].xml", data: new TextEncoder().encode(contentTypesXml) },
+        { name: "_rels/.rels", data: new TextEncoder().encode(relsXml) },
+        { name: "xl/workbook.xml", data: new TextEncoder().encode(workbookXml) },
+        { name: "xl/_rels/workbook.xml.rels", data: new TextEncoder().encode(wbRelsXml) },
+        { name: "xl/worksheets/sheet1.xml", data: new TextEncoder().encode(sheetXml) },
+        { name: "xl/sharedStrings.xml", data: new TextEncoder().encode(sharedStringsXml) },
+        { name: "xl/styles.xml", data: new TextEncoder().encode(stylesXml) }
+      ];
+
+      var zipParts = []; var offset = 0;
+      for (var fi = 0; fi < files.length; fi++) {
+        var f = files[fi]; var d = f.data;
+        var crc = crc32(d);
+        var nameBytes = new TextEncoder().encode(f.name);
+        var lh = new Uint8Array(30 + nameBytes.length + d.length);
+        var lhView = new DataView(lh.buffer);
+        lh.set([0x50, 0x4B, 0x03, 0x04], 0);
+        lhView.setUint16(4, 20, true); lhView.setUint16(6, 0x0800, true);
+        lhView.setUint16(8, 0, true); lhView.setUint32(10, 0, true);
+        lhView.setUint32(14, crc, true);
+        lhView.setUint32(18, d.length, true); lhView.setUint32(22, d.length, true);
+        lhView.setUint16(26, nameBytes.length, true); lhView.setUint16(28, 0, true);
+        lh.set(nameBytes, 30); lh.set(d, 30 + nameBytes.length);
+        zipParts.push({ header: lh, name: f.name, data: d, crc: crc, offset: offset });
+        offset += lh.length;
+      }
+
+      var cdSize = 0; var cdParts = [];
+      for (var zi = 0; zi < zipParts.length; zi++) {
+        var zp = zipParts[zi]; var nb = new TextEncoder().encode(zp.name);
+        var cd = new Uint8Array(46 + nb.length); var cdv = new DataView(cd.buffer);
+        cd.set([0x50, 0x4B, 0x01, 0x02], 0);
+        cdv.setUint16(4, 20, true); cdv.setUint16(6, 20, true);
+        cdv.setUint16(8, 0x0800, true); cdv.setUint16(10, 0, true);
+        cdv.setUint32(12, 0, true); cdv.setUint32(16, zp.crc, true);
+        cdv.setUint32(20, zp.data.length, true); cdv.setUint32(24, zp.data.length, true);
+        cdv.setUint16(28, nb.length, true); cdv.setUint16(30, 0, true);
+        cdv.setUint16(32, 0, true); cdv.setUint32(42, zp.offset, true);
+        cd.set(nb, 46); cdParts.push(cd); cdSize += cd.length;
+      }
+
+      var eocd = new Uint8Array(22); var eocdv = new DataView(eocd.buffer);
+      eocd.set([0x50, 0x4B, 0x05, 0x06], 0);
+      eocdv.setUint16(8, zipParts.length, true); eocdv.setUint16(10, zipParts.length, true);
+      eocdv.setUint32(12, cdSize, true); eocdv.setUint32(16, offset, true);
+
+      var total = offset + cdSize + 22; var result = new Uint8Array(total); var wp = 0;
+      for (var ai = 0; ai < zipParts.length; ai++) { result.set(zipParts[ai].header, wp); wp += zipParts[ai].header.length; }
+      for (var bi = 0; bi < cdParts.length; bi++) { result.set(cdParts[bi], wp); wp += cdParts[bi].length; }
+      result.set(eocd, wp);
+
+      var blob = new Blob([result], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a"); a.href = url; a.download = "riskshield-results.xlsx";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+    } catch (e) {
+      console.error("XLSX generation failed:", e);
+      alert("XLSX generation failed. Please use CSV download instead.");
+    }
+    finally { setXlsxDownloading(false); }
   }
 
   function exportCSV(filter: "all" | "clean" | "risky") {
