@@ -89,11 +89,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Please provide an email or IP address." }, { status: 400 });
   }
 
-  // === STEP 0: Check result cache (24h TTL) â€?hit returns instantly, NO credit consumed ===
+  // === STEP 0: Check result cache (24h TTL) ?hit returns instantly, NO credit consumed ===
   const cacheKey = makeResultCacheKey(email, requestIP);
   const cachedResult = getCachedResult(cacheKey);
   if (cachedResult) {
-    console.log("[RiskCheck] cache HIT for", cacheKey, "â€?no credit deducted");
+    console.log("[RiskCheck] cache HIT for", cacheKey, "?no credit deducted");
     return NextResponse.json({
       ...cachedResult,
       cached: true,
