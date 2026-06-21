@@ -1,7 +1,7 @@
 import { createBrowserClient } from "@supabase/ssr";
 
 const FALLBACK_SUPABASE_URL = "https://njhjiavnidssjvnkcxfo.supabase.co";
-const FALLBACK_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5qaGppYXZuaWRzc2p2bmtjeGZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyNzgzMjksImV4cCI6MjA2NDg1NDMyOX0.E8b6RCAEMUfhScziY_ZTrfznMfp8pf79FfSa8wVnsCk";
+const FALLBACK_SUPABASE_ANON_KEY = "sb_publishable_6pS7tKkxxBqYTLcAUu_GPg_0BysHHx8";
 
 export function createClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || FALLBACK_SUPABASE_URL;
