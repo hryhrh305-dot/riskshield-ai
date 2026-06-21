@@ -1,5 +1,7 @@
 ﻿import dns from "dns/promises";
 import { checkBlacklist, autoBlacklistIfHighRisk } from "@/lib/blacklist";
+import { disposableDomainsSet } from "@/lib/disposable-domains";
+const disposableDomains: Set<string> = disposableDomainsSet;
 
 // NOTE: OpenAI/dns imports are dynamic to prevent Vercel build-time evaluation
 
@@ -24,7 +26,7 @@ async function getDeepSeek() {
 // ============ INPUT FIREWALL (SANITIZER) ============
 // Reject garbage input BEFORE scoring ? empty strings, headers, invalid formats, etc.
 
-const EMAIL_REGEX = /^(?!.*\.\.)[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
+const EMAIL_REGEX = /^(?!.*\.\.)(?!\.)[^\s@]+(?<!\.)@(?!\.)[^\s@]+\.[^\s@]{2,}$/i;
 
 /**
  * Validate a single email string.
@@ -60,222 +62,19 @@ export function cleanEmails(rawList: (string | null | undefined)[]): string[] {
 
 // ============ LAYER 1: LOCAL RULES (ZERO COST) ============
 
-export const disposableDomains = new Set([
-  "mailinator.com", "guerrillamail.com", "10minutemail.com", "tempmail.com",
-  "throwaway.email", "yopmail.com", "sharklasers.com", "trashmail.com",
-  "temp-mail.org", "fakeinbox.com", "guerrillamail.org", "guerrillamail.net",
-  "getnada.com", "dropmail.me", "maildrop.cc", "dispostable.com",
-  "spamgourmet.com", "emailondeck.com", "mailnesia.com", "moakt.com",
-  "mohmal.com", "guerrillamail.de", "guerrillamail.info",
-  "pokemail.net", "spambox.us", "spambox.org", "spambox.xyz",
-  "spamex.com", "mailexpire.com", "temporary-mail.net", "33mail.com",
-  "eyepaste.com", "einrot.com", "jourrapide.com", "teleworm.us",
-  "fleckens.hu", "superrito.com", "gustr.com", "rhyta.com",
-  "dayrep.com", "armyspy.com", "cuvox.de", "dodsi.com",
-  "falkcia.com", "kasmail.com", "mailcatch.com", "moakt.cc",
-  "0wnd.net", "0wnd.org", "10mail.org", "20mail.eu",
-  "30minutemail.com", "60minutemail.com", "6ip.us", "9ox.net",
-  "abusemail.de", "anonbox.net", "anonymbox.com",
-  "antichef.com", "antichef.net", "antireg.ru", "antispam.de",
-  "bobmail.info", "bofthew.com", "brefmail.com",
-  "bugmenever.com", "bund.us", "burstmail.info",
-  "byom.de", "card.zp.ua", "casualdx.com", "cek.pm",
-  "clrmail.com", "cosmorph.com", "crapmail.org", "dandikmail.com",
-  "deadaddress.com", "deadspam.com", "delikkt.de",
-  "devnullmail.com", "discard.email", "discardmail.com",
-  "dispose.it", "disposeamail.com", "dlemail.ru",
-  "dontreg.com", "dropsin.net", "duk33.com", "e4ward.com",
-  "easytrashmail.com", "emailsensei.com", "emailtemporanea.com",
-  "emailtemporanea.net", "emkei.cf", "emz.net", "enterto.com",
-  "eramail.co.za", "etranquil.com", "etranquil.net", "etranquil.org",
-  "evopo.com", "explodemail.com", "fakeinbox.net", "fakemail.fr",
-  "fantasymail.de", "fightallspam.com", "fivemail.de",
-  "front14.org", "fuckingduh.com", "fudgerub.com", "fyii.de",
-  "garliclife.com", "getairmail.com", "giantmail.de",
-  "gmial.com", "goemailgo.com", "gotmail.com", "gotmail.net", "gotmail.org",
-  "grr.la", "guerrillamail.biz",
-  "h.mintemail.com", "h8s.org", "hacccc.com",
-  "haltospam.com", "harakirimail.com", "hartbot.de", "hatespam.org",
-  "herp.in", "hi5.si", "hidemail.de", "hmail.us",
-  "hochsitze.com", "hotpop.com", "hulapla.de",
-  "iamunsub.com", "ieatspam.eu", "ieatspam.info", "ihateyoualot.info",
-  "iheartspam.org", "imstations.com", "inbax.tk", "inbox.si",
-  "incognitomail.com", "incognitomail.net", "incognitomail.org",
-  "insorg-mail.info", "instant-mail.de", "ip6.li", "irish2me.com",
-  "iwi.net", "jetable.com", "jetable.net", "jetable.org",
-  "jnxjn.com", "junk1e.com", "kaspop.com",
-  "keepmymail.com", "killmail.com", "killmail.net", "kismail.ru",
-  "klassmaster.com", "klassmaster.net", "klzlk.com",
-  "koszmail.pl", "kuai909.com", "kulturbetrieb.info", "kurzepost.de",
-  "l33r.eu", "lackmail.net", "lags.us", "lawlita.com",
-  "letthemeatspam.com", "lhsdv.com", "lifebyfood.com", "link2mail.net",
-  "litedrop.com", "loadby.us", "lol.ovpn.to",
-  "lolfreak.net", "lookugly.com", "lopl.co.cc",
-  "lrcr.com", "lroid.com", "maboard.com", "mail-temporaire.fr",
-  "mail.by", "mail.mezimages.net", "mail.zp.ua", "mail114.net",
-  "mail1a.de", "mail21.cc", "mail2rss.org", "mail333.com",
-  "mail4trash.com", "mailbidon.com", "mailbiz.biz", "mailblocks.com",
-  "mailbucket.org", "mailcat.biz", "mailde.de", "mailde.info",
-  "maildx.com", "maileater.com", "mailed.ro", "maileimer.de",
-  "mailfa.tk", "mailforspam.com",
-  "mailfs.com", "mailguard.me", "mailhazard.com", "mailhazard.us",
-  "mailhz.me", "mailimate.com", "mailin8r.com", "mailinater.com",
-  "mailinator.net", "mailinator.org", "mailinator.us",
-  "mailinator0.com", "mailinator1.com", "mailinator2.com",
-  "mailinator3.com", "mailinator4.com", "mailinator5.com",
-  "mailinator6.com", "mailinator7.com", "mailinator8.com", "mailinator9.com",
-  "mailincubator.com", "mailismagic.com", "mailjunk.com",
-  "mailmetrash.com", "mailmoat.com", "mailnator.com",
-  "mailnesia.com", "mailnull.com", "mailpick.biz",
-  "mailprohub.com", "mailquack.com",
-  "mailrock.biz", "mailsac.com", "mailscrap.com",
-  "mailseal.de", "mailshell.com", "mailsiphon.com",
-  "mailslapping.com", "mailslite.com",
-  "mailtemp.com", "mailtemporaire.fr",
-  "mailtome.de", "mailtothis.com",
-  "mailzilla.com", "mailzilla.org",
-  "makemetheking.com",
-  "manifestgenerator.com", "manybrain.com",
-  "mbx.cc", "mega.zik.dj", "meinspamschutz.de",
-  "meltmail.com",
-  "messagebeamer.de", "mezimages.net",
-  "mierdamail.com", "migmail.net", "migmail.pl",
-  "migumail.com", "mintemail.com",
-  "mjukglass.nu", "moakt.ws",
-  "mobi.web.id", "mobileninja.co.uk",
-  "monemail.fr.nf", "monmail.fr.nf",
-  "msa.minsmail.com", "mt2009.com", "mt2015.com",
-  "mt2016.com", "mt2017.com", "mx0.wwwnew.eu",
-  "my10minutemail.com", "mycleaninbox.net", "myemailboxy.com",
-  "mymail-in.net", "mymailoasis.com", "mynetstore.de",
-  "mypacks.net", "mypartyclip.de",
-  "myphantomemail.com", "mysamp.de",
-  "myspaceinc.com", "myspaceinc.net", "myspaceinc.org",
-  "myspacepimpedup.com", "myspamless.com",
-  "mytemp.email", "mytempemail.com",
-  "mytempmail.com", "neomailbox.com", "nepwk.com",
-  "nervmich.net", "nervtmich.net",
-  "netmails.com", "netmails.net",
-  "netzidiot.de", "neverbox.com", "nice-4u.com",
-  "nincsmail.com", "nincsmail.hu", "nnh.com",
-  "no-spam.ws", "noblepioneer.com",
-  "nobulk.com", "noclickemail.com",
-  "nospam.ze.tc", "nospam4.us", "nospamfor.us",
-  "nospammail.net", "nospamthanks.info",
-  "notmailinator.com", "nowmymail.com",
-  "nurfuerspam.de", "nus.edu.sg",
-  "objectmail.com", "obobbo.com",
-  "odnorazovoe.ru", "oneoffemail.com",
-  "onewaymail.com", "onlatedotcom.info",
-  "oopi.org", "opayq.com",
-  "ordinaryamerican.net", "otherinbox.com",
-  "ourklips.com", "outlawspam.com",
-  "ovpn.to", "owlpic.com",
-  "pancakemail.com", "paplease.com",
-  "pcusers.otherinbox.com", "pepbot.com",
-  "pimpedupmyspace.com", "pjjkp.com",
-  "plexolan.de", "pookmail.com",
-  "privacy.net", "privy-mail.com",
-  "privatdemail.net", "privatememail.com",
-  "proxymail.eu", "prtnx.com", "prtz.eu",
-  "punkass.com", "put2.net",
-  "putthisinyourspamdatabase.com", "pwrby.com",
-  "quickinbox.com", "quickmail.nl",
-  "rcpt.at", "reallymymail.com", "realtyalerts.ca",
-  "recode.me", "recursor.net", "regbypass.com",
-  "regbypass.comsafe-mail.net", "rejectmail.com",
-  "rklips.com", "rmqkr.net", "royal.net",
-  "rppkn.com", "rtrtr.com",
-  "s0ny.net", "safe-mail.net",
-  "safersignup.de", "safetymail.info",
-  "sandelf.de", "saynotospams.com",
-  "scatmail.com", "schafmail.de",
-  "schrott-email.de", "secretemail.de",
-  "secure-mail.biz", "senseless-entertainment.com",
-  "sendspamhere.com", "shiftmail.com",
-  "shitmail.me", "shitmail.org", "shitware.nl",
-  "shortmail.net",
-  "shotmail.ru", "showslow.de", "sibmail.com", "sify.com",
-  "sinnlos-mail.de", "siteposter.net", "skeefmail.com",
-  "slaskpost.se", "slipry.net", "smellfear.com", "smellrear.com",
-  "snakemail.com", "sneakemail.com", "sneakmail.de", "snkmail.com",
-  "sofort-mail.de", "softpls.asia", "sogetthis.com", "soodonims.com",
-  "spam.la", "spam.su", "spam4.me", "spamail.de",
-  "spamarrest.com", "spamavert.com", "spambob.com", "spambog.com",
-  "spamcannon.com", "spamcannon.net",
-  "spamcero.com", "spamcon.org", "spamcorptastic.com",
-  "spamcowboy.com", "spamcowboy.net", "spamcowboy.org", "spamday.com",
-  "spamfree.eu", "spamfree24.com", "spamfree24.de",
-  "spamfree24.eu", "spamfree24.info", "spamfree24.net", "spamfree24.org",
-  "spamgoes.in", "spamherelots.com", "spamhole.com",
-  "spamify.com", "spaminator.de", "spamkill.info", "spaml.com",
-  "spaml.de", "spammotel.com", "spamobox.com", "spamoff.de",
-  "spamslicer.com", "spamspot.com", "spamstack.net",
-  "spamthisplease.com", "spamtrail.com",
-  "speed.1s.fr", "spikio.com", "spoofmail.de", "squizzy.de",
-  "startkeys.com", "stinkefinger.net", "stopmyjunkmail.com",
-  "streetwisemail.com", "stuffmail.de",
-  "super-auswahl.de", "supergreatmail.de", "supermailer.jp",
-  "superstachel.de", "suremail.info", "svk.jp",
-  "sweetxxx.de", "tagyourself.com", "talkinator.com",
-  "teewars.org", "teleworm.com",
-  "temp-mail.com", "temp-mail.de", "temp-mail.org",
-  "tempalias.com", "tempe-mail.com", "tempemail.biz",
-  "tempemail.co.za", "tempemail.com", "tempemail.net",
-  "tempinbox.co.uk", "tempinbox.com", "tempmail.co", "tempmail.de",
-  "tempmail.eu", "tempmail.it", "tempmail.pro", "tempmail.us",
-  "tempmail2.com", "tempmaildemo.com", "tempmailer.com", "tempmailer.de",
-  "tempomail.fr", "temporarily.de", "temporarioemail.com.br",
-  "temporaryemail.net", "temporaryemail.us", "temporaryinbox.com",
-  "temporarymailaddress.com", "tempsky.com", "tempthe.net",
-  "thankyou2010.com", "thc.st", "thelimestones.com",
-  "thisisnotmyrealemail.com", "thismail.net",
-  "throwawayemailaddress.com", "tilien.com", "tittbit.in",
-  "toke.com", "toomail.biz", "topranklist.de", "tradermail.info",
-  "trash-amil.com", "trash-mail.at", "trash-mail.com", "trash-mail.de",
-  "trash2009.com", "trashemail.de", "trashmail.at", "trashmail.com",
-  "trashmail.de", "trashmail.me", "trashmail.net", "trashmail.org",
-  "trashmail.ws", "trashmailer.com", "trashymail.com", "trashymail.net",
-  "trayna.com", "trbvm.com", "trbvn.com", "trbvo.com",
-  "trialmail.de", "trickmail.net", "trillianpro.com", "tryalert.com",
-  "turual.com", "tvchd.com", "twoweirdtricks.com", "tyldd.com",
-  "uggsrock.com", "umail.net", "upliftnow.com", "uplipht.com",
-  "uroid.com", "veryrealemail.com", "vidchart.com", "viditag.com",
-  "viewcastmedia.com", "viewcastmedia.net", "viewcastmedia.org",
-  "vkcode.ru", "vomoto.com", "vpn.st", "vsimcard.com", "vssms.com",
-  "webemail.me", "wegwerf-email-addressen.de",
-  "wegwerf-email.de", "wegwerf-email.net", "wegwerf-emails.de",
-  "wegwerfadresse.de", "wegwerfemail.com", "wegwerfemail.de",
-  "wegwerfemail.net", "wegwerfemail.org",
-  "wegwerfmail.de", "wegwerfmail.net", "wegwerfmail.org",
-  "wetrainbayarea.com", "wetrainbayarea.org",
-  "wh4f.org", "whatiaas.com", "whatpaas.com", "whatsaas.com",
-  "whopy.com", "whyspam.me",
-  "wilemail.com", "willselfdestruct.com", "winemaven.info",
-  "wronghead.com", "wuzup.net", "wuzupmail.net",
-  "www.e4ward.com", "wwwnew.eu", "xagloo.com", "xemaps.com",
-  "xents.com", "xmaily.com", "xoxy.net", "xyzfree.net",
-  "yapped.net", "yep.it", "yogamaven.com",
-  "yopmail.fr", "yopmail.gq", "yopmail.net",
-  "ypmail.webarnak.fr.eu.org", "yuurok.com",
-  "zehnminuten.de", "zehnminutenmail.de", "zippymail.info",
-  "zoaxe.com", "zoemail.org",
-]);
 
-export const roleBasedPrefixes = new Set([
-  "abuse", "admin", "billing", "compliance", "contact", "devnull",
-  "dns", "domains", "hello", "hostmaster", "info",
-  "mail", "marketing", "newsletter", "no-reply", "noreply",
-  "null", "office", "postmaster", "root", "sales", "security",
-  "spam", "support", "sysadmin", "test", "usenet", "uucp", "webmaster", "www",
-  "team", "help", "service", "jobs", "careers", "hr",
-  "finance", "legal", "privacy", "noc",
-]);
+export const roleBasedPrefixes = new Set(["info", "sales", "support", "contact", "admin", "hello", "help", "billing", "no-reply", "noreply", "nobody", "marketing", "team", "service", "office", "careers", "jobs", "hr", "webmaster", "postmaster", "abuse", "root", "hostmaster", "usenet", "news", "ftp", "www"]);
 
 export const suspiciousTLDs = new Set([
-  ".tk", ".ml", ".ga", ".cf", ".gq", ".xyz", ".top", ".work",
-  ".click", ".space", ".website", ".site", ".online", ".tech",
+  // Free/abused ccTLDs
+  ".tk", ".ml", ".ga", ".cf", ".gq",
+  // High-abuse gTLDs
+  ".xyz", ".top", ".work", ".click", ".space", ".website", ".site", ".online", ".tech",
   ".store", ".fun", ".lol", ".monster", ".press", ".rest", ".gdn",
+  ".win", ".bid", ".trade", ".loan", ".download", ".racing", ".review", ".country",
+  ".stream", ".accountant", ".science", ".date", ".party", ".faith", ".cricket",
+  ".men", ".wang", ".club", ".link", ".biz", ".info", ".cc",
+  ".today", ".icu", ".cyou", ".live", ".world", ".life",
 ]);
 
 // ============ LAYER 2: CACHE (ZERO COST) ============
@@ -343,7 +142,7 @@ export async function checkMXRecord(domain: string): Promise<{ hasMX: boolean; m
       resolver.setServers(servers);
       const records = await Promise.race([
         resolver.resolveMx(domain),
-        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 3000))
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 5000))
       ]);
       const result = { hasMX: records.length > 0, mxRecords: records.map(r => r.exchange), mxChecked: true, domainExists: true };
       dnsCache.set("mx:" + domain, { data: result as unknown as Record<string, unknown>, ts: Date.now() });
@@ -360,14 +159,14 @@ export async function checkSPFRecord(domain: string): Promise<{ hasSPF: boolean;
   if (cached && Date.now() - cached.ts < CACHE_TTL) {
     return cached.data as { hasSPF: boolean; spfRecord: string; spfChecked: boolean };
   }
-  const dnsServers = [["114.114.114.114"], ["223.5.5.5"], ["8.8.8.8"]];
+  const dnsServers = [["114.114.114.114"], ["223.5.5.5"], ["8.8.8.8", "1.1.1.1"]];
   for (const servers of dnsServers) {
     try {
       const resolver = new dns.Resolver();
       resolver.setServers(servers);
       const records = await Promise.race([
         resolver.resolveTxt(domain),
-        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 3000))
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 5000))
       ]);
       const allText = records.flatMap(r => r.join("")).join(" ").toLowerCase();
       const hasSPF = allText.includes("v=spf1");
@@ -386,14 +185,14 @@ export async function checkDMARCRecord(domain: string): Promise<{ hasDMARC: bool
   if (cached && Date.now() - cached.ts < CACHE_TTL) {
     return cached.data as { hasDMARC: boolean; dmarcRecord: string; dmarcChecked: boolean; dmarcPolicy: string };
   }
-  const dnsServers = [["114.114.114.114"], ["223.5.5.5"], ["8.8.8.8"]];
+  const dnsServers = [["114.114.114.114"], ["223.5.5.5"], ["8.8.8.8", "1.1.1.1"]];
   for (const servers of dnsServers) {
     try {
       const resolver = new dns.Resolver();
       resolver.setServers(servers);
       const records = await Promise.race([
         resolver.resolveTxt(dmarcDomain),
-        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 3000))
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 5000))
       ]);
       const allText = records.flatMap(r => r.join("")).join(" ").toLowerCase();
       const hasDMARC = allText.includes("v=dmarc1");
@@ -455,15 +254,30 @@ export async function calculateRiskScore({
 
       // ---- 1b: Role-based email detection ----
       if (roleBasedPrefixes.has(localPart)) {
-        riskScore += 10;
-        reasons.push("Role-based email ?not a personal address");
+        riskScore += 20;
+        reasons.push("Role-based email - not a personal address (higher risk for cold outreach)");
       }
 
       // ---- 1c: Suspicious TLD ----
       const tld = "." + domain.split(".").pop();
       if (suspiciousTLDs.has(tld)) {
-        riskScore += 20;
-        reasons.push("Suspicious TLD: " + tld + " ?commonly used for spam/fraud");
+        riskScore += 25;
+        reasons.push("Suspicious TLD: " + tld + " - high abuse rate, commonly used for spam/fraud");
+      }
+
+      // Domain keyword semantic penalty (scam/phishing/fraud keywords in domain name)
+      const domainKeywords = ["scam", "phish", "malicious", "danger", "fraud", "spam", "fake",
+        "hack", "crack", "warez", "pirate", "steal", "theft", "exploit",
+        "offer-now", "limited-deal", "free-money", "get-rich", "click-here",
+        "win-big", "crypto-airdrop", "claim-reward", "verify-account",
+        "secure-login", "account-alert", "urgent-update", "bonus-claim",
+        "instant-prize", "lucky-winner", "million-dollar", "fast-cash"];
+      for (const kw of domainKeywords) {
+        if (domain.includes(kw)) {
+          riskScore += 30;
+          reasons.push("Domain contains high-risk keyword: \"" + kw + "\" - suspicious pattern detected");
+          break; // only add once
+        }
       }
 
       // ---- 1d: Suspicious local part patterns (fake registration) ----
@@ -552,6 +366,25 @@ export async function calculateRiskScore({
               } else if (!smtpResult.valid) {
                 riskScore += 20;
                 reasons.push("SMTP validation failed ?mailbox may not exist");
+              }
+            }
+
+            // P1-6: Catch-all detection - probe with random username
+            if (smtpResult.checked && smtpResult.valid) {
+              const randomUser = "rs" + Math.random().toString(36).substring(2, 10) + "@" + domain;
+              try {
+                const catchAllResult = await checkSMTPMailbox(domain, randomUser, mx.mxRecords[0]);
+                if (catchAllResult.checked && catchAllResult.valid) {
+                  emailDetails.isCatchAll = true;
+                  emailDetails.catchAllDetected = true;
+                  riskScore += 20;
+                  reasons.push("Catch-all domain detected - accepts all emails regardless of validity");
+                } else {
+                  emailDetails.isCatchAll = false;
+                  emailDetails.catchAllDetected = false;
+                }
+              } catch {
+                // Catch-all check failed silently
               }
             }
           } catch {
@@ -688,6 +521,14 @@ export async function calculateRiskScore({
   // ============ CATEGORY 4: COMPREHENSIVE SCORING & SOLUTION MAPPING ============
 
   riskScore = Math.max(0, Math.min(riskScore, 100));
+
+  // P0-3: No MX records = hard fail. Domain cannot receive any email.
+  if (emailDetails?.hasMX === false && emailDetails?.mxChecked) {
+    riskScore = Math.max(riskScore, 75);
+    if (!reasons.some(r => r.includes("No MX records"))) {
+      reasons.push("No MX records - domain cannot receive email (guaranteed bounce)");
+    }
+  }
 
   // Auto-blacklist for very high risk
   if (email && riskScore >= 85) {
@@ -875,9 +716,38 @@ export async function calculateRiskScore({
   if (emailDetails?.hasMX === false && emailDetails?.mxChecked) estimatedWasteCost = costPerSend * 2;
   estimatedWasteCost = Math.round(estimatedWasteCost * 100) / 100;
 
-  return { score: riskScore, reasons, decision, emailDetails, ipDetails, blacklistHits, impact, solution, risk_factors, recommendation, estimated_waste_cost: estimatedWasteCost };
-}
+  // P2-7: Confidence level based on data completeness
+  let confidence: "high" | "medium" | "low" = "medium";
+  const checksPerformed: string[] = [];
+  const checksSkipped: string[] = [];
+  
+  if (emailDetails?.mxChecked) checksPerformed.push("MX");
+  else checksSkipped.push("MX");
+  if (emailDetails?.spfChecked) checksPerformed.push("SPF");
+  else checksSkipped.push("SPF");
+  if (emailDetails?.dmarcChecked) checksPerformed.push("DMARC");
+  else checksSkipped.push("DMARC");
+  if (emailDetails?.smtpChecked) checksPerformed.push("SMTP");
+  else checksSkipped.push("SMTP");
+  if (emailDetails?.catchAllDetected !== undefined) checksPerformed.push("CatchAll");
+  if (ipDetails) checksPerformed.push("IP-Geo");
+  
+  // High confidence: all DNS checks passed + SMTP confirmed + no data gaps
+  if (checksPerformed.length >= 4 && checksSkipped.length === 0 && (emailDetails?.smtpChecked || emailDetails?.hasMX)) {
+    confidence = "high";
+  } else if (checksPerformed.length >= 2) {
+    confidence = "medium";
+  } else {
+    confidence = "low";
+  }
+  
+  // Demote confidence if disposable (high certainty of risk)
+  if (emailDetails?.isDisposable) confidence = "high";
+  // Demote if no MX and checked (confirmed hard fail)
+  if (emailDetails?.hasMX === false && emailDetails?.mxChecked) confidence = "high";
 
+  return { score: riskScore, reasons, decision, emailDetails, ipDetails, blacklistHits, impact, solution, risk_factors, recommendation, estimated_waste_cost: estimatedWasteCost, confidence, checksPerformed, checksSkipped };
+}
 
 
 // ============ WHOIS DOMAIN AGE CHECK ============
@@ -1241,9 +1111,5 @@ export async function calculateCompanyHealth(params: {
     },
   };
 }
-
-
-
-
 
 

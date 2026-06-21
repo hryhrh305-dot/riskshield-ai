@@ -120,7 +120,7 @@ function scanSelectedEmails() {
       if (!raw) continue;
       totalCells++;
       var val = raw.toLowerCase();
-      if (val && /^(?!.*\.\.)[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(val)) {
+      if (val && /^(?!.*\.\.)(?!\.)[^\s@]+(?<!\.)@(?!\.)[^\s@]+\.[^\s@]{2,}$/i.test(val)) {
         emails.push(val);
         emailPositions.push({ row: startRow + i, col: startCol + j });
       } else {
@@ -170,7 +170,7 @@ function scanEntireColumn() {
   
   for (var i = 0; i < values.length; i++) {
     var val = String(values[i][0]).trim().toLowerCase();
-    if (val && /^(?!.*\.\.)[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(val)) {
+    if (val && /^(?!.*\.\.)(?!\.)[^\s@]+(?<!\.)@(?!\.)[^\s@]+\.[^\s@]{2,}$/i.test(val)) {
       emails.push(val);
       emailPositions.push({ row: i + 2, col: col }); // row starts at 2 (skip header)
     }
