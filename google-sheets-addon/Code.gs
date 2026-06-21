@@ -256,7 +256,7 @@ function writeResults_(sheet, anchorRange, results) {
   }
 
   // Build all data arrays in memory, then write in ONE call
-  var dataRange = sheet.getRange(startRow, startCol + 1, numResults, 5);
+  var dataRange = sheet.getRange(startRow, startCol + 1, numResults, 6);
   var dataValues = [];
   var backgrounds = [];
 
