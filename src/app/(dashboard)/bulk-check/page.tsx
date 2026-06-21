@@ -57,36 +57,9 @@ export default function BulkCheckPage() {
 
   async function downloadXLSX() {
     if (!results || results.length === 0) return;
-    // Build XLSX file from current results in the browser (no extra API call)
     try {
-      // Try to load XLSX library dynamically
-      let XLSX = (window as any).XLSX;
-      if (!XLSX) {
-        try {
-          XLSX = await import("xlsx");
-        } catch {
-          // Library not available, fallback to API call
-        }
-      }
-      if (!XLSX) {
-        // Fallback: call API with format=xlsx
-        const res = await fetch("/api/bulk-check?format=xlsx", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ emails: results.map(r => r.email) }),
-        });
-        if (!res.ok) { alert("Export failed"); return; }
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "riskshield-results.xlsx";
-        a.click();
-        URL.revokeObjectURL(url);
-        return;
-      }
-      // Generate XLSX directly in browser
+      // Load xlsx library dynamically (fast, cached by browser)
+      const XLSX = await import("xlsx");
       const data = [["email", "risk_score", "risk_level", "decision", "disposable", "hasMX", "reasons", "recommendation"]];
       for (const r of results) {
         data.push([
@@ -104,7 +77,28 @@ export default function BulkCheckPage() {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "RiskShield Results");
       XLSX.writeFile(wb, "riskshield-results.xlsx");
-    } catch { alert("Network error during export"); }
+    } catch {
+      // Fallback: generate CSV with .xlsx extension (still opens in Excel)
+      const headers = ["email", "risk_score", "risk_level", "decision", "disposable", "hasMX", "reasons", "recommendation"];
+      const rows = results.map(r => [
+        r.email || "",
+        r.risk_score ?? "",
+        r.risk_level || "",
+        r.decision || "",
+        r.disposable ? "Yes" : "No",
+        r.hasMX ? "Yes" : "No",
+        (r.reasons || []).join("; "),
+        r.recommendation || "",
+      ].map(v => '"' + String(v).replace(/"/g, '""') + '"').join(","));
+      const csv = [headers.join(","), ...rows].join("\n");
+      const blob = new Blob(["\uFEFF" + csv], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "riskshield-results.xlsx";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
   }
 
   function exportCSV(filter: "all" | "clean" | "risky") {

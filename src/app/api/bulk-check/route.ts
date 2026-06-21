@@ -241,7 +241,7 @@ export async function POST(request: NextRequest) {
       clean_pct: Math.round((cleanCount / total) * 100),
       risky_pct: Math.round((riskyCount / total) * 100),
       blocked_pct: Math.round((blockedCount / total) * 100),
-      estimated_waste_pct: Math.round(((riskyCount + blockedCount) / total) * 100),
+      estimated_waste_pct: Math.round((blockedCount / total) * 100),
     },
     results,
   });
