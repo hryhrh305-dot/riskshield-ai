@@ -1,9 +1,15 @@
-import OpenAI from "openai";
+﻿import OpenAI from "openai";
 import dns from "dns/promises";
 import { checkBlacklist, autoBlacklistIfHighRisk } from "@/lib/blacklist";
 
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || "";
-const deepseek = new OpenAI({ apiKey: DEEPSEEK_API_KEY, baseURL: "https://api.deepseek.com" });
+let _deepseek: any = null;
+function getDeepSeek() {
+  if (!_deepseek) {
+    _deepseek = new OpenAI({ apiKey: DEEPSEEK_API_KEY || process.env.DEEPSEEK_API_KEY || "", baseURL: "https://api.deepseek.com" });
+  }
+  return _deepseek;
+}
 
 // ============ LAYER 1: LOCAL RULES (ZERO COST) ============
 
@@ -240,7 +246,7 @@ const RESULT_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 export function getCachedResult(key: string): Record<string, unknown> | null {
   const entry = resultCache.get(key);
   if (entry && Date.now() - entry.ts < RESULT_CACHE_TTL) return entry.result;
-  // Expired — clean up
+  // Expired ?clean up
   if (entry) resultCache.delete(key);
   return null;
 }
@@ -397,20 +403,20 @@ export async function calculateRiskScore({
       // ---- 1a: Disposable / fake registration detection ----
       if (disposableDomains.has(domain)) {
         riskScore += 45;
-        reasons.push("Disposable email — likely fake/temporary registration");
+        reasons.push("Disposable email ?likely fake/temporary registration");
       }
 
       // ---- 1b: Role-based email detection ----
       if (roleBasedPrefixes.has(localPart)) {
         riskScore += 10;
-        reasons.push("Role-based email — not a personal address");
+        reasons.push("Role-based email ?not a personal address");
       }
 
       // ---- 1c: Suspicious TLD ----
       const tld = "." + domain.split(".").pop();
       if (suspiciousTLDs.has(tld)) {
         riskScore += 20;
-        reasons.push("Suspicious TLD: " + tld + " — commonly used for spam/fraud");
+        reasons.push("Suspicious TLD: " + tld + " ?commonly used for spam/fraud");
       }
 
       // ---- 1d: Suspicious local part patterns (fake registration) ----
@@ -419,7 +425,7 @@ export async function calculateRiskScore({
       const spamKeywords = ["test", "spam", "fake", "no-reply", "noreply", "nobody", "admin", "root", "postmaster", "abuse", "support@", "info@", "sales@", "contact@"];
       if (randomPattern.test(localPart) || gibberishPattern.test(localPart)) {
         riskScore += 15;
-        reasons.push("Suspicious local-part pattern — looks auto-generated");
+        reasons.push("Suspicious local-part pattern ?looks auto-generated");
       }
       const localLower = localPart.toLowerCase();
       for (const kw of spamKeywords) {
@@ -439,7 +445,7 @@ export async function calculateRiskScore({
       const blEmail = await checkBlacklist("email", email);
       if (blEmail) {
         riskScore += 50;
-        reasons.push("Email in blacklist — flagged from previous abuse");
+        reasons.push("Email in blacklist ?flagged from previous abuse");
         blacklistHits.push("email:" + email);
       }
       const blDomain = await checkBlacklist("domain", domain);
@@ -460,7 +466,7 @@ export async function calculateRiskScore({
 
         if (mx.mxChecked && !mx.hasMX) {
           riskScore += 40;
-          reasons.push("No MX records — domain cannot receive email (mailbox does not exist)");
+          reasons.push("No MX records ?domain cannot receive email (mailbox does not exist)");
         } else if (!mx.mxChecked) {
           riskScore += 5;
         }
@@ -481,20 +487,20 @@ export async function calculateRiskScore({
             if (smtpResult.checked) {
               if (smtpResult.permanentRejected) {
                 riskScore += 35;
-                reasons.push("SMTP permanent rejection — mailbox does not exist or has been disabled");
+                reasons.push("SMTP permanent rejection ?mailbox does not exist or has been disabled");
               } else if (smtpResult.mailboxFull) {
                 riskScore += 25;
-                reasons.push("Recipient inbox full — your email will bounce back");
+                reasons.push("Recipient inbox full ?your email will bounce back");
               } else if (smtpResult.tempRejected) {
                 riskScore += 15;
-                reasons.push("Temporary delivery failure — mail server temporarily rejecting emails");
+                reasons.push("Temporary delivery failure ?mail server temporarily rejecting emails");
               } else if (!smtpResult.valid) {
                 riskScore += 20;
-                reasons.push("SMTP validation failed — mailbox may not exist");
+                reasons.push("SMTP validation failed ?mailbox may not exist");
               }
             }
           } catch {
-            // SMTP check failed silently — not all servers allow it
+            // SMTP check failed silently ?not all servers allow it
           }
         }
 
@@ -504,7 +510,7 @@ export async function calculateRiskScore({
         emailDetails.spfChecked = spf.spfChecked;
         if (spf.spfChecked && !spf.hasSPF) {
           riskScore += 10;
-          reasons.push("Missing SPF record — domain lacks sender authentication");
+          reasons.push("Missing SPF record ?domain lacks sender authentication");
         }
 
         // ---- 2d: DMARC Record Check ----
@@ -514,7 +520,7 @@ export async function calculateRiskScore({
         emailDetails.dmarcPolicy = dmarc.dmarcPolicy;
         if (dmarc.dmarcChecked && !dmarc.hasDMARC) {
           riskScore += 10;
-          reasons.push("Missing DMARC record — domain vulnerable to spoofing");
+          reasons.push("Missing DMARC record ?domain vulnerable to spoofing");
         }
         if (dmarc.dmarcPolicy === "reject") {
           riskScore -= 5; // strict DMARC is good
@@ -525,16 +531,16 @@ export async function calculateRiskScore({
       emailDetails.inboxProbability = "high";
       if (emailDetails.hasMX === false && emailDetails.mxChecked) {
         emailDetails.inboxProbability = "none";
-        emailDetails.estimatedBounceRate = "100% (guaranteed bounce — domain has no mail server)";
+        emailDetails.estimatedBounceRate = "100% (guaranteed bounce ?domain has no mail server)";
       } else if (emailDetails.isDisposable) {
         emailDetails.inboxProbability = "none";
-        emailDetails.estimatedBounceRate = ">90% (disposable — expires within minutes)";
+        emailDetails.estimatedBounceRate = ">90% (disposable ?expires within minutes)";
       } else if (emailDetails.smtpChecked && emailDetails.permanentRejected) {
         emailDetails.inboxProbability = "none";
         emailDetails.estimatedBounceRate = "100% (mailbox rejected permanently)";
       } else if (emailDetails.smtpChecked && emailDetails.mailboxFull) {
         emailDetails.inboxProbability = "none";
-        emailDetails.estimatedBounceRate = "100% (inbox full — cannot accept new mail)";
+        emailDetails.estimatedBounceRate = "100% (inbox full ?cannot accept new mail)";
       } else if (emailDetails.smtpChecked && emailDetails.tempRejected) {
         emailDetails.inboxProbability = "low";
         emailDetails.estimatedBounceRate = "50-70% (temporary delivery issues)";
@@ -550,17 +556,17 @@ export async function calculateRiskScore({
 
       // ---- 2f: Sender reputation risk ----
       if (emailDetails.hasMX === false && emailDetails.mxChecked) {
-        emailDetails.senderReputationRisk = "CRITICAL — sending to non-existent domains damages your sender reputation score";
+        emailDetails.senderReputationRisk = "CRITICAL ?sending to non-existent domains damages your sender reputation score";
       } else if (emailDetails.isDisposable) {
-        emailDetails.senderReputationRisk = "HIGH — disposable addresses cause bounced emails; ESPs (Gmail/Outlook) may throttle or blacklist your sending IP";
+        emailDetails.senderReputationRisk = "HIGH ?disposable addresses cause bounced emails; ESPs (Gmail/Outlook) may throttle or blacklist your sending IP";
       } else if (emailDetails.smtpChecked && emailDetails.permanentRejected) {
-        emailDetails.senderReputationRisk = "HIGH — repeatedly sending to invalid mailboxes damages your sender reputation";
+        emailDetails.senderReputationRisk = "HIGH ?repeatedly sending to invalid mailboxes damages your sender reputation";
       } else if (emailDetails.smtpChecked && emailDetails.mailboxFull) {
-        emailDetails.senderReputationRisk = "MEDIUM — bounced emails from full inboxes still count against your reputation";
+        emailDetails.senderReputationRisk = "MEDIUM ?bounced emails from full inboxes still count against your reputation";
       } else if (!emailDetails.hasSPF && emailDetails.spfChecked) {
-        emailDetails.senderReputationRisk = "MEDIUM — recipient domain lacks authentication; your emails may be flagged as spam";
+        emailDetails.senderReputationRisk = "MEDIUM ?recipient domain lacks authentication; your emails may be flagged as spam";
       } else {
-        emailDetails.senderReputationRisk = "LOW — normal sending will not harm your reputation";
+        emailDetails.senderReputationRisk = "LOW ?normal sending will not harm your reputation";
       }
     }
   }
@@ -572,7 +578,7 @@ export async function calculateRiskScore({
     const blIP = await checkBlacklist("ip", ip);
     if (blIP) {
       riskScore += 50;
-      reasons.push("IP in blacklist — previously reported for abuse");
+      reasons.push("IP in blacklist ?previously reported for abuse");
       blacklistHits.push("ip:" + ip);
     }
 
@@ -589,14 +595,14 @@ export async function calculateRiskScore({
       // ---- 3a: Proxy/VPN detection ----
       if (geoData.proxy) {
         riskScore += 35;
-        reasons.push("Proxy/VPN detected — cannot verify real identity or location");
+        reasons.push("Proxy/VPN detected ?cannot verify real identity or location");
       }
       ipDetails.isProxy = !!geoData.proxy;
 
       // ---- 3b: Hosting/datacenter IP ----
       if (geoData.hosting) {
         riskScore += 25;
-        reasons.push("Datacenter/hosting IP — likely automated traffic, not a real person");
+        reasons.push("Datacenter/hosting IP ?likely automated traffic, not a real person");
       }
       ipDetails.isHosting = !!geoData.hosting;
       ipDetails.isMobile = !!geoData.mobile;
@@ -607,7 +613,7 @@ export async function calculateRiskScore({
       const isHostingISP = hostingKeywords.some(k => isp.includes(k));
       if (isHostingISP && !geoData.hosting) {
         riskScore += 12;
-        reasons.push("ISP associated with hosting provider — potential bot/VPN traffic");
+        reasons.push("ISP associated with hosting provider ?potential bot/VPN traffic");
       }
       ipDetails.isHostingISP = isHostingISP;
 
@@ -653,13 +659,13 @@ export async function calculateRiskScore({
 
   // Email-related impacts
   if (emailDetails?.isDisposable) {
-    impact.push("[FAKE REGISTRATION] This is a disposable/temporary email. The address will self-destruct within minutes. Do NOT send — it will bounce and hurt your sender reputation.");
+    impact.push("[FAKE REGISTRATION] This is a disposable/temporary email. The address will self-destruct within minutes. Do NOT send ?it will bounce and hurt your sender reputation.");
   }
   if (emailDetails?.hasMX === false && emailDetails?.mxChecked) {
     impact.push("[MAILBOX DOES NOT EXIST] Domain has no mail server. Your email will be returned as undeliverable. Repeated bounces lower your sender score with Gmail/Outlook.");
   }
   if (emailDetails?.smtpChecked && emailDetails?.permanentRejected) {
-    impact.push("[MAILBOX DISABLED] SMTP server permanently rejected this address. The mailbox has been deleted or disabled — guaranteed bounce.");
+    impact.push("[MAILBOX DISABLED] SMTP server permanently rejected this address. The mailbox has been deleted or disabled ?guaranteed bounce.");
   }
   if (emailDetails?.smtpChecked && emailDetails?.mailboxFull) {
     impact.push("[INBOX FULL] Recipient mailbox is over quota. Your email will be rejected until they free up space. Wait a few days before retrying.");
@@ -700,7 +706,7 @@ export async function calculateRiskScore({
     solution.push({
       category: "Inbox Full / Over Quota",
       problem: "The recipient's mailbox has exceeded its storage limit. Any email you send will be rejected with a 'mailbox full' bounce.",
-      fix: "1) Wait 3-5 days before retrying — the recipient needs time to clear space. 2) Try reaching out via alternative channels (LinkedIn, WhatsApp, phone). 3) If this is a business contact, their IT department may need to increase mailbox quota. 4) Set a follow-up reminder in your CRM rather than repeatedly bouncing."
+      fix: "1) Wait 3-5 days before retrying ?the recipient needs time to clear space. 2) Try reaching out via alternative channels (LinkedIn, WhatsApp, phone). 3) If this is a business contact, their IT department may need to increase mailbox quota. 4) Set a follow-up reminder in your CRM rather than repeatedly bouncing."
     });
   }
 
@@ -709,7 +715,7 @@ export async function calculateRiskScore({
     solution.push({
       category: "Temporary Delivery Block",
       problem: "The recipient mail server is temporarily refusing emails. This is often due to greylisting (anti-spam technique) or rate limiting.",
-      fix: "1) Wait 15-30 minutes and retry — greylisting usually clears after one retry. 2) Ensure your email server has proper SPF/DKIM/DMARC configured. 3) If persists for >24 hours, the receiving server may have permanently blocked your IP range — contact their postmaster. 4) Use a reputable email sending service (SendGrid, AWS SES) to improve deliverability."
+      fix: "1) Wait 15-30 minutes and retry ?greylisting usually clears after one retry. 2) Ensure your email server has proper SPF/DKIM/DMARC configured. 3) If persists for >24 hours, the receiving server may have permanently blocked your IP range ?contact their postmaster. 4) Use a reputable email sending service (SendGrid, AWS SES) to improve deliverability."
     });
   }
 
@@ -718,7 +724,7 @@ export async function calculateRiskScore({
     solution.push({
       category: "Mailbox Does Not Exist / Disabled",
       problem: "The SMTP server confirmed this mailbox does not exist or has been permanently disabled. Emails to this address will always bounce.",
-      fix: "1) Remove this email from your contact list immediately — never send to it again. 2) Each bounce damages your sender reputation. 3) If this was a customer inquiry, they may have made a typo — try common corrections (gmail.com vs gmial.com). 4) Use double opt-in for mailing lists to prevent invalid addresses from entering your database."
+      fix: "1) Remove this email from your contact list immediately ?never send to it again. 2) Each bounce damages your sender reputation. 3) If this was a customer inquiry, they may have made a typo ?try common corrections (gmail.com vs gmial.com). 4) Use double opt-in for mailing lists to prevent invalid addresses from entering your database."
     });
   }
 
@@ -726,8 +732,8 @@ export async function calculateRiskScore({
   if (emailDetails?.hasMX === false && emailDetails?.mxChecked) {
     solution.push({
       category: "Domain Cannot Receive Email",
-      problem: "The domain has no MX (Mail Exchange) records configured. This means the domain literally cannot accept email — like sending a letter to an address that doesn't exist.",
-      fix: "1) Do NOT send to this domain — 100% guaranteed bounce. 2) The domain owner needs to configure MX records with their DNS provider. 3) If this is a business contact, their email may be misconfigured — ask them to check with their IT team. 4) Common MX providers: Google Workspace, Microsoft 365, Zoho Mail."
+      problem: "The domain has no MX (Mail Exchange) records configured. This means the domain literally cannot accept email ?like sending a letter to an address that doesn't exist.",
+      fix: "1) Do NOT send to this domain ?100% guaranteed bounce. 2) The domain owner needs to configure MX records with their DNS provider. 3) If this is a business contact, their email may be misconfigured ?ask them to check with their IT team. 4) Common MX providers: Google Workspace, Microsoft 365, Zoho Mail."
     });
   }
 
@@ -736,7 +742,7 @@ export async function calculateRiskScore({
     solution.push({
       category: "Fake / Temporary Email (Disposable)",
       problem: "This is a disposable email address from a temporary email service. These addresses typically self-destruct in 10-60 minutes and are commonly used for fraudulent signups.",
-      fix: "1) Do NOT send any business communication to this address — it has likely already expired. 2) If this came from a signup form, the user is likely fraudulent. 3) Require email verification (double opt-in) for all new signups. 4) Block disposable email domains at the registration level to prevent fake accounts."
+      fix: "1) Do NOT send any business communication to this address ?it has likely already expired. 2) If this came from a signup form, the user is likely fraudulent. 3) Require email verification (double opt-in) for all new signups. 4) Block disposable email domains at the registration level to prevent fake accounts."
     });
   }
 
@@ -764,7 +770,7 @@ export async function calculateRiskScore({
     solution.push({
       category: "Weak Domain Security",
       problem: "The recipient's domain lacks SPF and/or DMARC authentication. This makes the domain easy to spoof, and your emails to them are more likely to land in spam folders.",
-      fix: "1) Your email may go to spam — ask the recipient to whitelist your domain. 2) If you are the domain owner, add SPF and DMARC records to improve deliverability. 3) Use a professional email sending service with proper authentication. 4) Monitor your email deliverability rates in your ESP dashboard."
+      fix: "1) Your email may go to spam ?ask the recipient to whitelist your domain. 2) If you are the domain owner, add SPF and DMARC records to improve deliverability. 3) Use a professional email sending service with proper authentication. 4) Monitor your email deliverability rates in your ESP dashboard."
     });
   }
 
@@ -781,8 +787,7 @@ export async function calculateRiskScore({
 
 
 
-﻿// ============ WHOIS DOMAIN AGE CHECK ============
-
+// ============ WHOIS DOMAIN AGE CHECK ============
 export async function checkDomainAge(domain: string): Promise<{
   checked: boolean;
   createdDate: string | null;
@@ -793,7 +798,7 @@ export async function checkDomainAge(domain: string): Promise<{
 }> {
   const result = { checked: false, createdDate: null as string | null, ageDays: null as number | null, ageYears: null as number | null, isNew: false, registrar: null as string | null };
   try {
-    // Use free RDAP protocol (successor to WHOIS) — no API key needed
+    // Use free RDAP protocol (successor to WHOIS) ?no API key needed
     const res = await fetch("https://rdap.verisign.com/domain/v1/" + domain, { signal: AbortSignal.timeout(3000) });
     if (!res.ok) {
       // Try IANA RDAP bootstrap
@@ -951,7 +956,7 @@ export async function getAIExplanation(email: string | null, ip: string | null, 
   if (riskScore < 70) return "";
   try {
     const summary = "Email: " + (email || "N/A") + ", IP: " + (ip || "N/A") + ", Score: " + riskScore + ", Reasons: " + (reasons.join(", ") || "none");
-    const completion = await deepseek.chat.completions.create({
+    const completion = await getDeepSeek().chat.completions.create({
       model: "deepseek-chat",
       messages: [{ role: "system", content: "You are a fraud detection AI. Explain in one short Chinese sentence why this request was flagged." }, { role: "user", content: summary }],
       max_tokens: 80, temperature: 0.3,
@@ -1118,13 +1123,13 @@ export async function calculateCompanyHealth(params: {
   if (blacklistHits.length === 0) positiveSignals.push("No blacklist records found");
   if (!isProxy && !isHosting) positiveSignals.push("Clean IP reputation");
 
-  if (isDisposable) riskSignals.push("Disposable email address — likely fraudulent");
+  if (isDisposable) riskSignals.push("Disposable email address ?likely fraudulent");
   if (domainAgeDays !== null && domainAgeDays < 90) riskSignals.push("Domain registered less than 3 months ago");
-  if (!hasMX) riskSignals.push("No mail server configured — cannot receive email");
-  if (!hasSPF) riskSignals.push("Missing SPF — domain vulnerable to spoofing");
+  if (!hasMX) riskSignals.push("No mail server configured ?cannot receive email");
+  if (!hasSPF) riskSignals.push("Missing SPF ?domain vulnerable to spoofing");
   if (blacklistHits.length > 0) riskSignals.push("Found on abuse blacklist (" + blacklistHits.length + " hits)");
-  if (isProxy) riskSignals.push("Proxy/VPN detected — identity hidden");
-  if (isHosting) riskSignals.push("Datacenter IP — likely automated traffic");
+  if (isProxy) riskSignals.push("Proxy/VPN detected ?identity hidden");
+  if (isHosting) riskSignals.push("Datacenter IP ?likely automated traffic");
   if (companyExistence < 50) riskSignals.push("Limited company existence signals");
 
   return {
