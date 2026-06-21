@@ -6,4 +6,4 @@ node_modules/
 fix_*.py
 
 src/lib/env.ts
-.n.vercel
+.vercel
