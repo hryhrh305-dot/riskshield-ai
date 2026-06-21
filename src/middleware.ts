@@ -22,7 +22,7 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   const path = request.nextUrl.pathname;
 
-  if ((path.startsWith("/dashboard") || path.startsWith("/pricing") || path.startsWith("/risk-check")) && !user) {
+  if ((path.startsWith("/dashboard") || path.startsWith("/pricing") || path.startsWith("/risk-check") || path.startsWith("/bulk-check") || path.startsWith("/blacklist")) && !user) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
@@ -34,6 +34,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/pricing/:path*", "/risk-check/:path*, /bulk-check/:path*, /blacklist/:path*", "/login", "/signup"],
+  matcher: ["/dashboard/:path*", "/pricing/:path*", "/risk-check/:path*", "/bulk-check/:path*", "/blacklist/:path*", "/login", "/signup"],
 };
 
