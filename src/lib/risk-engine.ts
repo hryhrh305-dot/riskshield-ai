@@ -208,6 +208,42 @@ export async function checkDMARCRecord(domain: string): Promise<{ hasDMARC: bool
   return { hasDMARC: false, dmarcRecord: "", dmarcChecked: false, dmarcPolicy: "none" };
 }
 
+// ============ DKIM RECORD CHECK ============
+
+export async function checkDKIMRecord(domain: string): Promise<{
+  hasDKIM: boolean; dkimRecord: string; dkimChecked: boolean; dkimSelector: string;
+}> {
+  const cached = dnsCache.get("dkim:" + domain);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    return cached.data as { hasDKIM: boolean; dkimRecord: string; dkimChecked: boolean; dkimSelector: string };
+  }
+  const selectors = ["default", "google", "selector1", "selector2", "dkim", "s1", "s2", "k1", "mandrill", "sendgrid", "mail", "email"];
+  const dnsServers = [["114.114.114.114"], ["223.5.5.5"], ["8.8.8.8", "1.1.1.1"]];
+  for (const servers of dnsServers) {
+    for (const selector of selectors) {
+      try {
+        const dkimDomain = selector + "._domainkey." + domain;
+        const resolver = new dns.Resolver();
+        resolver.setServers(servers);
+        const records = await Promise.race([
+          resolver.resolveTxt(dkimDomain),
+          new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 2000))
+        ]);
+        const allText = records.flatMap(r => r.join("")).join(" ").toLowerCase();
+        if (allText.includes("v=dkim1")) {
+          const dkimRecord = records.map(r => r.join("")).find(t => t.toLowerCase().includes("v=dkim1")) || "";
+          const result = { hasDKIM: true, dkimRecord, dkimChecked: true, dkimSelector: selector };
+          dnsCache.set("dkim:" + domain, { data: result as unknown as Record<string, unknown>, ts: Date.now() });
+          return result;
+        }
+      } catch { /* try next selector */ }
+    }
+  }
+  const result = { hasDKIM: false, dkimRecord: "", dkimChecked: true, dkimSelector: "" };
+  dnsCache.set("dkim:" + domain, { data: result as unknown as Record<string, unknown>, ts: Date.now() });
+  return result;
+}
+
 // ============ LAYER 4: AI (ONLY FOR HIGH RISK) ============
 
 export async function calculateRiskScore({
@@ -436,6 +472,19 @@ export async function calculateRiskScore({
         if (dmarc.dmarcPolicy === "reject") {
           riskScore -= 5; // strict DMARC is good
         }
+
+        // ---- 2e: DKIM Record Check ----
+        const dkim = await checkDKIMRecord(domain);
+        emailDetails.hasDKIM = dkim.hasDKIM;
+        emailDetails.dkimChecked = dkim.dkimChecked;
+        emailDetails.dkimSelector = dkim.dkimSelector;
+        if (dkim.dkimChecked && !dkim.hasDKIM) {
+          riskScore += 5;
+          reasons.push("Missing DKIM record - email signing not configured for this domain");
+        } else if (dkim.dkimChecked && dkim.hasDKIM) {
+          riskScore -= 5;
+          reasons.push("DKIM record present - email signing configured (" + dkim.dkimSelector + " selector)");
+        }
       }
 
       // ---- 2e: Email deliverability assessment ----
@@ -502,6 +551,8 @@ export async function calculateRiskScore({
       ipDetails.isp = geoData.isp;
       ipDetails.org = geoData.org;
       ipDetails.asn = geoData.as;
+      ipDetails.asname = geoData.asname;
+      ipDetails.reverse = geoData.reverse;
 
       // ---- 3a: Proxy/VPN detection ----
       if (geoData.proxy) {
@@ -747,6 +798,8 @@ export async function calculateRiskScore({
   if (emailDetails?.hasSPF === false && emailDetails?.spfChecked) risk_factors.push("SPF missing - domain lacks sender authentication");
   if (emailDetails?.hasDMARC === true) risk_factors.push("DMARC enabled - domain protected against spoofing");
   if (emailDetails?.hasDMARC === false && emailDetails?.dmarcChecked) risk_factors.push("DMARC missing - domain vulnerable to spoofing");
+  if (emailDetails?.hasDKIM === true) risk_factors.push("DKIM enabled - email signing configured (" + (emailDetails?.dkimSelector || "unknown") + " selector)");
+  if (emailDetails?.hasDKIM === false && emailDetails?.dkimChecked) risk_factors.push("DKIM missing - email signing not configured");
   if (emailDetails?.smtpChecked && emailDetails?.permanentRejected) risk_factors.push("SMTP permanent rejection - mailbox does not exist or has been disabled");
   if (emailDetails?.smtpChecked && emailDetails?.mailboxFull) risk_factors.push("Inbox full - emails will bounce back");
   if (emailDetails?.smtpChecked && emailDetails?.tempRejected) risk_factors.push("Temporary delivery failure - mail server temporarily rejecting emails");
@@ -755,6 +808,7 @@ export async function calculateRiskScore({
   if (ipDetails?.isProxy) risk_factors.push("Proxy/VPN detected - cannot verify real identity");
   if (ipDetails?.isHosting) risk_factors.push("Datacenter/hosting IP - likely automated traffic");
   if (ipDetails?.highRiskCountry) risk_factors.push("High-risk country: " + (ipDetails?.country || "unknown"));
+  if (ipDetails?.asn) risk_factors.push("ASN: " + (ipDetails?.asname || ipDetails?.asn || "unknown"));
 
   // ============ RECOMMENDATION ============
   let recommendation = "";
@@ -786,6 +840,8 @@ export async function calculateRiskScore({
   else checksSkipped.push("SPF");
   if (emailDetails?.dmarcChecked) checksPerformed.push("DMARC");
   else checksSkipped.push("DMARC");
+  if (emailDetails?.dkimChecked) checksPerformed.push("DKIM");
+  else checksSkipped.push("DKIM");
   if (emailDetails?.smtpChecked) checksPerformed.push("SMTP");
   else checksSkipped.push("SMTP");
   if (emailDetails?.catchAllDetected !== undefined) checksPerformed.push("CatchAll");
@@ -863,12 +919,15 @@ export async function getDNSHealthScore(domain: string): Promise<{
   spf: boolean;
   dmarc: boolean;
   dmarcPolicy: string;
+  dkim: boolean;
+  dkimSelector: string;
   details: string[];
 }> {
-  const [mx, spf, dmarc] = await Promise.all([
+  const [mx, spf, dmarc, dkim] = await Promise.all([
     checkMXRecord(domain),
     checkSPFRecord(domain),
     checkDMARCRecord(domain),
+    checkDKIMRecord(domain),
   ]);
   let score = 0;
   const details: string[] = [];
@@ -885,14 +944,19 @@ export async function getDNSHealthScore(domain: string): Promise<{
     if (dmarc.dmarcPolicy === "reject") score += 10;
   } else if (dmarc.dmarcChecked) { details.push("DMARC: Missing"); }
 
-  // Bonus for all three
-  if (mx.hasMX && spf.hasSPF && dmarc.hasDMARC) score += 10;
+  if (dkim.hasDKIM && dkim.dkimChecked) { score += 25; details.push("DKIM: Present (" + dkim.dkimSelector + ")"); }
+  else if (dkim.dkimChecked) { details.push("DKIM: Missing"); }
+
+  // Bonus for all four
+  if (mx.hasMX && spf.hasSPF && dmarc.hasDMARC && dkim.hasDKIM) score += 10;
   return {
     score: Math.min(100, score),
     mx: mx.hasMX && mx.mxChecked,
     spf: spf.hasSPF && spf.spfChecked,
     dmarc: dmarc.hasDMARC && dmarc.dmarcChecked,
     dmarcPolicy: dmarc.dmarcPolicy,
+    dkim: dkim.hasDKIM && dkim.dkimChecked,
+    dkimSelector: dkim.dkimSelector,
     details,
   };
 }
