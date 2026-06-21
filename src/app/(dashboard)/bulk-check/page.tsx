@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import * as XLSXLib from "xlsx";
 import Link from "next/link";
 import { Upload, FileText, Download, CheckCircle, AlertTriangle, XCircle, ArrowRight, BarChart3, Shield } from "lucide-react";
 
@@ -59,42 +60,33 @@ export default function BulkCheckPage() {
   async function downloadXLSX() {
     if (!results || results.length === 0) return;
     setXlsxDownloading(true);
-    var hdrs = ["email","risk_score","risk_level","disposable","hasMX","reasons","recommendation"];
-    var rows = [];
-    for (var i = 0; i < results.length; i++) {
-      var r = results[i];
-      rows.push([
-        r.email || "",
-        String(r.risk_score ?? ""),
-        r.risk_level || "",
-        r.disposable ? "Yes" : "No",
-        r.hasMX ? "Yes" : "No",
-        "\"" + (r.reasons || []).join("; ").replace(/"/g, "\"\"") + "\"",
-        "\"" + (r.recommendation || "").replace(/"/g, "\"\"") + "\""
-      ].join(","));
+    try {
+      var data = [["email","risk_score","risk_level","disposable","hasMX","reasons","recommendation"]];
+      for (var i = 0; i < results.length; i++) {
+        var r = results[i];
+        data.push([
+          r.email || "", r.risk_score ?? "", r.risk_level || "",
+          r.disposable ? "Yes" : "No", r.hasMX ? "Yes" : "No",
+          (r.reasons || []).join("; "), r.recommendation || ""
+        ]);
+      }
+      var ws = XLSXLib.utils.aoa_to_sheet(data);
+      var wb = XLSXLib.utils.book_new();
+      XLSXLib.utils.book_append_sheet(wb, ws, "RiskShield Results");
+      XLSXLib.writeFile(wb, "riskshield-results.xlsx");
+    } catch (e) {
+      console.error("XLSX failed:", e);
     }
-    var bom = "\uFEFF";
-    var csv = bom + hdrs.join(",") + "\n" + rows.join("\n");
-    var blob = new Blob([csv], { type: "application/octet-stream" });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    a.setAttribute("href", url);
-    a.setAttribute("download", "riskshield-results.xlsx");
-    a.style.display = "none";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    setXlsxDownloading(false);
+    finally { setXlsxDownloading(false); }
   }
 
   function exportCSV(filter: "all" | "clean" | "risky") {
     if (!results) return;
     const filtered = filter === "all" ? results : filter === "clean"
-      ? results.filter(r => r.decision === "ALLOW")
-      : results.filter(r => r.decision !== "ALLOW");
+      ? results.filter(r => r.risk_level === "ALLOW")
+      : results.filter(r => (r.risk_level === "REVIEW" || r.risk_level === "BLOCK"));
     const header = "email,risk_score,decision,disposable,hasMX,mxChecked,reasons";
-    const rows = filtered.map(r => `${r.email},${r.risk_score},${r.decision},${r.disposable},${r.hasMX},${r.mxChecked},"${r.reasons.join("; ")}"`);
+    const rows = filtered.map(r => `${r.email},${r.risk_score},${r.risk_level},${r.disposable},${r.hasMX},${r.mxChecked},"${r.reasons.join("; ")}"`);
     const csv = header + "\n" + rows.join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
