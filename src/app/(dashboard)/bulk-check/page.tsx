@@ -59,37 +59,58 @@ export default function BulkCheckPage() {
   async function downloadXLSX() {
     if (!results || results.length === 0) return;
     setXlsxDownloading(true);
+    var downloaded = false;
+    // Try backend API first (generates proper .xlsx)
     try {
-      // Dynamic import xlsx library (cached by browser after first load ~1s)
-      var XLSX = await import("xlsx");
-      var data = [["email", "risk_score", "risk_level", "disposable", "hasMX", "reasons", "recommendation"]];
-      for (var i = 0; i < results.length; i++) {
-        var r = results[i];
-        data.push([
-          r.email || "", r.risk_score ?? "", r.risk_level || "",
-          r.disposable ? "Yes" : "No", r.hasMX ? "Yes" : "No",
-          (r.reasons || []).join("; "), r.recommendation || ""
-        ]);
-      }
-      var ws = XLSX.utils.aoa_to_sheet(data);
-      var wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "RiskShield Results");
-      XLSX.writeFile(wb, "riskshield-results.xlsx");
-    } catch (e) {
-      console.error("XLSX failed:", e);
-      // Fallback to CSV with xlsx extension
-      var hdrs = ["email","risk_score","risk_level","disposable","hasMX","reasons","recommendation"];
-      var rows = results.map(function(r2) {
-        return [r2.email||"",String(r2.risk_score??""),r2.risk_level||"",r2.disposable?"Yes":"No",r2.hasMX?"Yes":"No",String.fromCharCode(34)+(r2.reasons||[]).join("; ").replace(/"/g,String.fromCharCode(34).repeat(2))+String.fromCharCode(34),String.fromCharCode(34)+(r2.recommendation||"").replace(/"/g,String.fromCharCode(34).repeat(2))+String.fromCharCode(34)].join(",");
+      var res = await fetch("/api/bulk-check?format=xlsx", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emails: results.map(function(r) { return r.email; }) }),
       });
-      var csv = String.fromCharCode(0xFEFF)+hdrs.join(",")+String.fromCharCode(10)+rows.join(String.fromCharCode(10));
-      var blob = new Blob([csv],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+      if (!res.ok) throw new Error("API " + res.status);
+      var blob = await res.blob();
+      if (!blob || blob.size < 100) throw new Error("Empty response");
       var url = URL.createObjectURL(blob);
-      var a = document.createElement("a"); a.href=url; a.download="riskshield-results.xlsx";
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(function(){URL.revokeObjectURL(url);},1000);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "riskshield-results.xlsx";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      // Delay cleanup to ensure download starts
+      setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 3000);
+      downloaded = true;
+    } catch (e) {
+      console.warn("Backend XLSX failed, trying local generation:", e.message);
     }
-    finally { setXlsxDownloading(false); }
+    // Fallback: local CSV (instant, always works)
+    if (!downloaded) {
+      try {
+        var hdrs = ["email","risk_score","risk_level","disposable","hasMX","reasons","recommendation"];
+        var rows = results.map(function(r2) {
+          return [
+            r2.email || "", String(r2.risk_score ?? ""), r2.risk_level || "",
+            r2.disposable ? "Yes" : "No", r2.hasMX ? "Yes" : "No",
+            String.fromCharCode(34) + (r2.reasons || []).join("; ").replace(/"/g, String.fromCharCode(34).repeat(2)) + String.fromCharCode(34),
+            String.fromCharCode(34) + (r2.recommendation || "").replace(/"/g, String.fromCharCode(34).repeat(2)) + String.fromCharCode(34)
+          ].join(",");
+        });
+        var csv = String.fromCharCode(0xFEFF) + hdrs.join(",") + String.fromCharCode(10) + rows.join(String.fromCharCode(10));
+        var blob2 = new Blob([csv], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        var url2 = URL.createObjectURL(blob2);
+        var a2 = document.createElement("a");
+        a2.href = url2;
+        a2.download = "riskshield-results.xlsx";
+        a2.style.display = "none";
+        document.body.appendChild(a2);
+        a2.click();
+        setTimeout(function() { document.body.removeChild(a2); URL.revokeObjectURL(url2); }, 3000);
+      } catch (e2) {
+        console.error("All download methods failed:", e2);
+      }
+    }
+    setXlsxDownloading(false);
   }
 
   function exportCSV(filter: "all" | "clean" | "risky") {
