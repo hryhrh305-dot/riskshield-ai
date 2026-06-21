@@ -114,16 +114,16 @@ export async function POST(req: NextRequest) {
     }, { status: 429 });
   }
 
-  // Process emails
+  // Process emails in parallel with concurrency control (avoids 504 timeout on Vercel)
   const results: any[] = [];
   let creditsConsumed = 0;
+  const CONCURRENCY = 15;
 
-  for (const email of validEmails) {
+  async function processOneEmail(email: string): Promise<any> {
     const cacheKey = makeResultCacheKey(email, null);
     const cached = getCachedResult(cacheKey);
-
     if (cached) {
-      results.push({
+      return {
         email,
         risk_score: cached.risk_score,
         health_score: (cached as any).company_health?.healthScore ?? 0,
@@ -139,48 +139,37 @@ export async function POST(req: NextRequest) {
         domain_age: (cached as any).domain_age || null,
         dns_health: (cached as any).dns_health || null,
         company_health: (cached as any).company_health || null,
-      });
-      continue;
+      };
     }
-
     const riskResult = await calculateRiskScore({ email, shouldCheckMX: true });
-
-    const resultItem = {
-      email,
-      risk_score: riskResult.score,
-      health_score: 0,
-      risk_level: riskResult.decision,
-      reasons: riskResult.reasons,
-      details: riskResult.emailDetails,
-      cached: false,
-      risk_factors: riskResult.risk_factors || [],
-      recommendation: riskResult.recommendation || "",
-      estimated_waste_cost: riskResult.estimated_waste_cost ?? 0,
-      impact: riskResult.impact || [],
-      solution: riskResult.solution || [],
-    };
-
     setCachedResult(cacheKey, {
-      input: email,
-      type: "email",
-      risk_score: riskResult.score,
-      decision: riskResult.decision,
+      input: email, type: "email",
+      risk_score: riskResult.score, decision: riskResult.decision,
       reasons: riskResult.reasons,
       details: { email: riskResult.emailDetails, ip: null },
-      ai_explanation: null,
-      domain_age: null,
-      dns_health: null,
-      company_health: null,
-      impact: riskResult.impact || [],
-      solution: riskResult.solution || [],
+      ai_explanation: null, domain_age: null, dns_health: null, company_health: null,
+      impact: riskResult.impact || [], solution: riskResult.solution || [],
       risk_factors: riskResult.risk_factors || [],
       recommendation: riskResult.recommendation || "",
       estimated_waste_cost: riskResult.estimated_waste_cost ?? 0,
       cached: false,
     });
+    return {
+      email, risk_score: riskResult.score, health_score: 0,
+      risk_level: riskResult.decision, reasons: riskResult.reasons,
+      details: riskResult.emailDetails, cached: false,
+      risk_factors: riskResult.risk_factors || [],
+      recommendation: riskResult.recommendation || "",
+      estimated_waste_cost: riskResult.estimated_waste_cost ?? 0,
+      impact: riskResult.impact || [], solution: riskResult.solution || [],
+    };
+  }
 
-    results.push(resultItem);
-    creditsConsumed++;
+  // Process in concurrent chunks of CONCURRENCY
+  for (let i = 0; i < validEmails.length; i += CONCURRENCY) {
+    const chunk = validEmails.slice(i, i + CONCURRENCY);
+    const chunkResults = await Promise.all(chunk.map(processOneEmail));
+    for (const r of chunkResults) { results.push(r); if (!r.cached) creditsConsumed++; }
   }
 
   // Write usage ledger
