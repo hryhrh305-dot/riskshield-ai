@@ -54,6 +54,9 @@ function buildResponseData(email: string | null, requestIP: string | null, riskR
       ip: riskResult.ipDetails,
     },
     ai_explanation: aiReason || null,
+    risk_factors: riskResult.risk_factors || [],
+    recommendation: riskResult.recommendation || '',
+    estimated_waste_cost: riskResult.estimated_waste_cost ?? 0,
     credits: { remaining: newCredits, success: creditSuccess },
     cached,
   };
@@ -184,6 +187,9 @@ export async function POST(request: NextRequest) {
       ip: riskResult.ipDetails,
     },
     ai_explanation: aiReason || null,
+    risk_factors: riskResult.risk_factors || [],
+    recommendation: riskResult.recommendation || '',
+    estimated_waste_cost: riskResult.estimated_waste_cost ?? 0,
     cached: false,
   };
   setCachedResult(cacheKey, cacheData);

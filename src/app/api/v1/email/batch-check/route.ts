@@ -134,6 +134,11 @@ export async function POST(req: NextRequest) {
         risk_factors: (cached as any).risk_factors || [],
         recommendation: (cached as any).recommendation || "",
         estimated_waste_cost: (cached as any).estimated_waste_cost ?? 0,
+        impact: (cached as any).impact || [],
+        solution: (cached as any).solution || [],
+        domain_age: (cached as any).domain_age || null,
+        dns_health: (cached as any).dns_health || null,
+        company_health: (cached as any).company_health || null,
       });
       continue;
     }
@@ -151,6 +156,8 @@ export async function POST(req: NextRequest) {
       risk_factors: riskResult.risk_factors || [],
       recommendation: riskResult.recommendation || "",
       estimated_waste_cost: riskResult.estimated_waste_cost ?? 0,
+      impact: riskResult.impact || [],
+      solution: riskResult.solution || [],
     };
 
     setCachedResult(cacheKey, {
@@ -164,8 +171,11 @@ export async function POST(req: NextRequest) {
       domain_age: null,
       dns_health: null,
       company_health: null,
-      impact: [],
-      solution: [],
+      impact: riskResult.impact || [],
+      solution: riskResult.solution || [],
+      risk_factors: riskResult.risk_factors || [],
+      recommendation: riskResult.recommendation || "",
+      estimated_waste_cost: riskResult.estimated_waste_cost ?? 0,
       cached: false,
     });
 
