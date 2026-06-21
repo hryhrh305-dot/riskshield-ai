@@ -1067,19 +1067,19 @@ export async function calculateCompanyHealth(params: {
   // === Grade ===
   let grade: string, stars: string, label: string, recommendation: string;
   if (healthScore >= 85) {
-    grade = "A"; stars = "¡ï¡ï¡ï¡ï¡ï"; label = "Trusted Business";
+    grade = "A"; stars = "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"; label = "Trusted Business";
     recommendation = "Safe for onboarding and sales engagement. Low risk profile.";
   } else if (healthScore >= 70) {
-    grade = "B"; stars = "¡ï¡ï¡ï¡ï¡î"; label = "Likely Legitimate";
+    grade = "B"; stars = "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"; label = "Likely Legitimate";
     recommendation = "Proceed with standard verification. Minor risk signals present.";
   } else if (healthScore >= 50) {
-    grade = "C"; stars = "¡ï¡ï¡ï¡î¡î"; label = "Needs Review";
+    grade = "C"; stars = "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"; label = "Needs Review";
     recommendation = "Manual review recommended before committing resources. Verify company details.";
   } else if (healthScore >= 30) {
-    grade = "D"; stars = "¡ï¡ï¡î¡î¡î"; label = "High Risk";
+    grade = "D"; stars = "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"; label = "High Risk";
     recommendation = "Significant risk signals detected. Require additional verification before engagement.";
   } else {
-    grade = "F"; stars = "¡ï¡î¡î¡î¡î"; label = "Do Not Engage";
+    grade = "F"; stars = "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"; label = "Do Not Engage";
     recommendation = "Multiple critical risk signals. Do NOT proceed with sales or onboarding.";
   }
 

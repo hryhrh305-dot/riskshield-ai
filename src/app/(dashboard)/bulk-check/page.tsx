@@ -78,8 +78,8 @@ export default function BulkCheckPage() {
       const rows = results.map(r => [
         r.email || '', r.risk_score ?? '', r.risk_level || '',
         r.disposable ? 'Yes' : 'No', r.hasMX ? 'Yes' : 'No',
-        '"' + (r.reasons || []).join('; ').replace(/"/g, '""') + '"',
-        '"' + (r.recommendation || '').replace(/"/g, '""') + '"'
+        String.fromCharCode(34) + (r.reasons || []).join('; ').replace(/"/g, String.fromCharCode(34).repeat(2)) + String.fromCharCode(34),
+        String.fromCharCode(34) + (r.recommendation || '').replace(/"/g, String.fromCharCode(34).repeat(2)) + String.fromCharCode(34)
       ].join(','));
       const csv = '\uFEFF' + headers.join(',') + '\n' + rows.join('\n');
       const blob = new Blob([csv], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -90,114 +90,13 @@ export default function BulkCheckPage() {
     finally { setXlsxDownloading(false); }
   }
 
-  async function downloadCSV useState } from "react";
-import Link from "next/link";
-import { Upload, FileText, Download, CheckCircle, AlertTriangle, XCircle, ArrowRight, BarChart3, Shield } from "lucide-react";
-
-interface BulkResult {
-  impact?: string[];
-  email: string;
-  risk_score: number;
-  health_score: number | null;
-  decision: string;
-  reasons: string[];
-  disposable: boolean;
-  hasMX: boolean;
-  mxChecked: boolean;
-}
-
-export default function BulkCheckPage() {
-  const [text, setText] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<BulkResult[] | null>(null);
-  const [summary, setSummary] = useState<Record<string, number> | null>(null);
-  const [error, setError] = useState("");
-  const [dragOver, setDragOver] = useState(false);
-
-  async function handleFile(file: File) {
-    setLoading(true); setError(""); setResults(null); setSummary(null);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/bulk-check", { method: "POST", body: formData });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error || "Upload failed"); return; }
-      setResults(data.results);
-      setSummary(data.summary);
-    } catch { setError("Network error"); }
-    finally { setLoading(false); }
-  }
-
-  async function handlePaste() {
-    if (!text.trim()) { setError("Paste emails (one per line) or upload a CSV."); return; }
-    setLoading(true); setError(""); setResults(null); setSummary(null);
-    try {
-      const res = await fetch("/api/bulk-check", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error || "Check failed"); return; }
-      setResults(data.results);
-      setSummary(data.summary);
-    } catch { setError("Network error"); }
-    finally { setLoading(false); }
-  }
-
-  async function downloadXLSX() {
-    if (!results || results.length === 0) return;
-    try {
-      // Load xlsx library dynamically (fast, cached by browser)
-      const XLSX = await import("xlsx");
-      const data = [["email", "risk_score", "risk_level", "decision", "disposable", "hasMX", "reasons", "recommendation"]];
-      for (const r of results) {
-        data.push([
-          r.email || "",
-          r.risk_score ?? "",
-          r.risk_level || "",
-          r.risk_level || "",
-          r.disposable ? "Yes" : "No",
-          r.hasMX ? "Yes" : "No",
-          (r.reasons || []).join("; "),
-          r.recommendation || "",
-        ]);
-      }
-      const ws = XLSX.utils.aoa_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "RiskShield Results");
-      XLSX.writeFile(wb, "riskshield-results.xlsx");
-    } catch {
-      // Fallback: generate CSV with .xlsx extension (still opens in Excel)
-      const headers = ["email", "risk_score", "risk_level", "decision", "disposable", "hasMX", "reasons", "recommendation"];
-      const rows = results.map(r => [
-        r.email || "",
-        r.risk_score ?? "",
-        r.risk_level || "",
-        r.risk_level || "",
-        r.disposable ? "Yes" : "No",
-        r.hasMX ? "Yes" : "No",
-        (r.reasons || []).join("; "),
-        r.recommendation || "",
-      ].map(v => '"' + String(v).replace(/"/g, '""') + '"').join(","));
-      const csv = [headers.join(","), ...rows].join("\n");
-      const blob = new Blob(["\uFEFF" + csv], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "riskshield-results.xlsx";
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-  }
-
   function exportCSV(filter: "all" | "clean" | "risky") {
     if (!results) return;
     const filtered = filter === "all" ? results : filter === "clean"
-      ? results.filter(r => r.risk_level === "ALLOW")
-      : results.filter(r => r.risk_level !== "ALLOW");
+      ? results.filter(r => r.decision === "ALLOW")
+      : results.filter(r => r.decision !== "ALLOW");
     const header = "email,risk_score,decision,disposable,hasMX,mxChecked,reasons";
-    const rows = filtered.map(r => `${r.email},${r.risk_score},${r.risk_level},${r.disposable},${r.hasMX},${r.mxChecked},"${r.reasons.join("; ")}"`);
+    const rows = filtered.map(r => `${r.email},${r.risk_score},${r.decision},${r.disposable},${r.hasMX},${r.mxChecked},"${r.reasons.join("; ")}"`);
     const csv = header + "\n" + rows.join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -340,7 +239,7 @@ export default function BulkCheckPage() {
                       <td className={`px-4 py-2.5 font-bold ${scoreColor(r.risk_score)}`}>{r.risk_score}</td>
                       <td className="px-4 py-2.5 font-bold text-blue-700">{r.health_score ?? "-"}</td>
                       <td className="px-4 py-2.5">
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${decisionBadge(r.risk_level)}`}>{r.risk_level}</span>
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${decisionBadge(r.decision)}`}>{r.decision}</span>
                       </td>
                       <td className="px-4 py-2.5 text-gray-500 text-xs">{r.reasons.join(", ") || "-"}</td>
                       <td className="px-4 py-2.5">{r.disposable ? <XCircle className="w-4 h-4 text-red-500" /> : <CheckCircle className="w-4 h-4 text-green-500" />}</td>
