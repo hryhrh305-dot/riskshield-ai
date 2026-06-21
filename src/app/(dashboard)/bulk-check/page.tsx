@@ -56,22 +56,54 @@ export default function BulkCheckPage() {
   }
 
   async function downloadXLSX() {
-    if (!results) return;
-    // Call the same endpoint with ?format=xlsx to get the file
+    if (!results || results.length === 0) return;
+    // Build XLSX file from current results in the browser (no extra API call)
     try {
-      const res = await fetch("/api/bulk-check?format=xlsx", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emails: results.map(r => r.email) }),
-      });
-      if (!res.ok) { alert("Export failed"); return; }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "riskshield-results.xlsx";
-      a.click();
-      URL.revokeObjectURL(url);
+      // Try to load XLSX library dynamically
+      let XLSX = (window as any).XLSX;
+      if (!XLSX) {
+        try {
+          XLSX = await import("xlsx");
+        } catch {
+          // Library not available, fallback to API call
+        }
+      }
+      if (!XLSX) {
+        // Fallback: call API with format=xlsx
+        const res = await fetch("/api/bulk-check?format=xlsx", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ emails: results.map(r => r.email) }),
+        });
+        if (!res.ok) { alert("Export failed"); return; }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "riskshield-results.xlsx";
+        a.click();
+        URL.revokeObjectURL(url);
+        return;
+      }
+      // Generate XLSX directly in browser
+      const data = [["email", "risk_score", "risk_level", "decision", "disposable", "hasMX", "reasons", "recommendation"]];
+      for (const r of results) {
+        data.push([
+          r.email || "",
+          r.risk_score ?? "",
+          r.risk_level || "",
+          r.decision || "",
+          r.disposable ? "Yes" : "No",
+          r.hasMX ? "Yes" : "No",
+          (r.reasons || []).join("; "),
+          r.recommendation || "",
+        ]);
+      }
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "RiskShield Results");
+      XLSX.writeFile(wb, "riskshield-results.xlsx");
     } catch { alert("Network error during export"); }
   }
 

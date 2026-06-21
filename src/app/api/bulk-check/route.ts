@@ -213,7 +213,7 @@ export async function POST(request: NextRequest) {
   const total = results.length;
 
   // Check if XLSX download requested
-  const url = new URL(request.url);
+  const url = request.nextUrl;
   if (url.searchParams.get("format") === "xlsx") {
     const wsData = [["email", "risk_score", "health_score", "decision", "disposable", "hasMX", "reasons"]];
     for (const r of results) {
