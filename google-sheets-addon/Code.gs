@@ -239,43 +239,55 @@ function processBatch_(sheet, anchorRange, emails, apiKey) {
 }
 
 // ============ WRITE RESULTS TO SHEET ============
+
 function writeResults_(sheet, anchorRange, results) {
   var startRow = anchorRange.getRow();
   var startCol = anchorRange.getColumn();
-  
+  var numResults = results.length;
+  if (numResults === 0) return;
+
+  // Write headers first (single call)
   var headerRow = startRow;
   var headerRange = sheet.getRange(headerRow, startCol + 1, 1, 5);
   var existingHeaders = headerRange.getValues()[0];
-  
   if (!existingHeaders[0] || String(existingHeaders[0]).indexOf("Risk") === -1) {
-    sheet.getRange(headerRow, startCol + 1, 1, 5).setValues([[
-      "Risk Score", "Risk Level", "Reason 1", "Reason 2", "Cached?"
-    ]]);
+    headerRange.setValues([["Risk Score", "Risk Level", "Reason 1", "Reason 2", "Cached?"]]);
     headerRow = startRow + 1;
   }
-  
-  for (var i = 0; i < results.length; i++) {
+
+  // Build all data arrays in memory, then write in ONE call
+  var dataRange = sheet.getRange(startRow, startCol + 1, numResults, 5);
+  var dataValues = [];
+  var backgrounds = [];
+
+  for (var i = 0; i < numResults; i++) {
     var r = results[i];
-    var row = startRow + i;
     var reasons = r.reasons || [];
-    
-    sheet.getRange(row, startCol + 1, 1, 5).setValues([[
+
+    dataValues.push([
       r.risk_score || 0,
       r.risk_level || "UNKNOWN",
       reasons[0] || "",
       reasons[1] || "",
       r.cached ? "Yes (free)" : "New"
-    ]]);
-    
-    var riskCell = sheet.getRange(row, startCol + 1);
+    ]);
+
     if (r.risk_score >= 70) {
-      riskCell.setBackground("#FEE2E2");
+      backgrounds.push(["#FEE2E2", null, null, null, null]);
     } else if (r.risk_score >= 40) {
-      riskCell.setBackground("#FEF3C7");
+      backgrounds.push(["#FEF3C7", null, null, null, null]);
     } else {
-      riskCell.setBackground("#D1FAE5");
+      backgrounds.push(["#D1FAE5", null, null, null, null]);
     }
   }
+
+  // Single write for all values
+  dataRange.setValues(dataValues);
+
+  // Single write for all backgrounds (only risk score column)
+  var bgRange = sheet.getRange(startRow, startCol + 1, numResults, 1);
+  var bgValues = backgrounds.map(function(b) { return [b[0]]; });
+  bgRange.setBackgrounds(bgValues);
 }
 
 // ============ HELPERS ============
@@ -288,6 +300,7 @@ function columnToLetter_(col) {
   }
   return letter || "A";
 }
+
 
 
 
