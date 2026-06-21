@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
     const batch = emails.slice(i, i + BATCH_SIZE);
     const batchResults = await Promise.all(batch.map(async (email) => {
       const riskResult = await calculateRiskScore({ email, shouldCheckMX: true });
-      const decision = riskResult.score >= 70 ? "BLOCK" : riskResult.score >= 40 ? "REVIEW" : "ALLOW";
+      const decision = riskResult.score >= 66 ? "BLOCK" : riskResult.score >= 26 ? "REVIEW" : "ALLOW";
 
       let healthScore: number | null = null;
       const domain = email.split("@")[1]?.toLowerCase();
