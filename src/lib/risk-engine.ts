@@ -142,7 +142,7 @@ export async function checkMXRecord(domain: string): Promise<{ hasMX: boolean; m
       resolver.setServers(servers);
       const records = await Promise.race([
         resolver.resolveMx(domain),
-        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 5000))
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 3000))
       ]);
       const result = { hasMX: records.length > 0, mxRecords: records.map(r => r.exchange), mxChecked: true, domainExists: true };
       dnsCache.set("mx:" + domain, { data: result as unknown as Record<string, unknown>, ts: Date.now() });
@@ -166,7 +166,7 @@ export async function checkSPFRecord(domain: string): Promise<{ hasSPF: boolean;
       resolver.setServers(servers);
       const records = await Promise.race([
         resolver.resolveTxt(domain),
-        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 5000))
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 3000))
       ]);
       const allText = records.flatMap(r => r.join("")).join(" ").toLowerCase();
       const hasSPF = allText.includes("v=spf1");
@@ -192,7 +192,7 @@ export async function checkDMARCRecord(domain: string): Promise<{ hasDMARC: bool
       resolver.setServers(servers);
       const records = await Promise.race([
         resolver.resolveTxt(dmarcDomain),
-        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 5000))
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 3000))
       ]);
       const allText = records.flatMap(r => r.join("")).join(" ").toLowerCase();
       const hasDMARC = allText.includes("v=dmarc1");
@@ -248,7 +248,7 @@ export async function calculateRiskScore({
 
       // ---- 1a: Disposable / fake registration detection ----
       if (disposableDomains.has(domain)) {
-        riskScore += 50;
+        riskScore += 45;
         reasons.push("Disposable email ?likely fake/temporary registration");
       }
 
@@ -338,7 +338,11 @@ export async function calculateRiskScore({
 
         if (mx.mxChecked && !mx.hasMX) {
           riskScore += 40;
-          reasons.push("No MX records ?domain cannot receive email (mailbox does not exist)");
+          reasons.push("No MX records - domain cannot receive email (mailbox does not exist)");
+        } else if (!mx.mxChecked) {
+          // DNS query failed - don't penalize, but note the uncertainty
+          riskScore += 0;
+          reasons.push("MX lookup failed - could not verify mail server (network limitation, not a risk signal)");
         } else if (!mx.mxChecked) {
           riskScore += 5;
         }
