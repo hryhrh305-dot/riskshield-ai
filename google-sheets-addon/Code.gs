@@ -85,9 +85,10 @@ function showSettings() {
 
 // ============ SCAN SELECTED EMAILS ============
 function scanSelectedEmails() {
+  var ui = SpreadsheetApp.getUi();
   var apiKey = getApiKey_();
   if (!apiKey) {
-    SpreadsheetApp.getUi().alert("API Key Required", "Please set your API Key first.\nGo to: Risk Scanner > Settings", SpreadsheetApp.getUi().ButtonSet.OK);
+    ui.alert("API Key Required", "Please set your API Key first.\nGo to: Risk Scanner > Settings", ui.ButtonSet.OK);
     return;
   }
 
@@ -95,33 +96,44 @@ function scanSelectedEmails() {
   var selection = sheet.getActiveRange();
   
   if (!selection) {
-    SpreadsheetApp.getUi().alert("No Selection", "Please select one or more cells containing email addresses.", SpreadsheetApp.getUi().ButtonSet.OK);
+    ui.alert("No Selection", "Please select one or more cells containing email addresses.", ui.ButtonSet.OK);
     return;
   }
 
   var emails = [];
   var values = selection.getValues();
+  var totalCells = 0;
+  var skippedCells = 0;
+  var skippedSamples = [];
   
   for (var i = 0; i < values.length; i++) {
     for (var j = 0; j < values[i].length; j++) {
-      var val = String(values[i][j]).trim().toLowerCase();
-      if (val && val.indexOf("@") > 0 && val.split("@").length === 2) {
+      var raw = String(values[i][j]).trim();
+      if (!raw) continue;
+      totalCells++;
+      var val = raw.toLowerCase();
+      if (val && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(val)) {
         emails.push(val);
+      } else {
+        skippedCells++;
+        if (skippedSamples.length < 3) skippedSamples.push(raw);
       }
     }
   }
 
   if (emails.length === 0) {
-    SpreadsheetApp.getUi().alert("No Emails Found", "No valid email addresses found in the selection.", SpreadsheetApp.getUi().ButtonSet.OK);
+    var msg = "No valid email addresses found in the selection.";
+    if (skippedCells > 0) msg += "\n\nSkipped " + skippedCells + " invalid format cell(s).";
+    ui.alert("No Emails Found", msg, ui.ButtonSet.OK);
     return;
   }
 
   if (emails.length > MAX_BATCH_SIZE) {
-    SpreadsheetApp.getUi().alert("Too Many Emails", "Maximum " + MAX_BATCH_SIZE + " emails per scan. You selected " + emails.length + ". Please select fewer emails.", SpreadsheetApp.getUi().ButtonSet.OK);
+    ui.alert("Too Many Emails", "Maximum " + MAX_BATCH_SIZE + " emails per scan. You selected " + emails.length + ". Please select fewer emails.", ui.ButtonSet.OK);
     return;
   }
 
-  processBatch_(sheet, selection, emails, apiKey);
+  processBatch_(sheet, selection, emails, apiKey, totalCells, skippedCells, skippedSamples);
 }
 
 // ============ SCAN ENTIRE COLUMN ============
@@ -148,7 +160,7 @@ function scanEntireColumn() {
   
   for (var i = 0; i < values.length; i++) {
     var val = String(values[i][0]).trim().toLowerCase();
-    if (val && val.indexOf("@") > 0 && val.split("@").length === 2) {
+    if (val && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(val)) {
       emails.push(val);
     }
   }
@@ -174,7 +186,7 @@ function scanEntireColumn() {
 }
 
 // ============ CORE: BATCH PROCESSING ============
-function processBatch_(sheet, anchorRange, emails, apiKey) {
+function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCells, skippedSamples) {
   var ui = SpreadsheetApp.getUi();
   
   try {
@@ -225,13 +237,20 @@ function processBatch_(sheet, anchorRange, emails, apiKey) {
     
     var cachedCount = result.cached_count || 0;
     var newChecks = result.new_checks || emails.length;
-    ui.alert("Scan Complete", 
-      "Emails scanned: " + emails.length + "\n" +
+    var scanMsg = "Emails scanned: " + emails.length + "\n" +
       "New checks consumed: " + newChecks + "\n" +
       "Cached (free): " + cachedCount + "\n" +
-      "Monthly remaining: " + (result.quota ? (result.quota.monthly_limit - result.quota.monthly_used) : "N/A"),
-      ui.ButtonSet.OK
-    );
+      "Monthly remaining: " + (result.quota ? (result.quota.monthly_limit - result.quota.monthly_used) : "N/A");
+    if (typeof skippedCells !== 'undefined' && skippedCells > 0) {
+      scanMsg += "\n\nSkipped " + skippedCells + " invalid/non-email cells.";
+      if (typeof skippedSamples !== 'undefined' && skippedSamples.length > 0) {
+        scanMsg += " Examples: " + skippedSamples.join(", ");
+      }
+    }
+    if (typeof totalCells !== 'undefined' && totalCells > 0 && emails.length < totalCells) {
+      scanMsg += "\nDetected: " + emails.length + " / " + totalCells + " cells";
+    }
+    ui.alert("Scan Complete", scanMsg, ui.ButtonSet.OK);
 
   } catch (e) {
     ui.alert("Connection Error", "Could not reach RiskShield API.\nCheck your network and API Base URL.\n\n" + e.toString(), ui.ButtonSet.OK);

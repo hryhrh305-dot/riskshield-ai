@@ -650,7 +650,7 @@ export async function calculateRiskScore({
 
   // ============ CATEGORY 4: COMPREHENSIVE SCORING & SOLUTION MAPPING ============
 
-  riskScore = Math.min(riskScore, 100);
+  riskScore = Math.max(0, Math.min(riskScore, 100));
 
   // Auto-blacklist for very high risk
   if (email && riskScore >= 85) {
