@@ -7,7 +7,17 @@
  */
 
 // ============ CONFIGURATION ============
-var API_BASE_URL = "https://574269.xyz";  // Your SaaS domain
+function getApiBaseUrl_() {
+  var props = PropertiesService.getUserProperties();
+  var url = props.getProperty("RISKSHIELD_API_BASE_URL");
+  return url || "https://riskshield-fkjvlmia3-risk-shield-ai.vercel.app";
+}
+
+function setApiBaseUrl_(url) {
+  var props = PropertiesService.getUserProperties();
+  props.setProperty("RISKSHIELD_API_BASE_URL", url);
+}
+
 var BATCH_ENDPOINT = "/api/v1/email/batch-check";
 var MAX_BATCH_SIZE = 100;
 
@@ -17,7 +27,7 @@ function onOpen() {
   ui.createMenu("Risk Scanner")
     .addItem("Scan Selected Emails", "scanSelectedEmails")
     .addSeparator()
-    .addItem("Settings (API Key)", "showSettings")
+    .addItem("Settings (API Key & URL)", "showSettings")
     .addItem("Scan Entire Column", "scanEntireColumn")
     .addToUi();
 }
@@ -26,7 +36,7 @@ function onInstall(e) {
   onOpen(e);
 }
 
-// ============ SETTINGS ============
+// ============ API KEY MANAGEMENT ============
 function getApiKey_() {
   var props = PropertiesService.getUserProperties();
   return props.getProperty("RISKSHIELD_API_KEY");
@@ -37,22 +47,38 @@ function setApiKey_(key) {
   props.setProperty("RISKSHIELD_API_KEY", key);
 }
 
+// ============ SETTINGS ============
 function showSettings() {
   var ui = SpreadsheetApp.getUi();
   var currentKey = getApiKey_() || "";
   var maskedKey = currentKey ? currentKey.slice(0, 8) + "..." + currentKey.slice(-6) : "(not set)";
-  
+  var currentUrl = getApiBaseUrl_();
+
   var response = ui.prompt(
-    "RiskShield Settings",
-    "Current API Key: " + maskedKey + "\n\nPaste your RiskShield API Key below.\nGet one at: " + API_BASE_URL + "/dashboard",
+    "RiskShield - API Base URL",
+    "Current URL: " + currentUrl + "\n\nEnter your RiskShield API URL.\nDefault: https://574269.xyz\n\n(press Cancel to keep current)",
     ui.ButtonSet.OK_CANCEL
   );
 
   if (response.getSelectedButton() === ui.Button.OK) {
-    var newKey = response.getResponseText().trim();
+    var newUrl = response.getResponseText().trim();
+    if (newUrl && newUrl.indexOf("http") === 0) {
+      setApiBaseUrl_(newUrl);
+      ui.alert("URL Saved!", "API Base URL: " + newUrl, ui.ButtonSet.OK);
+    }
+  }
+
+  var response2 = ui.prompt(
+    "RiskShield - API Key",
+    "Current Key: " + maskedKey + "\n\nPaste your RiskShield API Key below.\nGet one at: " + getApiBaseUrl_() + "/dashboard",
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (response2.getSelectedButton() === ui.Button.OK) {
+    var newKey = response2.getResponseText().trim();
     if (newKey) {
       setApiKey_(newKey);
-      ui.alert("API Key saved!", "Your RiskShield API key has been stored securely.", ui.ButtonSet.OK);
+      ui.alert("API Key Saved!", "Your RiskShield API key has been stored securely.", ui.ButtonSet.OK);
     }
   }
 }
@@ -137,7 +163,6 @@ function scanEntireColumn() {
   var confirmResponse = ui.alert("Confirm Scan", confirmMsg, ui.ButtonSet.YES_NO);
   if (confirmResponse !== ui.Button.YES) return;
 
-  // Process in batches of MAX_BATCH_SIZE
   var totalScanned = 0;
   for (var b = 0; b < emails.length; b += MAX_BATCH_SIZE) {
     var batch = emails.slice(b, Math.min(b + MAX_BATCH_SIZE, emails.length));
@@ -152,10 +177,8 @@ function scanEntireColumn() {
 function processBatch_(sheet, anchorRange, emails, apiKey) {
   var ui = SpreadsheetApp.getUi();
   
-  // Show progress
-  var statusMsg = "Scanning " + emails.length + " emails...";
-  
   try {
+    var baseUrl = getApiBaseUrl_();
     var payload = JSON.stringify({ emails: emails });
     var options = {
       method: "post",
@@ -167,9 +190,14 @@ function processBatch_(sheet, anchorRange, emails, apiKey) {
       muteHttpExceptions: true,
     };
 
-    var response = UrlFetchApp.fetch(API_BASE_URL + BATCH_ENDPOINT, options);
+    var response = UrlFetchApp.fetch(baseUrl + BATCH_ENDPOINT, options);
     var responseCode = response.getResponseCode();
     var responseText = response.getContentText();
+    
+    if (responseCode === 404) {
+      ui.alert("API Not Found", "Could not reach the API at:\n" + baseUrl + BATCH_ENDPOINT + "\n\nPlease check your API Base URL in Settings.", ui.ButtonSet.OK);
+      return;
+    }
     
     if (responseCode === 401) {
       ui.alert("Invalid API Key", "Your API key was rejected. Please update it in Risk Scanner > Settings.", ui.ButtonSet.OK);
@@ -178,22 +206,21 @@ function processBatch_(sheet, anchorRange, emails, apiKey) {
     
     if (responseCode === 429) {
       var errData = JSON.parse(responseText);
-      ui.alert("Quota Exceeded", errData.message || "You have reached your usage limit. Upgrade your plan at " + API_BASE_URL + "/pricing", ui.ButtonSet.OK);
+      ui.alert("Quota Exceeded", errData.message || "You have reached your usage limit.", ui.ButtonSet.OK);
       return;
     }
     
     if (responseCode !== 200) {
-      ui.alert("Scan Error", "Server returned: " + responseCode + "\n" + responseText.substring(0, 200), ui.ButtonSet.OK);
+      ui.alert("Scan Error", "Server returned: " + responseCode + "\n" + responseText.substring(0, 300), ui.ButtonSet.OK);
       return;
     }
 
     var result = JSON.parse(responseText);
     if (!result.success || !result.results) {
-      ui.alert("Scan Error", "Unexpected response from API. Please try again.", ui.ButtonSet.OK);
+      ui.alert("Scan Error", "Unexpected response from API.", ui.ButtonSet.OK);
       return;
     }
 
-    // Write results back to sheet
     writeResults_(sheet, anchorRange, result.results);
     
     var cachedCount = result.cached_count || 0;
@@ -216,7 +243,6 @@ function writeResults_(sheet, anchorRange, results) {
   var startRow = anchorRange.getRow();
   var startCol = anchorRange.getColumn();
   
-  // Add headers if not present
   var headerRow = startRow;
   var headerRange = sheet.getRange(headerRow, startCol + 1, 1, 5);
   var existingHeaders = headerRange.getValues()[0];
@@ -228,7 +254,6 @@ function writeResults_(sheet, anchorRange, results) {
     headerRow = startRow + 1;
   }
   
-  // Write result rows
   for (var i = 0; i < results.length; i++) {
     var r = results[i];
     var row = startRow + i;
@@ -242,14 +267,13 @@ function writeResults_(sheet, anchorRange, results) {
       r.cached ? "Yes (free)" : "New"
     ]]);
     
-    // Color-code risk level
     var riskCell = sheet.getRange(row, startCol + 1);
     if (r.risk_score >= 70) {
-      riskCell.setBackground("#FEE2E2"); // Red bg
+      riskCell.setBackground("#FEE2E2");
     } else if (r.risk_score >= 40) {
-      riskCell.setBackground("#FEF3C7"); // Yellow bg
+      riskCell.setBackground("#FEF3C7");
     } else {
-      riskCell.setBackground("#D1FAE5"); // Green bg
+      riskCell.setBackground("#D1FAE5");
     }
   }
 }
