@@ -1,4 +1,4 @@
-/**
+﻿/**
  * RiskShield for Google Sheets
  * AI-Powered Email Risk Scanner Add-on
  * 
@@ -10,7 +10,7 @@
 function getApiBaseUrl_() {
   var props = PropertiesService.getUserProperties();
   var url = props.getProperty("RISKSHIELD_API_BASE_URL");
-  return url || "https://574269.xyz";
+  return url || "https://riskshield-fkjvlmia3-risk-shield-ai.vercel.app";
 }
 
 function setApiBaseUrl_(url) {
@@ -56,7 +56,7 @@ function showSettings() {
 
   var response = ui.prompt(
     "RiskShield - API Base URL",
-    "Current URL: " + currentUrl + "\n\nEnter your RiskShield API URL.\nDefault: https://574269.xyz\n\n(press Cancel to keep current)",
+    "Current URL: " + currentUrl + "\n\nEnter your RiskShield API URL.\nDefault: https://riskshield-fkjvlmia3-risk-shield-ai.vercel.app\n\n(press Cancel to keep current)",
     ui.ButtonSet.OK_CANCEL
   );
 
@@ -70,7 +70,7 @@ function showSettings() {
 
   var response2 = ui.prompt(
     "RiskShield - API Key",
-    "Current Key: " + maskedKey + "\n\nPaste your RiskShield API Key below.\nGet one at: " + getApiBaseUrl_() + "/dashboard",
+    "Current Key: " + maskedKey + "\n\nPaste your RiskShield API Key below.\nGet one at: https://574269.xyz/dashboard",
     ui.ButtonSet.OK_CANCEL
   );
 
@@ -288,3 +288,4 @@ function columnToLetter_(col) {
   }
   return letter || "A";
 }
+
