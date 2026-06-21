@@ -63,7 +63,7 @@ export default function RiskCheckPage() {
     if (data.history) setHistory(data.history);
   }
 
-  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
+  const EMAIL_REGEX = /^(?!.*\.\.)[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
 
   function isValidEmail(val: string): boolean {
     const s = val.trim().toLowerCase();

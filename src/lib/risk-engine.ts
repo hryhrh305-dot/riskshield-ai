@@ -24,7 +24,7 @@ async function getDeepSeek() {
 // ============ INPUT FIREWALL (SANITIZER) ============
 // Reject garbage input BEFORE scoring ? empty strings, headers, invalid formats, etc.
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
+const EMAIL_REGEX = /^(?!.*\.\.)[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
 
 /**
  * Validate a single email string.
