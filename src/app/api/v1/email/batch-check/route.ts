@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { calculateRiskScore, getCachedResult, setCachedResult, makeResultCacheKey } from "@/lib/risk-engine";
 import { getPlanLimits, type PlanKey } from "@/lib/plans";
@@ -131,6 +131,9 @@ export async function POST(req: NextRequest) {
         reasons: cached.reasons || [],
         details: (cached as any).details?.email || null,
         cached: true,
+        risk_factors: (cached as any).risk_factors || [],
+        recommendation: (cached as any).recommendation || "",
+        estimated_waste_cost: (cached as any).estimated_waste_cost ?? 0,
       });
       continue;
     }
@@ -145,6 +148,9 @@ export async function POST(req: NextRequest) {
       reasons: riskResult.reasons,
       details: riskResult.emailDetails,
       cached: false,
+      risk_factors: riskResult.risk_factors || [],
+      recommendation: riskResult.recommendation || "",
+      estimated_waste_cost: riskResult.estimated_waste_cost ?? 0,
     };
 
     setCachedResult(cacheKey, {
@@ -214,3 +220,5 @@ export async function POST(req: NextRequest) {
     },
   });
 }
+
+

@@ -437,10 +437,18 @@ export async function calculateRiskScore({
         riskScore += 15;
         reasons.push("Suspicious local-part pattern ?looks auto-generated");
       }
+            // Personal/Genuine email patterns (firstname/lastname format) - reduce risk
+      const personalPatterns = [/^[a-z]{2,15}\.[a-z]{2,15}$/, /^[a-z]{3,20}$/, /^[a-z]+\.[a-z]+_[0-9]+$/, /^[a-z]{2,15}[a-z]{2,15}$/];
+      let isPersonalEmail = personalPatterns.some(p => p.test(localPart.toLowerCase()));
+      if (isPersonalEmail && !spamKeywords.some(kw => localPart.toLowerCase().includes(kw))) {
+        riskScore = Math.max(0, riskScore - 10);
+        reasons.push("Personal/individual email pattern - higher trust signal");
+      }
+
       const localLower = localPart.toLowerCase();
       for (const kw of spamKeywords) {
         if (localLower === kw || localLower.startsWith(kw.replace("@", ""))) {
-          riskScore += 5;
+          riskScore += 20;
           reasons.push("Generic/non-personal email prefix: " + kw);
           break;
         }
@@ -655,13 +663,13 @@ export async function calculateRiskScore({
     autoBlacklistIfHighRisk({ type: "ip", value: ip, risk_score: riskScore, reasons }).catch(() => {});
   }
 
-  const decision: "ALLOW" | "REVIEW" | "BLOCK" = riskScore >= 70 ? "BLOCK" : riskScore >= 40 ? "REVIEW" : "ALLOW";
+  const decision: "ALLOW" | "REVIEW" | "BLOCK" = riskScore >= 66 ? "BLOCK" : riskScore >= 26 ? "REVIEW" : "ALLOW";
 
   // ============ BUSINESS IMPACT ============
   const impact: string[] = [];
-  if (riskScore >= 70) {
+  if (riskScore >= 66) {
     impact.push("[CRITICAL] Do NOT send or reply. High risk of bounce, sender reputation damage, or fraud.");
-  } else if (riskScore >= 40) {
+  } else if (riskScore >= 26) {
     impact.push("[CAUTION] Risk signals detected. Manual review recommended before sending.");
   } else {
     impact.push("[SAFE] No significant risk detected. Safe to send.");
@@ -792,7 +800,45 @@ export async function calculateRiskScore({
     });
   }
 
-  return { score: riskScore, reasons, decision, emailDetails, ipDetails, blacklistHits, impact, solution };
+  // ============ RISK FACTORS (structured for display) ============
+  const risk_factors: string[] = [];
+  if (emailDetails?.isDisposable) risk_factors.push("Disposable email detected - likely fake/temporary registration");
+  if (emailDetails?.isRoleBased) risk_factors.push("Role-based email - not a personal address");
+  if (emailDetails?.hasMX === false && emailDetails?.mxChecked) risk_factors.push("No MX records - domain cannot receive email");
+  if (emailDetails?.hasMX === true) risk_factors.push("MX records present - domain can receive email");
+  if (emailDetails?.hasSPF === true) risk_factors.push("SPF enabled - domain has sender authentication");
+  if (emailDetails?.hasSPF === false && emailDetails?.spfChecked) risk_factors.push("SPF missing - domain lacks sender authentication");
+  if (emailDetails?.hasDMARC === true) risk_factors.push("DMARC enabled - domain protected against spoofing");
+  if (emailDetails?.hasDMARC === false && emailDetails?.dmarcChecked) risk_factors.push("DMARC missing - domain vulnerable to spoofing");
+  if (emailDetails?.smtpChecked && emailDetails?.permanentRejected) risk_factors.push("SMTP permanent rejection - mailbox does not exist or has been disabled");
+  if (emailDetails?.smtpChecked && emailDetails?.mailboxFull) risk_factors.push("Inbox full - emails will bounce back");
+  if (emailDetails?.smtpChecked && emailDetails?.tempRejected) risk_factors.push("Temporary delivery failure - mail server temporarily rejecting emails");
+  if (emailDetails?.senderReputationRisk) risk_factors.push("Sender reputation: " + emailDetails.senderReputationRisk);
+  if (blacklistHits.length > 0) risk_factors.push("Blacklisted: " + blacklistHits.join(", "));
+  if (ipDetails?.isProxy) risk_factors.push("Proxy/VPN detected - cannot verify real identity");
+  if (ipDetails?.isHosting) risk_factors.push("Datacenter/hosting IP - likely automated traffic");
+  if (ipDetails?.highRiskCountry) risk_factors.push("High-risk country: " + (ipDetails?.country || "unknown"));
+
+  // ============ RECOMMENDATION ============
+  let recommendation = "";
+  if (decision === "BLOCK") {
+    recommendation = "Do NOT send email to this address. Sending will result in bounce or damage your sender reputation. Remove from your outreach list immediately.";
+  } else if (decision === "REVIEW") {
+    recommendation = "Manual verification recommended before bulk outreach. Some risk signals detected. Consider validating the contact through alternative channels first.";
+  } else {
+    recommendation = "Safe to send. No significant risk signals detected. You can proceed with outreach confidently.";
+  }
+
+  // ============ ESTIMATED WASTE COST ============
+  const costPerSend = 0.01; // .01 per email (industry average)
+  let estimatedWasteCost = 0;
+  if (decision === "BLOCK") estimatedWasteCost = costPerSend;
+  else if (decision === "REVIEW") estimatedWasteCost = costPerSend * 0.5;
+  if (emailDetails?.isDisposable) estimatedWasteCost = costPerSend * 1.5;
+  if (emailDetails?.hasMX === false && emailDetails?.mxChecked) estimatedWasteCost = costPerSend * 2;
+  estimatedWasteCost = Math.round(estimatedWasteCost * 100) / 100;
+
+  return { score: riskScore, reasons, decision, emailDetails, ipDetails, blacklistHits, impact, solution, risk_factors, recommendation, estimated_waste_cost: estimatedWasteCost };
 }
 
 
@@ -981,6 +1027,9 @@ export interface RiskScoreResult {
   score: number;
   reasons: string[];
   decision: "ALLOW" | "REVIEW" | "BLOCK";
+  risk_factors: string[];
+  recommendation: string;
+  estimated_waste_cost: number;
   emailDetails: Record<string, unknown> | null;
   ipDetails: Record<string, unknown> | null;
   blacklistHits: string[];
@@ -1155,6 +1204,7 @@ export async function calculateCompanyHealth(params: {
     },
   };
 }
+
 
 
 
