@@ -219,6 +219,15 @@ export async function calculateRiskScore({
   ip?: string | null;
   shouldCheckMX?: boolean;
 }): Promise<{
+  domainAgeDays?: number | null;
+  ipInfo?: Record<string, unknown> | null;
+}: {
+  email?: string | null;
+  ip?: string | null;
+  shouldCheckMX?: boolean;
+  domainAgeDays?: number | null;
+  ipInfo?: Record<string, unknown> | null;
+}): Promise<{
   score: number;
   reasons: string[];
   decision: "ALLOW" | "REVIEW" | "BLOCK";
@@ -240,7 +249,7 @@ export async function calculateRiskScore({
     emailDetails = {};
     const parts = email.split("@");
     if (parts.length !== 2 || !parts[0] || !parts[1]) {
-      riskScore += 40;
+      riskScore += 50;
       reasons.push("Invalid email format");
     } else {
       const domain = parts[1].toLowerCase();
@@ -248,7 +257,7 @@ export async function calculateRiskScore({
 
       // ---- 1a: Disposable / fake registration detection ----
       if (disposableDomains.has(domain)) {
-        riskScore += 45;
+        riskScore += 40;
         reasons.push("Disposable email ?likely fake/temporary registration");
       }
 
@@ -261,7 +270,7 @@ export async function calculateRiskScore({
       // ---- 1c: Suspicious TLD ----
       const tld = "." + domain.split(".").pop();
       if (suspiciousTLDs.has(tld)) {
-        riskScore += 25;
+        riskScore += 15;
         reasons.push("Suspicious TLD: " + tld + " - high abuse rate, commonly used for spam/fraud");
       }
 
@@ -337,8 +346,11 @@ export async function calculateRiskScore({
         emailDetails.mxChecked = mx.mxChecked;
 
         if (mx.mxChecked && !mx.hasMX) {
-          riskScore += 40;
+          riskScore += 30;
           reasons.push("No MX records - domain cannot receive email (mailbox does not exist)");
+        } else if (mx.mxChecked && mx.hasMX) {
+          riskScore -= 10;
+          reasons.push("Valid MX records found - domain can receive email");
         } else if (!mx.mxChecked) {
           // DNS query failed - don't penalize, but note the uncertainty
           riskScore += 0;
@@ -363,7 +375,7 @@ export async function calculateRiskScore({
                 riskScore += 35;
                 reasons.push("SMTP permanent rejection ?mailbox does not exist or has been disabled");
               } else if (smtpResult.mailboxFull) {
-                riskScore += 25;
+                riskScore += 20;
                 reasons.push("Recipient inbox full ?your email will bounce back");
               } else if (smtpResult.tempRejected) {
                 riskScore += 15;
@@ -382,7 +394,7 @@ export async function calculateRiskScore({
                 if (catchAllResult.checked && catchAllResult.valid) {
                   emailDetails.isCatchAll = true;
                   emailDetails.catchAllDetected = true;
-                  riskScore += 20;
+                  riskScore += 10;
                   reasons.push("Catch-all domain detected - accepts all emails regardless of validity");
                 } else {
                   emailDetails.isCatchAll = false;
@@ -402,8 +414,11 @@ export async function calculateRiskScore({
         emailDetails.hasSPF = spf.hasSPF;
         emailDetails.spfChecked = spf.spfChecked;
         if (spf.spfChecked && !spf.hasSPF) {
-          riskScore += 10;
+          riskScore += 5;
           reasons.push("Missing SPF record ?domain lacks sender authentication");
+        } else if (spf.spfChecked && spf.hasSPF) {
+          riskScore -= 5;
+          reasons.push("SPF record present - domain has sender authentication");
         }
 
         // ---- 2d: DMARC Record Check ----
@@ -412,8 +427,11 @@ export async function calculateRiskScore({
         emailDetails.dmarcChecked = dmarc.dmarcChecked;
         emailDetails.dmarcPolicy = dmarc.dmarcPolicy;
         if (dmarc.dmarcChecked && !dmarc.hasDMARC) {
-          riskScore += 10;
+          riskScore += 5;
           reasons.push("Missing DMARC record ?domain vulnerable to spoofing");
+        } else if (dmarc.dmarcChecked && dmarc.hasDMARC) {
+          riskScore -= 5;
+          reasons.push("DMARC record present - domain protected against spoofing");
         }
         if (dmarc.dmarcPolicy === "reject") {
           riskScore -= 5; // strict DMARC is good
@@ -546,13 +564,49 @@ export async function calculateRiskScore({
     autoBlacklistIfHighRisk({ type: "ip", value: ip, risk_score: riskScore, reasons }).catch(() => {});
   }
 
-  const decision: "ALLOW" | "REVIEW" | "BLOCK" = riskScore >= 66 ? "BLOCK" : riskScore >= 26 ? "REVIEW" : "ALLOW";
+  // ============ CATEGORY 4: DOMAIN AGE (core scoring) ============
+  if (domainAgeDays != null) {
+    if (domainAgeDays < 90) {
+      riskScore += 20;
+      reasons.push("Domain less than 90 days old - very new registration");
+    } else if (domainAgeDays < 365) {
+      riskScore += 10;
+      reasons.push("Domain less than 1 year old - relatively new");
+    } else if (domainAgeDays >= 365) {
+      riskScore -= 10;
+      reasons.push("Domain older than 1 year - established domain (trust signal)");
+    }
+  }
+
+  // ============ CATEGORY 5: IP RISK (core scoring) ============
+  if (ipDetails) {
+    if (ip === "127.0.0.1" || ip === "::1") {
+      riskScore += 10;
+      reasons.push("Localhost IP - self-referenced");
+    } else if ((ip && (ip.startsWith("10.") || ip.startsWith("192.168.") || /^172\.(1[6-9]|2\d|3[01])\./.test(ip || "")))) {
+      riskScore += 5;
+      reasons.push("Private network IP - cannot verify external identity");
+    }
+    if (ipDetails.isProxy === true || ipDetails.proxy === true) {
+      riskScore += 30;
+      reasons.push("VPN/Proxy detected - identity hidden, potential abuse risk");
+    }
+    if (ipDetails.isHosting === true || ipDetails.hosting === true) {
+      riskScore += 20;
+      reasons.push("Datacenter/hosting IP - likely automated traffic");
+    }
+  }
+
+  // ============ FINAL SCORE CLAMP (0-100) ============
+  riskScore = Math.max(0, Math.min(100, riskScore));
+
+  const decision: "ALLOW" | "REVIEW" | "BLOCK" = riskScore >= 60 ? "BLOCK" : riskScore >= 30 ? "REVIEW" : "ALLOW";
 
   // ============ BUSINESS IMPACT ============
   const impact: string[] = [];
-  if (riskScore >= 66) {
+  if (riskScore >= 60) {
     impact.push("[CRITICAL] Do NOT send or reply. High risk of bounce, sender reputation damage, or fraud.");
-  } else if (riskScore >= 26) {
+  } else if (riskScore >= 30) {
     impact.push("[CAUTION] Risk signals detected. Manual review recommended before sending.");
   } else {
     impact.push("[SAFE] No significant risk detected. Safe to send.");

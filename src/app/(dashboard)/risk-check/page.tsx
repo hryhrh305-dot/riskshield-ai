@@ -126,7 +126,7 @@ export default function RiskCheckPage() {
     d === "BLOCK" ? <XCircle className="w-5 h-5 text-red-600" /> : d === "REVIEW" ? <AlertTriangle className="w-5 h-5 text-yellow-600" /> : <CheckCircle className="w-5 h-5 text-green-600" />;
 
   const scoreColor = (s: number) =>
-    s >= 70 ? "text-red-600" : s >= 40 ? "text-yellow-600" : "text-green-600";
+    s >= 60 ? "text-red-600" : s >= 30 ? "text-yellow-600" : "text-green-600";
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -226,7 +226,7 @@ export default function RiskCheckPage() {
               </div>
               <div className="mt-3 bg-gray-200 rounded-full h-2">
                 <div
-                  className={`h-2 rounded-full transition-all duration-700 ${result.risk_score >= 70 ? "bg-red-500" : result.risk_score >= 40 ? "bg-yellow-500" : "bg-green-500"}`}
+                  className={`h-2 rounded-full transition-all duration-700 ${result.risk_score >= 60 ? "bg-red-500" : result.risk_score >= 30 ? "bg-yellow-500" : "bg-green-500"}`}
                   style={{ width: result.risk_score + "%" }}
                 />
               </div>

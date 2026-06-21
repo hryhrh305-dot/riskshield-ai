@@ -154,8 +154,13 @@ export async function POST(request: NextRequest) {
   for (let i = 0; i < emails.length; i += BATCH_SIZE) {
     const batch = emails.slice(i, i + BATCH_SIZE);
     const batchResults = await Promise.all(batch.map(async (email) => {
-      const riskResult = await calculateRiskScore({ email, shouldCheckMX: true });
-      const decision = riskResult.score >= 66 ? "BLOCK" : riskResult.score >= 26 ? "REVIEW" : "ALLOW";
+      const domain = email.split("@")[1]?.toLowerCase();
+      let domainAgeDays: number | null = null;
+      if (domain) {
+        try { const age = await checkDomainAge(domain); domainAgeDays = age.ageDays; } catch { /* skip */ }
+      }
+      const riskResult = await calculateRiskScore({ email, shouldCheckMX: true, domainAgeDays });
+      const decision = riskResult.decision;
 
       let healthScore: number | null = null;
       const domain = email.split("@")[1]?.toLowerCase();

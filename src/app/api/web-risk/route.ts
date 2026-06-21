@@ -140,7 +140,15 @@ export async function POST(request: NextRequest) {
   }
 
   // === STEP 2: Run the actual risk check ===
-  const riskResult = await calculateRiskScore({ email, ip: requestIP });
+  // Compute domain age before risk check (for core scoring)
+  let domainAgeDays: number | null = null;
+  if (email) {
+    const domain = email.split("@")[1]?.toLowerCase();
+    if (domain) {
+      try { const age = await checkDomainAge(domain); domainAgeDays = age.ageDays; } catch { /* skip */ }
+    }
+  }
+  const riskResult = await calculateRiskScore({ email, ip: requestIP, domainAgeDays });
   const aiReason = await getAIExplanation(email, requestIP, riskResult.score, riskResult.reasons);
 
   // Domain extraction for Company Health Score

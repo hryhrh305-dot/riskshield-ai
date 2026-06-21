@@ -94,7 +94,7 @@ export default function BulkCheckPage() {
     URL.revokeObjectURL(url);
   }
 
-  const scoreColor = (s: number) => s >= 70 ? "text-red-600" : s >= 40 ? "text-yellow-600" : "text-green-600";
+  const scoreColor = (s: number) => s >= 60 ? "text-red-600" : s >= 30 ? "text-yellow-600" : "text-green-600";
   const decisionBadge = (d: string) => d === "BLOCK" ? "bg-red-50 text-red-600" : d === "REVIEW" ? "bg-yellow-50 text-yellow-600" : "bg-green-50 text-green-600";
 
   return (
