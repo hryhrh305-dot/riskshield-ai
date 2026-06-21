@@ -66,7 +66,7 @@ export default function BulkCheckPage() {
           r.email || "",
           r.risk_score ?? "",
           r.risk_level || "",
-          r.decision || "",
+          r.risk_level || "",
           r.disposable ? "Yes" : "No",
           r.hasMX ? "Yes" : "No",
           (r.reasons || []).join("; "),
@@ -84,7 +84,7 @@ export default function BulkCheckPage() {
         r.email || "",
         r.risk_score ?? "",
         r.risk_level || "",
-        r.decision || "",
+        r.risk_level || "",
         r.disposable ? "Yes" : "No",
         r.hasMX ? "Yes" : "No",
         (r.reasons || []).join("; "),
@@ -104,10 +104,10 @@ export default function BulkCheckPage() {
   function exportCSV(filter: "all" | "clean" | "risky") {
     if (!results) return;
     const filtered = filter === "all" ? results : filter === "clean"
-      ? results.filter(r => r.decision === "ALLOW")
-      : results.filter(r => r.decision !== "ALLOW");
+      ? results.filter(r => r.risk_level === "ALLOW")
+      : results.filter(r => r.risk_level !== "ALLOW");
     const header = "email,risk_score,decision,disposable,hasMX,mxChecked,reasons";
-    const rows = filtered.map(r => `${r.email},${r.risk_score},${r.decision},${r.disposable},${r.hasMX},${r.mxChecked},"${r.reasons.join("; ")}"`);
+    const rows = filtered.map(r => `${r.email},${r.risk_score},${r.risk_level},${r.disposable},${r.hasMX},${r.mxChecked},"${r.reasons.join("; ")}"`);
     const csv = header + "\n" + rows.join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -250,7 +250,7 @@ export default function BulkCheckPage() {
                       <td className={`px-4 py-2.5 font-bold ${scoreColor(r.risk_score)}`}>{r.risk_score}</td>
                       <td className="px-4 py-2.5 font-bold text-blue-700">{r.health_score ?? "-"}</td>
                       <td className="px-4 py-2.5">
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${decisionBadge(r.decision)}`}>{r.decision}</span>
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${decisionBadge(r.risk_level)}`}>{r.risk_level}</span>
                       </td>
                       <td className="px-4 py-2.5 text-gray-500 text-xs">{r.reasons.join(", ") || "-"}</td>
                       <td className="px-4 py-2.5">{r.disposable ? <XCircle className="w-4 h-4 text-red-500" /> : <CheckCircle className="w-4 h-4 text-green-500" />}</td>

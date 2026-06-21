@@ -343,7 +343,7 @@ export async function calculateRiskScore({
           // DNS query failed - don't penalize, but note the uncertainty
           riskScore += 0;
           reasons.push("MX lookup failed - could not verify mail server (network limitation, not a risk signal)");
-
+        }
 
         // ---- 2b: SMTP Mailbox Existence Check (deep validation) ----
         // Attempt lightweight SMTP RCPT TO check

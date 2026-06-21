@@ -183,18 +183,23 @@ export async function POST(request: NextRequest) {
         email,
         risk_score: riskResult.score,
         health_score: healthScore,
-        decision,
+        risk_level: decision,
         reasons: riskResult.reasons,
+        risk_factors: riskResult.risk_factors || [],
+        recommendation: riskResult.recommendation || "",
+        estimated_waste_cost: riskResult.estimated_waste_cost ?? 0,
         disposable: (riskResult.emailDetails?.isDisposable as boolean) || false,
         hasMX: (riskResult.emailDetails?.hasMX as boolean) || false,
         mxChecked: (riskResult.emailDetails?.mxChecked as boolean) || false,
         impact: riskResult.impact || [],
+        solution: riskResult.solution || [],
+        cached: false,
       };
     }));
 
     for (const r of batchResults) {
-      if (r.decision === "ALLOW") cleanCount++;
-      else if (r.decision === "REVIEW") riskyCount++;
+      if (r.risk_level === "ALLOW") cleanCount++;
+      else if (r.risk_level === "REVIEW") riskyCount++;
       else blockedCount++;
       results.push(r);
     }
@@ -215,9 +220,9 @@ export async function POST(request: NextRequest) {
   // Check if XLSX download requested
   const url = request.nextUrl;
   if (url.searchParams.get("format") === "xlsx") {
-    const wsData = [["email", "risk_score", "health_score", "decision", "disposable", "hasMX", "reasons"]];
+    const wsData = [["email", "risk_score", "health_score", "risk_level", "disposable", "hasMX", "reasons", "recommendation"]];
     for (const r of results) {
-      wsData.push([r.email, String(r.risk_score), String(r.health_score ?? ""), r.decision, r.disposable ? "Yes" : "No", r.hasMX ? "Yes" : "No", r.reasons.join("; ")]);
+      wsData.push([r.email, String(r.risk_score), String(r.health_score ?? ""), r.risk_level, r.disposable ? "Yes" : "No", r.hasMX ? "Yes" : "No", r.reasons.join("; ")]);
     }
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(wsData);
