@@ -1,4 +1,4 @@
-ï»¿import dns from "dns/promises";
+import dns from "dns/promises";
 import { checkBlacklist, autoBlacklistIfHighRisk } from "@/lib/blacklist";
 import { disposableDomainsSet } from "@/lib/disposable-domains";
 const disposableDomains: Set<string> = disposableDomainsSet;
@@ -82,12 +82,12 @@ export const suspiciousTLDs = new Set([
 interface CacheEntry { data: Record<string, unknown>; ts: number; }
 const ipCache = new Map<string, CacheEntry>();
 const dnsCache = new Map<string, CacheEntry>();
-const CACHE_TTL = 24 * 60 * 60 * 1000;
+const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
 
 
 // ============ RESULT-LEVEL CACHE (24h TTL, avoids re-consuming credits) ============
 const resultCache = new Map<string, { result: Record<string, unknown>; ts: number }>();
-const RESULT_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+const RESULT_CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export function getCachedResult(key: string): Record<string, unknown> | null {
   const entry = resultCache.get(key);
@@ -1067,19 +1067,19 @@ export async function calculateCompanyHealth(params: {
   // === Grade ===
   let grade: string, stars: string, label: string, recommendation: string;
   if (healthScore >= 85) {
-    grade = "A"; stars = "â˜…â˜…â˜…â˜…â˜…"; label = "Trusted Business";
+    grade = "A"; stars = "¡ï¡ï¡ï¡ï¡ï"; label = "Trusted Business";
     recommendation = "Safe for onboarding and sales engagement. Low risk profile.";
   } else if (healthScore >= 70) {
-    grade = "B"; stars = "â˜…â˜…â˜…â˜…â˜†"; label = "Likely Legitimate";
+    grade = "B"; stars = "¡ï¡ï¡ï¡ï¡î"; label = "Likely Legitimate";
     recommendation = "Proceed with standard verification. Minor risk signals present.";
   } else if (healthScore >= 50) {
-    grade = "C"; stars = "â˜…â˜…â˜…â˜†â˜†"; label = "Needs Review";
+    grade = "C"; stars = "¡ï¡ï¡ï¡î¡î"; label = "Needs Review";
     recommendation = "Manual review recommended before committing resources. Verify company details.";
   } else if (healthScore >= 30) {
-    grade = "D"; stars = "â˜…â˜…â˜†â˜†â˜†"; label = "High Risk";
+    grade = "D"; stars = "¡ï¡ï¡î¡î¡î"; label = "High Risk";
     recommendation = "Significant risk signals detected. Require additional verification before engagement.";
   } else {
-    grade = "F"; stars = "â˜…â˜†â˜†â˜†â˜†"; label = "Do Not Engage";
+    grade = "F"; stars = "¡ï¡î¡î¡î¡î"; label = "Do Not Engage";
     recommendation = "Multiple critical risk signals. Do NOT proceed with sales or onboarding.";
   }
 

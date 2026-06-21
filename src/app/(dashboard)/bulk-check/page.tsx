@@ -22,6 +22,96 @@ export default function BulkCheckPage() {
   const [results, setResults] = useState<BulkResult[] | null>(null);
   const [summary, setSummary] = useState<Record<string, number> | null>(null);
   const [error, setError] = useState("");
+  const [xlsxDownloading, setXlsxDownloading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+
+  async function handleFile(file: File) {
+    setLoading(true); setError(""); setResults(null); setSummary(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/bulk-check", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Upload failed"); return; }
+      setResults(data.results);
+      setSummary(data.summary);
+    } catch { setError("Network error"); }
+    finally { setLoading(false); }
+  }
+
+  async function handlePaste() {
+    if (!text.trim()) { setError("Paste emails (one per line) or upload a CSV."); return; }
+    setLoading(true); setError(""); setResults(null); setSummary(null);
+    try {
+      const res = await fetch("/api/bulk-check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Check failed"); return; }
+      setResults(data.results);
+      setSummary(data.summary);
+    } catch { setError("Network error"); }
+    finally { setLoading(false); }
+  }
+
+  async function downloadXLSX() {
+    if (!results || results.length === 0) return;
+    setXlsxDownloading(true);
+    try {
+      const res = await fetch('/api/bulk-check?format=xlsx', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails: results.map(r => r.email) }),
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = 'riskshield-results.xlsx'; a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        throw new Error('Server XLSX failed');
+      }
+    } catch {
+      const headers = ['email','risk_score','risk_level','disposable','hasMX','reasons','recommendation'];
+      const rows = results.map(r => [
+        r.email || '', r.risk_score ?? '', r.risk_level || '',
+        r.disposable ? 'Yes' : 'No', r.hasMX ? 'Yes' : 'No',
+        '"' + (r.reasons || []).join('; ').replace(/"/g, '""') + '"',
+        '"' + (r.recommendation || '').replace(/"/g, '""') + '"'
+      ].join(','));
+      const csv = '\uFEFF' + headers.join(',') + '\n' + rows.join('\n');
+      const blob = new Blob([csv], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'riskshield-results.xlsx'; a.click();
+      URL.revokeObjectURL(url);
+    }
+    finally { setXlsxDownloading(false); }
+  }
+
+  async function downloadCSV useState } from "react";
+import Link from "next/link";
+import { Upload, FileText, Download, CheckCircle, AlertTriangle, XCircle, ArrowRight, BarChart3, Shield } from "lucide-react";
+
+interface BulkResult {
+  impact?: string[];
+  email: string;
+  risk_score: number;
+  health_score: number | null;
+  decision: string;
+  reasons: string[];
+  disposable: boolean;
+  hasMX: boolean;
+  mxChecked: boolean;
+}
+
+export default function BulkCheckPage() {
+  const [text, setText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState<BulkResult[] | null>(null);
+  const [summary, setSummary] = useState<Record<string, number> | null>(null);
+  const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
 
   async function handleFile(file: File) {
@@ -190,7 +280,7 @@ export default function BulkCheckPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold text-lg flex items-center gap-2"><BarChart3 className="w-5 h-5 text-blue-600" /> Campaign Risk Report</h2>
               <div className="flex gap-2">
-                <button onClick={downloadXLSX} className="flex items-center gap-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1.5 rounded-lg"><Download className="w-3 h-3" /> XLSX</button>
+                <button onClick={downloadXLSX} disabled={xlsxDownloading} className="flex items-center gap-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1.5 rounded-lg disabled:opacity-50">{xlsxDownloading ? "Generating..." : <><Download className="w-3 h-3" /> XLSX</>}</button>
                 <button onClick={() => exportCSV("all")} className="flex items-center gap-1 text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg"><Download className="w-3 h-3" /> All CSV</button>
                 <button onClick={() => exportCSV("clean")} className="flex items-center gap-1 text-xs bg-green-50 hover:bg-green-100 text-green-700 px-3 py-1.5 rounded-lg"><Download className="w-3 h-3" /> Clean</button>
                 <button onClick={() => exportCSV("risky")} className="flex items-center gap-1 text-xs bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-lg"><Download className="w-3 h-3" /> Risky</button>

@@ -233,7 +233,7 @@ export async function POST(req: NextRequest) {
       allow: allowCount,
       review: reviewCount,
       block: blockCount,
-      allow_pct: batchSize > 0 ? (100 - Math.round(((reviewCount + blockCount) / batchSize) * 100)) : 0,
+      allow_pct: batchSize > 0 ? Math.round((allowCount / batchSize) * 100) : 0,
       review_pct: batchSize > 0 ? Math.round((reviewCount / batchSize) * 100) : 0,
       block_pct: batchSize > 0 ? Math.round((blockCount / batchSize) * 100) : 0,
       estimated_waste_pct: blockCount > 0 ? Math.round((blockCount / batchSize) * 100) : 0,
