@@ -236,9 +236,9 @@ export async function POST(req: NextRequest) {
       allow_pct: batchSize > 0 ? Math.round((allowCount / batchSize) * 100) : 0,
       review_pct: batchSize > 0 ? Math.round((reviewCount / batchSize) * 100) : 0,
       block_pct: batchSize > 0 ? Math.round((blockCount / batchSize) * 100) : 0,
-      estimated_waste_sends: reviewCount + blockCount,
+      estimated_waste_pct: blockCount > 0 ? Math.round((blockCount / batchSize) * 100) : 0,
       estimated_waste_cost_total: Math.round(totalWasteCost * 100) / 100,
-      estimated_savings: Math.round((reviewCount + blockCount) * 0.01 * 100) / 100,
+      estimated_savings: Math.round(blockCount * 0.01 * 100) / 100,
     },
     quota: {
       monthly_used: monthlyUsed + creditsConsumed,
