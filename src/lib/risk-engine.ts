@@ -343,9 +343,7 @@ export async function calculateRiskScore({
           // DNS query failed - don't penalize, but note the uncertainty
           riskScore += 0;
           reasons.push("MX lookup failed - could not verify mail server (network limitation, not a risk signal)");
-        } else if (!mx.mxChecked) {
-          riskScore += 5;
-        }
+
 
         // ---- 2b: SMTP Mailbox Existence Check (deep validation) ----
         // Attempt lightweight SMTP RCPT TO check
@@ -378,7 +376,7 @@ export async function calculateRiskScore({
 
             // P1-6: Catch-all detection - probe with random username
             if (smtpResult.checked && smtpResult.valid) {
-              const randomUser = "rs" + Math.random().toString(36).substring(2, 10) + "@" + domain;
+              const randomUser = "rs-probe-" + Date.now().toString(36) + "@" + domain;
               try {
                 const catchAllResult = await checkSMTPMailbox(domain, randomUser, mx.mxRecords[0]);
                 if (catchAllResult.checked && catchAllResult.valid) {
