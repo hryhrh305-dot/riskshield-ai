@@ -36,7 +36,7 @@ async function getUserFromRequest(request: NextRequest) {
 }
 
 function parseEmails(text: string): string[] {
-  const lines = text.split(/[\r\n,;\t]+/);
+  const lines = text.split(/[\s,;]+/);
   return cleanEmails(lines);
 }
 
