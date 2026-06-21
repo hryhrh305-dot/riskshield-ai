@@ -51,12 +51,13 @@ function setApiKey_(key) {
 function showSettings() {
   var ui = SpreadsheetApp.getUi();
   var currentKey = getApiKey_() || "";
-  var maskedKey = currentKey ? currentKey.slice(0, 8) + "..." + currentKey.slice(-6) : "(not set)";
-  var currentUrl = getApiBaseUrl_();
+  var maskedKey = currentKey ? currentKey.slice(0, 12) + "..." + currentKey.slice(-8) : "(not set)";
+  var currentUrl = getApiBaseUrl_() || "https://www.574269.xyz";
 
+  // Clear old settings first to avoid confusion
   var response = ui.prompt(
-    "RiskShield - API Base URL",
-    "Current URL: " + currentUrl + "\n\nEnter your RiskShield API URL.\nDefault: https://www.574269.xyz\n\n(press Cancel to keep current)",
+    "RiskShield Settings",
+    "Current API Key: " + maskedKey + "\nCurrent API URL: " + currentUrl + "\n\nStep 1: Enter API Base URL below (or press Cancel to keep current).\nDefault: https://www.574269.xyz",
     ui.ButtonSet.OK_CANCEL
   );
 
@@ -64,21 +65,25 @@ function showSettings() {
     var newUrl = response.getResponseText().trim();
     if (newUrl && newUrl.indexOf("http") === 0) {
       setApiBaseUrl_(newUrl);
-      ui.alert("URL Saved!", "API Base URL: " + newUrl, ui.ButtonSet.OK);
+      currentUrl = newUrl;
     }
   }
 
   var response2 = ui.prompt(
-    "RiskShield - API Key",
-    "Current Key: " + maskedKey + "\n\nPaste your RiskShield API Key below.\nGet one at: https://574269.xyz/dashboard",
+    "RiskShield Settings",
+    "Current API Key: " + maskedKey + "\nCurrent API URL: " + currentUrl + "\n\nStep 2: Paste your RiskShield API Key below.\nGet one at: https://574269.xyz/dashboard\n\nExample key format: fsk_...",
     ui.ButtonSet.OK_CANCEL
   );
 
   if (response2.getSelectedButton() === ui.Button.OK) {
     var newKey = response2.getResponseText().trim();
-    if (newKey) {
+    if (newKey && newKey.indexOf("fsk_") === 0) {
+      // Clear old key before setting new one
+      try { PropertiesService.getUserProperties().deleteProperty("RISKSHIELD_API_KEY"); } catch(e) {}
       setApiKey_(newKey);
-      ui.alert("API Key Saved!", "Your RiskShield API key has been stored securely.", ui.ButtonSet.OK);
+      ui.alert("Settings Saved!", "API Key: " + newKey.slice(0, 12) + "...\nAPI URL: " + currentUrl + "\n\nTry scanning now.", ui.ButtonSet.OK);
+    } else if (newKey) {
+      ui.alert("Invalid Key Format", "API keys must start with 'fsk_'. Please check your key and try again.\n\nGet your key at: https://574269.xyz/dashboard", ui.ButtonSet.OK);
     }
   }
 }
@@ -219,7 +224,12 @@ function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCe
     }
     
     if (responseCode === 401) {
-      ui.alert("Invalid API Key", "Your API key was rejected. Please update it in Risk Scanner > Settings.", ui.ButtonSet.OK);
+      // Clear cached bad credentials so user can re-enter fresh ones
+      try {
+        PropertiesService.getUserProperties().deleteProperty("RISKSHIELD_API_KEY");
+        PropertiesService.getUserProperties().deleteProperty("RISKSHIELD_API_BASE_URL");
+      } catch(e) { /* ignore */ }
+      ui.alert("API Key Rejected", "Your stored API key or URL is invalid and has been cleared.\n\nPlease go to Risk Scanner > Settings and re-enter your API Key and URL.\n\nDefault URL: https://www.574269.xyz\n\nIf you need a new API key, visit: https://574269.xyz/dashboard", ui.ButtonSet.OK);
       return;
     }
     
