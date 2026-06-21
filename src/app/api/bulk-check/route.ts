@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { calculateRiskScore, checkDomainAge, getDNSHealthScore, calculateCompanyHealth } from "@/lib/risk-engine";
+import { calculateRiskScore, checkDomainAge, getDNSHealthScore, calculateCompanyHealth, cleanEmail, cleanEmails } from "@/lib/risk-engine";
 import { costControlCheck } from "@/lib/cost-control";
 import * as XLSX from "xlsx";
 
@@ -37,9 +37,7 @@ async function getUserFromRequest(request: NextRequest) {
 
 function parseEmails(text: string): string[] {
   const lines = text.split(/[\r\n,;\t]+/);
-  return lines
-    .map(l => l.trim().toLowerCase())
-    .filter(l => l && l.includes("@") && !l.startsWith("#") && !l.startsWith("//"));
+  return cleanEmails(lines);
 }
 
 // Detect column index for email in XLSX/CSV data
@@ -77,7 +75,8 @@ function parseFileBuffer(buffer: Buffer, filename: string): { emails: string[]; 
   if (emailCol >= 0) {
     emails = rows.slice(1)
       .map(r => (r[emailCol] || "").trim().toLowerCase())
-      .filter(e => e && e.includes("@"));
+      .filter(e => !!e);
+    emails = cleanEmails(emails);
   } else {
     // Fallback: scan all cells for emails
     const emailSet = new Set<string>();
@@ -87,7 +86,7 @@ function parseFileBuffer(buffer: Buffer, filename: string): { emails: string[]; 
         if (v.includes("@")) emailSet.add(v);
       }
     }
-    emails = [...emailSet];
+    emails = cleanEmails([...emailSet]);
   }
 
   return { emails, rows };
@@ -121,7 +120,7 @@ export async function POST(request: NextRequest) {
     try {
       const body = await request.json();
       if (body.emails && Array.isArray(body.emails)) {
-        emails = body.emails.map((e: string) => e.trim().toLowerCase()).filter(Boolean);
+        emails = cleanEmails(body.emails);
       } else if (body.text) {
         emails = parseEmails(body.text);
       }
