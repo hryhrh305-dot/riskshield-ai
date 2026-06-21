@@ -1,6 +1,6 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { calculateRiskScore, getCachedResult, setCachedResult, makeResultCacheKey } from "@/lib/risk-engine";
+import { calculateRiskScore, getCachedResult, setCachedResult, makeResultCacheKey, cleanEmails } from "@/lib/risk-engine";
 import { getPlanLimits, type PlanKey } from "@/lib/plans";
 import { planCostLimits } from "@/lib/cost-control";
 
@@ -76,7 +76,17 @@ export async function POST(req: NextRequest) {
     apiKey = (body as any).api_key;
   }
 
-  const validEmails = emails.map((e: string) => e.trim().toLowerCase()).filter((e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(e));
+  const rawCount = emails.length;
+  const validEmails = cleanEmails(emails);
+  const skippedCount = rawCount - validEmails.length;
+  if (validEmails.length === 0) {
+    return NextResponse.json({
+      error: "NO_VALID_EMAILS",
+      message: "No valid email addresses found in the input. Skipped " + rawCount + " row(s). Ensure each row contains a proper email like user@example.com.",
+      skipped: rawCount,
+    }, { status: 400 });
+  }
+
   const batchSize = validEmails.length;
 
   // Check quotas

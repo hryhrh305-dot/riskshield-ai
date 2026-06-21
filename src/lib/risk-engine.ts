@@ -21,6 +21,43 @@ async function getDeepSeek() {
   }
   return _deepseek;
 }
+// ============ INPUT FIREWALL (SANITIZER) ============
+// Reject garbage input BEFORE scoring ? empty strings, headers, invalid formats, etc.
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
+
+/**
+ * Validate a single email string.
+ * Returns the normalized (lowercased) email, or null if invalid.
+ */
+export function cleanEmail(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const s = raw.toString().trim().toLowerCase();
+  if (!s) return null;                          // empty / whitespace-only
+  if (s.startsWith("#")) return null;           // markdown-style headers
+  if (s.includes(" ")) return null;             // spaces = not an email
+  if (!EMAIL_REGEX.test(s)) return null;        // fails basic email pattern
+  return s;
+}
+
+/**
+ * Validate and clean an array of email strings.
+ * Skips empty rows, headers (#), spaces, and malformed inputs.
+ * Returns only valid, normalized emails.
+ */
+export function cleanEmails(rawList: (string | null | undefined)[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const raw of rawList) {
+    const cleaned = cleanEmail(raw);
+    if (cleaned && !seen.has(cleaned)) {
+      seen.add(cleaned);
+      result.push(cleaned);
+    }
+  }
+  return result;
+}
+
 // ============ LAYER 1: LOCAL RULES (ZERO COST) ============
 
 export const disposableDomains = new Set([

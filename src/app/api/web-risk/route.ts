@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { calculateRiskScore, getAIExplanation, checkDomainAge, getDNSHealthScore, calculateCompanyHealth, getCachedResult, setCachedResult, makeResultCacheKey } from "@/lib/risk-engine";
+import { calculateRiskScore, getAIExplanation, checkDomainAge, getDNSHealthScore, calculateCompanyHealth, getCachedResult, setCachedResult, makeResultCacheKey, cleanEmail } from "@/lib/risk-engine";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ");
@@ -94,10 +94,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const email = body.email?.trim().toLowerCase() || null;
+  const rawEmail = body.email?.trim() || null;
+  const email = cleanEmail(rawEmail); // input firewall: rejects empty, headers, spaces, invalid format
   const requestIP = body.ip?.trim() || null;
 
   if (!email && !requestIP) {
+    if (rawEmail && !email) {
+      return NextResponse.json({ error: "Invalid email format. Please enter a valid email address like user@example.com." }, { status: 400 });
+    }
     return NextResponse.json({ error: "Please provide an email or IP address." }, { status: 400 });
   }
 

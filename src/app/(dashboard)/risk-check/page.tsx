@@ -63,10 +63,24 @@ export default function RiskCheckPage() {
     if (data.history) setHistory(data.history);
   }
 
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
+
+  function isValidEmail(val: string): boolean {
+    const s = val.trim().toLowerCase();
+    if (!s) return false;
+    if (s.startsWith("#")) return false;
+    if (s.includes(" ")) return false;
+    return EMAIL_REGEX.test(s);
+  }
+
   async function handleCheck(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim() && !ip.trim()) {
       setError("Please enter an email or IP address.");
+      return;
+    }
+    if (email.trim() && !isValidEmail(email.trim())) {
+      setError("Invalid email format. Please enter a valid email like user@example.com.");
       return;
     }
     if (!user) {
