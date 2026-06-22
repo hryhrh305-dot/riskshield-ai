@@ -303,7 +303,7 @@ export default function DashboardPage() {
           <h2 className="font-semibold flex items-center gap-2 mb-1"><Settings className="w-5 h-5" /> Protection Settings</h2>
           <p className="text-xs text-gray-400 mb-4">Toggle which risks should force BLOCK or REVIEW. Applies to web checks and API.</p>
           <div className="space-y-3 mb-4">
-            {settings && [
+            {(settings || { block_disposable: true, block_high_risk: true, review_catch_all: true, review_new_domain: true }) && [
               { key: "block_disposable", label: "Block disposable emails", desc: "Force BLOCK on temporary/disposable email addresses" },
               { key: "block_high_risk", label: "Block high risk score", desc: "Force BLOCK when risk score is 60 or above" },
               { key: "review_catch_all", label: "Review catch-all domains", desc: "Force REVIEW on domains that accept all mailboxes" },

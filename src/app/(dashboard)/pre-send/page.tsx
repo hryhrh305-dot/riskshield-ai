@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase";
 import Link from "next/link";
 import { Shield, ChevronDown, ChevronUp, BarChart3, ArrowRight } from "lucide-react";
 
