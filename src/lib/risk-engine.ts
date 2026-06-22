@@ -250,6 +250,7 @@ export async function calculateRiskScore({
   email,
   ip,
   shouldCheckMX = true,
+  domainAgeDays,
 }: {
   email?: string | null;
   ip?: string | null;
