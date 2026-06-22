@@ -126,8 +126,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to process credit. Please try again." }, { status: 500 });
   }
 
-  const creditSuccess = creditResult?.success ?? false;
-  const newCredits = creditResult?.credits_remaining ?? (creditsRemaining - 1);
+  const creditSuccess = creditResult?.[0]?.success ?? false;
+  const newCredits = creditResult?.[0]?.remaining ?? (creditsRemaining - 1);
 
   console.log("[RiskCheck] credit consumed, remaining:", newCredits);
 
