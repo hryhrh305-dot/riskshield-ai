@@ -315,7 +315,7 @@ export default function DashboardPage() {
                   <div className="text-xs text-gray-400">{desc}</div>
                 </div>
                 <button
-                  onClick={() => setSettings({ ...settings, [key]: !(settings as any)[key] })}
+                  onClick={() => { const s = settings || { block_disposable: true, block_high_risk: true, review_catch_all: true, review_new_domain: true }; setSettings({ ...s, [key]: !(s as any)[key] }); }}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${(settings as any)[key] ? 'bg-blue-600' : 'bg-gray-300'}`}
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${(settings as any)[key] ? 'translate-x-6' : 'translate-x-1'}`} />
