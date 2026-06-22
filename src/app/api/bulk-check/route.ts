@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
       const decision = riskResult.decision;
 
       let healthScore: number | null = null;
-      const domain = email.split("@")[1]?.toLowerCase();
+      // domain is already declared above (line 157), reusing
       if (domain) {
         try {
           const age = await checkDomainAge(domain);

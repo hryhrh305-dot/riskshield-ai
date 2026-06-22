@@ -254,13 +254,6 @@ export async function calculateRiskScore({
   email?: string | null;
   ip?: string | null;
   shouldCheckMX?: boolean;
-}): Promise<{
-  domainAgeDays?: number | null;
-  ipInfo?: Record<string, unknown> | null;
-}: {
-  email?: string | null;
-  ip?: string | null;
-  shouldCheckMX?: boolean;
   domainAgeDays?: number | null;
   ipInfo?: Record<string, unknown> | null;
 }): Promise<{
