@@ -6,6 +6,36 @@ export async function GET() {
     'ALTER TABLE profiles ADD COLUMN IF NOT EXISTS subscription_end TIMESTAMPTZ',
     "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'active'",
     'ALTER TABLE profiles ADD COLUMN IF NOT EXISTS risk_settings JSONB',
+    'ALTER TABLE profiles ADD COLUMN IF NOT EXISTS credits_remaining INTEGER DEFAULT 1000',
+    'ALTER TABLE profiles ADD COLUMN IF NOT EXISTS total_checks INTEGER DEFAULT 0',
+    `CREATE OR REPLACE FUNCTION consume_credit(p_user_id UUID)
+    RETURNS TABLE(success boolean, remaining integer)
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS \$\$
+    DECLARE
+      cur_credits INTEGER;
+    BEGIN
+      SELECT credits_remaining INTO cur_credits FROM profiles WHERE id = p_user_id;
+      IF cur_credits IS NULL THEN
+        RETURN QUERY SELECT false, 0;
+        RETURN;
+      END IF;
+      IF cur_credits <= 0 THEN
+        RETURN QUERY SELECT false, cur_credits;
+        RETURN;
+      END IF;
+      UPDATE profiles SET credits_remaining = credits_remaining - 1 WHERE id = p_user_id;
+      SELECT credits_remaining INTO cur_credits FROM profiles WHERE id = p_user_id;
+      RETURN QUERY SELECT true, cur_credits;
+    END;
+    \$\import { NextResponse } from "next/server";
+import { Pool } from "pg";
+
+export async function GET() {
+  const sqls = [
+    'ALTER TABLE profiles ADD COLUMN IF NOT EXISTS subscription_end TIMESTAMPTZ',
+    "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'active'",
+    ,
     `CREATE TABLE IF NOT EXISTS pre_send_checks (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
