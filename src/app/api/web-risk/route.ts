@@ -70,6 +70,7 @@ function buildResponseData(email: string | null, requestIP: string | null, riskR
 }
 
 export async function POST(request: NextRequest) {
+try {
   const user = await getUserFromRequest(request);
   if (!user) {
     return NextResponse.json({ error: "Please log in to use the risk checker." }, { status: 401 });
@@ -254,6 +255,11 @@ export async function POST(request: NextRequest) {
     ...cacheData,
     credits: { remaining: newCredits, success: creditSuccess },
   });
+} catch (e) {
+  const msg = e instanceof Error ? e.message : String(e);
+  console.error("[RiskCheck] UNCAUGHT:", msg);
+  return NextResponse.json({ error: "INTERNAL", message: msg }, { status: 500 });
+}
 }
 
 export async function GET(request: NextRequest) {
