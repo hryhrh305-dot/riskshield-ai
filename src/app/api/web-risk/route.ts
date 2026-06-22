@@ -71,10 +71,21 @@ export async function POST(request: NextRequest) {
   // Fetch profile with credits
   const { data: profile } = await getSupabaseAdmin()
     .from("profiles")
-    .select("plan, credits_remaining, total_checks, risk_settings")
+    .select("plan, credits_remaining, total_checks")
     .eq("id", user.id)
     .single();
   
+  // Load risk_settings separately (column may not exist yet)
+  let riskSettings: Record<string, boolean> | null = null;
+  try {
+    const { data: rs } = await getSupabaseAdmin()
+      .from("profiles")
+      .select("risk_settings")
+      .eq("id", user.id)
+      .single();
+    if (rs?.risk_settings) riskSettings = rs.risk_settings as Record<string, boolean>;
+  } catch { /* column may not exist yet, use defaults */ }
+
   const plan = profile?.plan || "free";
   const creditsRemaining = profile?.credits_remaining ?? 0;
   const totalChecks = profile?.total_checks ?? 0;
@@ -204,7 +215,6 @@ export async function POST(request: NextRequest) {
     cached: false,
   };
   // Apply Protection Settings toggles
-  const riskSettings = profile?.risk_settings as Record<string, boolean> | null;
   if (riskSettings) {
     const emailDetails = riskResult.emailDetails as Record<string, unknown> | null;
     if (riskSettings.block_disposable && emailDetails?.isDisposable) cacheData.decision = "BLOCK";

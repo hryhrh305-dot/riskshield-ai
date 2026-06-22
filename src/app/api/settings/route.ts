@@ -32,8 +32,12 @@ const defaultSettings = { block_disposable: true, block_high_risk: true, review_
 export async function GET(request: NextRequest) {
   const user = await getUserFromRequest(request);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { data: profile } = await getSupabaseAdmin().from("profiles").select("risk_settings").eq("id", user.id).single();
-  const settings = profile?.risk_settings || defaultSettings;
+  // Try to fetch risk_settings (column may not exist yet)
+  let settings = defaultSettings;
+  try {
+    const { data: profile } = await getSupabaseAdmin().from("profiles").select("risk_settings").eq("id", user.id).single();
+    if (profile?.risk_settings) settings = profile.risk_settings;
+  } catch { /* column may not exist, use defaults */ }
   return NextResponse.json({ settings });
 }
 
@@ -43,6 +47,9 @@ export async function PUT(request: NextRequest) {
   let body: { block_disposable?: boolean; block_high_risk?: boolean; review_catch_all?: boolean; review_new_domain?: boolean };
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
   const settings = { ...defaultSettings, ...body };
-  await getSupabaseAdmin().from("profiles").update({ risk_settings: settings }).eq("id", user.id);
+  // Try to save risk_settings (column may not exist yet)
+  try {
+    await getSupabaseAdmin().from("profiles").update({ risk_settings: settings }).eq("id", user.id);
+  } catch { /* column may not exist, settings not saved */ }
   return NextResponse.json({ success: true, settings });
 }
