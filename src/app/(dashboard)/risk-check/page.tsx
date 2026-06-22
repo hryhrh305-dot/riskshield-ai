@@ -232,6 +232,51 @@ export default function RiskCheckPage() {
               </div>
             </div>
 
+            {/* Lead Quality Score */}
+            <div className="bg-gradient-to-r from-slate-50 to-gray-50 rounded-xl p-4 mb-4 border border-slate-200">
+              <div className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Lead Quality</div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="text-xs text-gray-400">Email Trust</div>
+                  <div className="font-semibold text-sm text-gray-800">
+                    {result.details.email ? (
+                      (result.details.email as any)?.isDisposable ? "Disposable" :
+                      (result.details.email as any)?.isRoleBased ? "Role-based" :
+                      !(result.details.email as any)?.hasMX && (result.details.email as any)?.mxChecked ? "No Mail Server" :
+                      (result.details.email as any)?.hasMX ? "Valid Mailbox" : "Unknown"
+                    ) : "N/A"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-400">Domain Age</div>
+                  <div className="font-semibold text-sm text-gray-800">
+                    {result.domain_age?.ageDays != null ? (
+                      result.domain_age.ageDays < 90 ? "< 3 months (New)" :
+                      result.domain_age.ageDays < 365 ? "< 1 year" :
+                      result.domain_age.ageDays < 1825 ? `${result.domain_age.ageYears} years` :
+                      `${result.domain_age.ageYears} years (Established)`
+                    ) : "Unknown"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-400">Company</div>
+                  <div className="font-semibold text-sm text-gray-800">
+                    {result.company_health ? `${result.company_health.grade} — ${result.company_health.label}` : "Not assessed"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-400">IP Risk</div>
+                  <div className="font-semibold text-sm text-gray-800">
+                    {result.details.ip ? (
+                      (result.details.ip as any)?.isProxy ? "Proxy/VPN" :
+                      (result.details.ip as any)?.isHosting ? "Datacenter" :
+                      "Low Risk"
+                    ) : "N/A"}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {result.company_health && (
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-5 mb-4 border border-blue-200">
                 <div className="flex items-center justify-between mb-3">

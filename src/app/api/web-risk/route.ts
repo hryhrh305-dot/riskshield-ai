@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
   // Fetch profile with credits
   const { data: profile } = await getSupabaseAdmin()
     .from("profiles")
-    .select("plan, credits_remaining, total_checks")
+    .select("plan, credits_remaining, total_checks, risk_settings")
     .eq("id", user.id)
     .single();
   
@@ -204,6 +204,16 @@ export async function POST(request: NextRequest) {
     estimated_waste_cost: riskResult.estimated_waste_cost ?? 0,
     cached: false,
   };
+  // Apply custom risk thresholds if user has them set
+  const riskSettings = profile?.risk_settings as { allow_max?: number; review_max?: number } | null;
+  if (riskSettings?.allow_max != null && riskSettings?.review_max != null) {
+    const s = riskResult.score;
+    const newDecision = s <= riskSettings.allow_max ? "ALLOW" : s <= riskSettings.review_max ? "REVIEW" : "BLOCK";
+    if (newDecision !== cacheData.decision) {
+      cacheData.decision = newDecision;
+      (cacheData as any).custom_thresholds_applied = true;
+    }
+  }
   setCachedResult(cacheKey, cacheData);
   console.log("[RiskCheck] cached result for", cacheKey, "(24h TTL)");
 

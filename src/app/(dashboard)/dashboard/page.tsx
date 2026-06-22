@@ -6,7 +6,7 @@ import { getPlanLimits, type PlanKey } from "@/lib/plans";
 import { generateApiKey } from "@/lib/api-auth";
 import { signOut } from "@/lib/auth";
 import Link from "next/link";
-import { LogOut, Shield, Key, Copy, Trash2, Activity, AlertTriangle, Search, Upload, Globe, Mail } from "lucide-react";
+import { LogOut, Shield, Key, Copy, Trash2, Activity, AlertTriangle, Search, Upload, Globe, Mail, Settings } from "lucide-react";
 
 interface Profile { id: string; email: string; plan: string; subscription_status: string; credits_remaining: number; total_checks: number; }
 interface ApiKeyRow { id: string; key: string; name: string; status: string; created_at: string; last_used_at: string | null; }
@@ -263,6 +263,27 @@ export default function DashboardPage() {
         </div>
 
 
+        {/* Custom Risk Settings */}
+        <div className="bg-white rounded-xl border p-6">
+          <h2 className="font-semibold flex items-center gap-2 mb-4"><Settings className="w-5 h-5" /> Risk Settings</h2>
+          <p className="text-xs text-gray-400 mb-4">Customize your ALLOW/REVIEW/BLOCK thresholds. Default: 0-29 ALLOW, 30-59 REVIEW, 60-100 BLOCK.</p>
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="text-xs font-medium text-gray-600">ALLOW max score</label>
+              <input type="number" min="0" max="99" value={allowMax} onChange={e => setAllowMax(Number(e.target.value))} className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600">REVIEW max score</label>
+              <input type="number" min="1" max="99" value={reviewMax} onChange={e => setReviewMax(Number(e.target.value))} className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" />
+            </div>
+          </div>
+          <button onClick={saveSettings} disabled={settingsLoading} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+            {settingsLoading ? "Saving..." : "Save Settings"}
+          </button>
+          {settingsSaved && <span className="ml-3 text-xs text-green-600">Saved!</span>}
+          {settings && <p className="mt-2 text-xs text-gray-400">Current: ALLOW ≤ {settings.allow_max} | REVIEW ≤ {settings.review_max} | BLOCK &gt; {settings.review_max}</p>}
+        </div>
+
         {/* Recent Checks */}
         <div className="bg-white rounded-xl border p-6">
           <h2 className="font-semibold flex items-center gap-2 mb-4"><Activity className="w-5 h-5" /> Recent Checks</h2>
@@ -283,4 +304,46 @@ export default function DashboardPage() {
       </div>
     </div>
   );
+
+  // Settings state
+  const [settings, setSettings] = useState<{ allow_max: number; review_max: number } | null>(null);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsSaved, setSettingsSaved] = useState(false);
+  const [allowMax, setAllowMax] = useState(29);
+  const [reviewMax, setReviewMax] = useState(59);
+
+  useEffect(() => { loadSettings(); }, []);
+
+  async function loadSettings() {
+    try {
+      const res = await fetch("/api/settings", { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setSettings(data.settings);
+        setAllowMax(data.settings.allow_max);
+        setReviewMax(data.settings.review_max);
+      }
+    } catch {}
+  }
+
+  async function saveSettings() {
+    setSettingsLoading(true);
+    setSettingsSaved(false);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ allow_max: allowMax, review_max: reviewMax }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSettings(data.settings);
+        setSettingsSaved(true);
+        setTimeout(() => setSettingsSaved(false), 3000);
+      }
+    } catch {} finally { setSettingsLoading(false); }
+  }
+
+  // Add Risk Settings card and section before the closing div
 }

@@ -41,6 +41,7 @@ CREATE INDEX IF NOT EXISTS idx_abuse_events_ip ON abuse_events(ip_address, creat
 -- 3. Add subscription_end to profiles if not exists
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS subscription_end TIMESTAMPTZ;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'active';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS risk_settings JSONB;
 
 -- 4. Enable RLS on new tables
 ALTER TABLE usage_ledger ENABLE ROW LEVEL SECURITY;

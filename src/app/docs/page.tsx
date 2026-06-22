@@ -110,6 +110,34 @@ export default function DocsPage() {
         </section>
 
         <section>
+          <h2 className="text-lg font-semibold flex items-center gap-2 mb-3"><Code className="w-5 h-5" /> Pre-send Protection</h2>
+          <div className="bg-white rounded-xl border p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded">POST</span>
+              <code className="text-sm font-mono">/api/v1/pre-send/check</code>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">Real-time email screening before you send campaigns. Hook this into your Gmail, Outlook, HubSpot, or custom SMTP workflow to block risky recipients before sending.</p>
+            <div className="text-xs font-semibold text-gray-600 mb-2">Request (batch up to 1,000)</div>
+            <pre className="bg-gray-900 text-green-400 p-3 rounded text-xs overflow-x-auto">
+{`{
+  "emails": ["lead1@company.com", "spam@temp.com", ...],
+  "campaign_id": "spring-outreach-2026"
+}`}</pre>
+            <div className="text-xs font-semibold text-gray-600 mt-4 mb-2">Response</div>
+            <pre className="bg-gray-900 text-green-400 p-3 rounded text-xs overflow-x-auto">
+{`{
+  "success": true,
+  "summary": { "total": 1000, "allowed": 820, "blocked": 180 },
+  "campaign_risk": "LOW",
+  "results": [{ "email": "...", "decision": "ALLOW", ... }, ...]
+}`}</pre>
+            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+              <strong>How to integrate:</strong> Before your email system sends, call this endpoint. If decision = BLOCK, skip that recipient. Use the API key from your Dashboard.
+            </div>
+          </div>
+        </section>
+
+        <section>
           <h2 className="text-lg font-semibold mb-3">Error Codes</h2>
           <div className="bg-white rounded-xl border p-6 space-y-2 text-sm">
             <div><code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">401</code> <span className="text-gray-600 ml-2">Missing or invalid API key</span></div>
