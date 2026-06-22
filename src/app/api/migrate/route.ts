@@ -1,90 +1,94 @@
 import { NextResponse } from "next/server";
 import { Pool } from "pg";
 
-export async function GET() {
-  const sqls = [
-    'ALTER TABLE profiles ADD COLUMN IF NOT EXISTS subscription_end TIMESTAMPTZ',
-    "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'active'",
-    'ALTER TABLE profiles ADD COLUMN IF NOT EXISTS risk_settings JSONB',
-    'ALTER TABLE profiles ADD COLUMN IF NOT EXISTS credits_remaining INTEGER DEFAULT 1000',
-    'ALTER TABLE profiles ADD COLUMN IF NOT EXISTS total_checks INTEGER DEFAULT 0',
-    `CREATE OR REPLACE FUNCTION consume_credit(p_user_id UUID)
-    RETURNS TABLE(success boolean, remaining integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    AS \$\$
-    DECLARE
-      cur_credits INTEGER;
-    BEGIN
-      SELECT credits_remaining INTO cur_credits FROM profiles WHERE id = p_user_id;
-      IF cur_credits IS NULL THEN
-        RETURN QUERY SELECT false, 0;
-        RETURN;
-      END IF;
-      IF cur_credits <= 0 THEN
-        RETURN QUERY SELECT false, cur_credits;
-        RETURN;
-      END IF;
-      UPDATE profiles SET credits_remaining = credits_remaining - 1 WHERE id = p_user_id;
-      SELECT credits_remaining INTO cur_credits FROM profiles WHERE id = p_user_id;
-      RETURN QUERY SELECT true, cur_credits;
-    END;
-    \$\import { NextResponse } from "next/server";
-import { Pool } from "pg";
+const SQLS = [
+  // === Profiles table ===
+  'ALTER TABLE profiles ADD COLUMN IF NOT EXISTS subscription_end TIMESTAMPTZ',
+  "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'active'",
+  'ALTER TABLE profiles ADD COLUMN IF NOT EXISTS risk_settings JSONB',
+  'ALTER TABLE profiles ADD COLUMN IF NOT EXISTS credits_remaining INTEGER DEFAULT 1000',
+  'ALTER TABLE profiles ADD COLUMN IF NOT EXISTS total_checks INTEGER DEFAULT 0',
+
+  // === pre_send_checks ===
+  `CREATE TABLE IF NOT EXISTS pre_send_checks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    campaign_name TEXT DEFAULT '',
+    total_contacts INTEGER DEFAULT 0,
+    allowed_count INTEGER DEFAULT 0,
+    review_count INTEGER DEFAULT 0,
+    blocked_count INTEGER DEFAULT 0,
+    risk_score_avg INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'completed' CHECK (status IN ('completed','processing','failed')),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  )`,
+  'CREATE INDEX IF NOT EXISTS idx_pre_send_checks_user ON pre_send_checks(user_id, created_at)',
+
+  // === pre_send_results ===
+  `CREATE TABLE IF NOT EXISTS pre_send_results (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    check_id UUID REFERENCES pre_send_checks(id) ON DELETE CASCADE,
+    email TEXT NOT NULL,
+    risk_score INTEGER DEFAULT 0,
+    decision TEXT DEFAULT 'ALLOW' CHECK (decision IN ('ALLOW','REVIEW','BLOCK')),
+    reasons JSONB DEFAULT '[]',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  )`,
+  'CREATE INDEX IF NOT EXISTS idx_pre_send_results_check ON pre_send_results(check_id)',
+
+  // === RLS ===
+  'ALTER TABLE pre_send_checks ENABLE ROW LEVEL SECURITY',
+  'ALTER TABLE pre_send_results ENABLE ROW LEVEL SECURITY',
+
+  // === Policies ===
+  `DO $block$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='pre_send_checks' AND policyname='Users read own pre_send') THEN
+      CREATE POLICY "Users read own pre_send" ON pre_send_checks FOR SELECT USING (auth.uid() = user_id);
+    END IF;
+  END $block$`,
+  `DO $block$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='pre_send_results' AND policyname='Users read own pre_send_results') THEN
+      CREATE POLICY "Users read own pre_send_results" ON pre_send_results FOR SELECT USING (
+        EXISTS (SELECT 1 FROM pre_send_checks WHERE pre_send_checks.id = pre_send_results.check_id AND pre_send_checks.user_id = auth.uid())
+      );
+    END IF;
+  END $block$`,
+  `DO $block$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='pre_send_checks' AND policyname='Users insert own pre_send') THEN
+      CREATE POLICY "Users insert own pre_send" ON pre_send_checks FOR INSERT WITH CHECK (auth.uid() = user_id);
+    END IF;
+  END $block$`,
+  `DO $block$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='pre_send_results' AND policyname='Users insert own pre_send_results') THEN
+      CREATE POLICY "Users insert own pre_send_results" ON pre_send_results FOR INSERT WITH CHECK (true);
+    END IF;
+  END $block$`,
+
+  // === consume_credit RPC ===
+  `CREATE OR REPLACE FUNCTION consume_credit(p_user_id UUID)
+  RETURNS TABLE(success boolean, remaining integer)
+  LANGUAGE plpgsql SECURITY DEFINER
+  AS $body$
+  DECLARE
+    cur_credits INTEGER;
+  BEGIN
+    SELECT credits_remaining INTO cur_credits FROM profiles WHERE id = p_user_id;
+    IF cur_credits IS NULL THEN
+      RETURN QUERY SELECT false::boolean, 0::integer;
+      RETURN;
+    END IF;
+    IF cur_credits <= 0 THEN
+      RETURN QUERY SELECT false::boolean, cur_credits::integer;
+      RETURN;
+    END IF;
+    UPDATE profiles SET credits_remaining = credits_remaining - 1 WHERE id = p_user_id;
+    SELECT credits_remaining INTO cur_credits FROM profiles WHERE id = p_user_id;
+    RETURN QUERY SELECT true::boolean, cur_credits::integer;
+  END;
+  $body$`,
+];
 
 export async function GET() {
-  const sqls = [
-    'ALTER TABLE profiles ADD COLUMN IF NOT EXISTS subscription_end TIMESTAMPTZ',
-    "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'active'",
-    ,
-    `CREATE TABLE IF NOT EXISTS pre_send_checks (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-      campaign_name TEXT DEFAULT '',
-      total_contacts INTEGER DEFAULT 0,
-      allowed_count INTEGER DEFAULT 0,
-      review_count INTEGER DEFAULT 0,
-      blocked_count INTEGER DEFAULT 0,
-      risk_score_avg INTEGER DEFAULT 0,
-      status TEXT DEFAULT 'completed' CHECK (status IN ('completed','processing','failed')),
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )`,
-    'CREATE INDEX IF NOT EXISTS idx_pre_send_checks_user ON pre_send_checks(user_id, created_at)',
-    `CREATE TABLE IF NOT EXISTS pre_send_results (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      check_id UUID REFERENCES pre_send_checks(id) ON DELETE CASCADE,
-      email TEXT NOT NULL,
-      risk_score INTEGER DEFAULT 0,
-      decision TEXT DEFAULT 'ALLOW' CHECK (decision IN ('ALLOW','REVIEW','BLOCK')),
-      reasons JSONB DEFAULT '[]',
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )`,
-    'CREATE INDEX IF NOT EXISTS idx_pre_send_results_check ON pre_send_results(check_id)',
-    'ALTER TABLE pre_send_checks ENABLE ROW LEVEL SECURITY',
-    'ALTER TABLE pre_send_results ENABLE ROW LEVEL SECURITY',
-    `DO $$ BEGIN
-      IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='pre_send_checks' AND policyname='Users read own pre_send') THEN
-        CREATE POLICY "Users read own pre_send" ON pre_send_checks FOR SELECT USING (auth.uid() = user_id);
-      END IF;
-    END $$`,
-    `DO $$ BEGIN
-      IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='pre_send_results' AND policyname='Users read own pre_send_results') THEN
-        CREATE POLICY "Users read own pre_send_results" ON pre_send_results FOR SELECT USING (
-          EXISTS (SELECT 1 FROM pre_send_checks WHERE pre_send_checks.id = pre_send_results.check_id AND pre_send_checks.user_id = auth.uid())
-        );
-      END IF;
-    END $$`,
-    `DO $$ BEGIN
-      IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='pre_send_checks' AND policyname='Users insert own pre_send') THEN
-        CREATE POLICY "Users insert own pre_send" ON pre_send_checks FOR INSERT WITH CHECK (auth.uid() = user_id);
-      END IF;
-    END $$`,
-    `DO $$ BEGIN
-      IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='pre_send_results' AND policyname='Users insert own pre_send_results') THEN
-        CREATE POLICY "Users insert own pre_send_results" ON pre_send_results FOR INSERT WITH CHECK (true);
-      END IF;
-    END $$`,
-  ];
-
   const results: string[] = [];
 
   const pool = new Pool({
@@ -93,7 +97,7 @@ export async function GET() {
     connectionTimeoutMillis: 15000,
   });
 
-  for (const sql of sqls) {
+  for (const sql of SQLS) {
     try {
       await pool.query(sql);
       results.push("OK: " + sql.substring(0, 60));
