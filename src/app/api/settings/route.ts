@@ -6,10 +6,9 @@ const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_
 let _supabaseAdmin: any = null;
 function getSupabaseAdmin() {
   if (!_supabaseAdmin) {
-    const { createClient } = require("@supabase/supabase-js");
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co";
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ";
-    _supabaseAdmin = createClient(url, key);
+    _supabaseAdmin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
   }
   return _supabaseAdmin;
 }
