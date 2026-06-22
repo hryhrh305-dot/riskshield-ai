@@ -118,31 +118,26 @@ export async function POST(request: NextRequest) {
   }
 
   // === STEP 1: Consume credit BEFORE running risk check ===
-  // Direct read-then-update (no RPC dependency)
-  let newCredits = creditsRemaining - 1;
-  let creditSuccess = true;
-
-  if (creditsRemaining <= 0) {
-    return NextResponse.json({
-      error: "NO_CREDITS",
-      message: "You have 0 credits remaining. Upgrade to continue.",
-      upgradeNeeded: true,
-    }, { status: 429 });
-  }
-
-  // Deduct 1 credit
-  const { error: deductError } = await getSupabaseAdmin()
-    .from("profiles")
-    .update({ credits_remaining: creditsRemaining - 1 })
-    .eq("id", user.id);
-
-  if (deductError) {
-    console.error("[RiskCheck] credit deduct error:", deductError);
+  const { data: creditResult, error: creditError } = await getSupabaseAdmin().rpc("consume_credit", {
+    p_user_id: user.id,
+  });
+  if (creditError) {
+    console.error("[RiskCheck] consume_credit RPC error:", creditError);
     return NextResponse.json({ error: "Failed to process credit. Please try again." }, { status: 500 });
   }
 
+  const creditSuccess = creditResult?.success ?? false;
+  const newCredits = creditResult?.credits_remaining ?? (creditsRemaining - 1);
+
   console.log("[RiskCheck] credit consumed, remaining:", newCredits);
 
+  if (!creditSuccess) {
+    return NextResponse.json({
+      error: "NO_CREDITS",
+      message: "Insufficient credits.",
+      upgradeNeeded: true,
+    }, { status: 429 });
+  }
 // === STEP 2: Run the actual risk check ===
   // Compute domain age before risk check (for core scoring)
   let domainAgeDays: number | null = null;
