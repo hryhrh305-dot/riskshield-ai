@@ -15,13 +15,22 @@ function getSupabaseAdmin() {
 
 async function getUserFromRequest(request: NextRequest) {
   try {
-    const { createServerClient } = await import("@supabase/ssr");
-    const supabase = createServerClient(
-      NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "sb_publishable_6pS7tKkxxBqYTLcAUu_GPg_0BysHHx8",
-      { cookies: { getAll() { return request.cookies.getAll().map(c => ({ name: c.name, value: c.value })); }, setAll() {} } }
-    );
-    const { data: { user } } = await supabase.auth.getUser();
+    const supabase = getSupabaseAdmin();
+    const cookieHeader = request.headers.get("cookie") || "";
+    const cookies = cookieHeader.split(";").reduce((acc, c) => {
+      const [k, ...v] = c.trim().split("=");
+      if (k) acc[k.trim()] = decodeURIComponent(v.join("="));
+      return acc;
+    }, {} as Record<string, string>);
+    const rawToken = cookies["sb-njhjiavnidssjvnkcxfo-auth-token"] || cookies["sb-access-token"];
+    if (!rawToken) return null;
+    var token = rawToken;
+    try {
+      var parsed = JSON.parse(rawToken);
+      token = Array.isArray(parsed) ? parsed[0] : (parsed.access_token || parsed);
+    } catch {}
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) return null;
     return user;
   } catch { return null; }
 }

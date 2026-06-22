@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { calculateRiskScore, getAIExplanation, checkDomainAge, getDNSHealthScore, calculateCompanyHealth, getCachedResult, setCachedResult, makeResultCacheKey, cleanEmail } from "@/lib/risk-engine";
 
@@ -7,39 +7,32 @@ const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_
 let _supabaseAdmin: any = null;
 function getSupabaseAdmin() {
   if (!_supabaseAdmin) {
-    const url = NEXT_PUBLIC_SUPABASE_URL;
-    const key = SUPABASE_SERVICE_ROLE_KEY;
-    if (url && key) {
-      _supabaseAdmin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
-    }
+    const { createClient } = require("@supabase/supabase-js");
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co";
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ";
+    _supabaseAdmin = createClient(url, key);
   }
   return _supabaseAdmin;
 }
 
 async function getUserFromRequest(request: NextRequest) {
   try {
-    const supabase = getSupabaseAdmin();
-    // Read auth token from cookie directly (avoids @supabase/ssr dependency issues on Vercel)
-    const cookieHeader = request.headers.get("cookie") || "";
-    const cookieParts = cookieHeader.split(";").reduce((acc, c) => {
-      const [k, ...v] = c.trim().split("=");
-      if (k) acc[k.trim()] = decodeURIComponent(v.join("="));
-      return acc;
-    }, {} as Record<string, string>);
-    const projectRef = "njhjiavnidssjvnkcxfo";
-    const rawToken = cookieParts["sb-" + projectRef + "-auth-token"] || cookieParts["sb-access-token"];
-    if (!rawToken) return null;
-    // Cookie value may be JSON: ["access_token","refresh_token"] or {"access_token":"..."}
-    var token = rawToken;
-    try {
-      var parsed = JSON.parse(rawToken);
-      token = Array.isArray(parsed) ? parsed[0] : (parsed.access_token || parsed);
-    } catch {}
-    var { data: { user }, error } = await supabase.auth.getUser(token);
-    if (error || !user) return null;
+    const { createServerClient } = await import("@supabase/ssr");
+    const supabase = createServerClient(
+      NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "sb_publishable_6pS7tKkxxBqYTLcAUu_GPg_0BysHHx8"),
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll().map(c => ({ name: c.name, value: c.value }));
+          },
+          setAll() {},
+        },
+      }
+    );
+    const { data: { user } } = await supabase.auth.getUser();
     return user;
-  } catch (e) {
-    console.error("[getUserFromRequest] error:", e);
+  } catch {
     return null;
   }
 }
@@ -271,3 +264,4 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({ history: checks || [] });
 }
+
