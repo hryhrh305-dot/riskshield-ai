@@ -43,6 +43,37 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS subscription_end TIMESTAMPTZ;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'active';
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS risk_settings JSONB;
 
+-- 6. PRE-SEND CAMPAIGN TRACKING
+CREATE TABLE IF NOT EXISTS pre_send_checks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  campaign_name TEXT DEFAULT '',
+  total_contacts INTEGER DEFAULT 0,
+  allowed_count INTEGER DEFAULT 0,
+  review_count INTEGER DEFAULT 0,
+  blocked_count INTEGER DEFAULT 0,
+  risk_score_avg INTEGER DEFAULT 0,
+  status TEXT DEFAULT 'completed' CHECK (status IN ('completed', 'processing', 'failed')),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_pre_send_checks_user ON pre_send_checks(user_id, created_at);
+
+CREATE TABLE IF NOT EXISTS pre_send_results (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  check_id UUID REFERENCES pre_send_checks(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  risk_score INTEGER DEFAULT 0,
+  decision TEXT DEFAULT 'ALLOW' CHECK (decision IN ('ALLOW', 'REVIEW', 'BLOCK')),
+  reasons JSONB DEFAULT '[]',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_pre_send_results_check ON pre_send_results(check_id);
+
+ALTER TABLE pre_send_checks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pre_send_results ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users read own pre_send" ON pre_send_checks FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users read own pre_send_results" ON pre_send_results FOR SELECT USING (EXISTS (SELECT 1 FROM pre_send_checks WHERE pre_send_checks.id = pre_send_results.check_id AND pre_send_checks.user_id = auth.uid()));
+
 -- 4. Enable RLS on new tables
 ALTER TABLE usage_ledger ENABLE ROW LEVEL SECURITY;
 ALTER TABLE abuse_events ENABLE ROW LEVEL SECURITY;

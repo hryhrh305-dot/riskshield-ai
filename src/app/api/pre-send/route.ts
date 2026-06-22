@@ -27,22 +27,26 @@ async function getUserFromRequest(request: NextRequest) {
   } catch { return null; }
 }
 
-const defaultSettings = { block_disposable: true, block_high_risk: true, review_catch_all: true, review_new_domain: true };
-
 export async function GET(request: NextRequest) {
   const user = await getUserFromRequest(request);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { data: profile } = await getSupabaseAdmin().from("profiles").select("risk_settings").eq("id", user.id).single();
-  const settings = profile?.risk_settings || defaultSettings;
-  return NextResponse.json({ settings });
-}
 
-export async function PUT(request: NextRequest) {
-  const user = await getUserFromRequest(request);
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  let body: { block_disposable?: boolean; block_high_risk?: boolean; review_catch_all?: boolean; review_new_domain?: boolean };
-  try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
-  const settings = { ...defaultSettings, ...body };
-  await getSupabaseAdmin().from("profiles").update({ risk_settings: settings }).eq("id", user.id);
-  return NextResponse.json({ success: true, settings });
+  const campaignId = request.nextUrl.searchParams.get("campaign_id");
+  if (campaignId) {
+    const { data: results } = await getSupabaseAdmin()
+      .from("pre_send_results")
+      .select("id, email, risk_score, decision, reasons")
+      .eq("check_id", campaignId)
+      .order("created_at", { ascending: true })
+      .limit(500);
+    return NextResponse.json({ results: (results || []).map((r: any) => ({ ...r, reasons: r.reasons || [] })) });
+  }
+
+  const { data: campaigns } = await getSupabaseAdmin()
+    .from("pre_send_checks")
+    .select("id, campaign_name, total_contacts, allowed_count, review_count, blocked_count, risk_score_avg, created_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  return NextResponse.json({ campaigns: campaigns || [] });
 }

@@ -204,15 +204,14 @@ export async function POST(request: NextRequest) {
     estimated_waste_cost: riskResult.estimated_waste_cost ?? 0,
     cached: false,
   };
-  // Apply custom risk thresholds if user has them set
-  const riskSettings = profile?.risk_settings as { allow_max?: number; review_max?: number } | null;
-  if (riskSettings?.allow_max != null && riskSettings?.review_max != null) {
-    const s = riskResult.score;
-    const newDecision = s <= riskSettings.allow_max ? "ALLOW" : s <= riskSettings.review_max ? "REVIEW" : "BLOCK";
-    if (newDecision !== cacheData.decision) {
-      cacheData.decision = newDecision;
-      (cacheData as any).custom_thresholds_applied = true;
-    }
+  // Apply Protection Settings toggles
+  const riskSettings = profile?.risk_settings as Record<string, boolean> | null;
+  if (riskSettings) {
+    const emailDetails = riskResult.emailDetails as Record<string, unknown> | null;
+    if (riskSettings.block_disposable && emailDetails?.isDisposable) cacheData.decision = "BLOCK";
+    if (riskSettings.block_high_risk && riskResult.score >= 60) cacheData.decision = "BLOCK";
+    if (riskSettings.review_catch_all && emailDetails?.isCatchAll && cacheData.decision === "ALLOW") cacheData.decision = "REVIEW";
+    if (riskSettings.review_new_domain && (cacheData as any).domain_age?.isNew && cacheData.decision === "ALLOW") cacheData.decision = "REVIEW";
   }
   setCachedResult(cacheKey, cacheData);
   console.log("[RiskCheck] cached result for", cacheKey, "(24h TTL)");

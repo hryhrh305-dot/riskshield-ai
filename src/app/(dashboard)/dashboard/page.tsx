@@ -121,6 +121,7 @@ export default function DashboardPage() {
               <Link href="/bulk-check" className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md flex items-center gap-1">
                 <Upload className="w-3.5 h-3.5" /> Bulk Scan
               </Link>
+              <Link href="/pre-send" className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Pre-send</Link>
               <Link href="/blacklist" className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Blacklist</Link>
               <Link href="/pricing" className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Pricing</Link>
             </nav>
@@ -263,25 +264,35 @@ export default function DashboardPage() {
         </div>
 
 
-        {/* Custom Risk Settings */}
+        {/* Protection Settings */}
         <div className="bg-white rounded-xl border p-6">
-          <h2 className="font-semibold flex items-center gap-2 mb-4"><Settings className="w-5 h-5" /> Risk Settings</h2>
-          <p className="text-xs text-gray-400 mb-4">Customize your ALLOW/REVIEW/BLOCK thresholds. Default: 0-29 ALLOW, 30-59 REVIEW, 60-100 BLOCK.</p>
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="text-xs font-medium text-gray-600">ALLOW max score</label>
-              <input type="number" min="0" max="99" value={allowMax} onChange={e => setAllowMax(Number(e.target.value))} className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600">REVIEW max score</label>
-              <input type="number" min="1" max="99" value={reviewMax} onChange={e => setReviewMax(Number(e.target.value))} className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" />
-            </div>
+          <h2 className="font-semibold flex items-center gap-2 mb-1"><Settings className="w-5 h-5" /> Protection Settings</h2>
+          <p className="text-xs text-gray-400 mb-4">Toggle which risks should force BLOCK or REVIEW. Applies to web checks and API.</p>
+          <div className="space-y-3 mb-4">
+            {settings && [
+              { key: "block_disposable", label: "Block disposable emails", desc: "Force BLOCK on temporary/disposable email addresses" },
+              { key: "block_high_risk", label: "Block high risk score", desc: "Force BLOCK when risk score is 60 or above" },
+              { key: "review_catch_all", label: "Review catch-all domains", desc: "Force REVIEW on domains that accept all mailboxes" },
+              { key: "review_new_domain", label: "Review new domains", desc: "Force REVIEW on domains less than 90 days old" },
+            ].map(({ key, label, desc }) => (
+              <div key={key} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                <div>
+                  <div className="text-sm font-medium text-gray-700">{label}</div>
+                  <div className="text-xs text-gray-400">{desc}</div>
+                </div>
+                <button
+                  onClick={() => setSettings({ ...settings, [key]: !(settings as any)[key] })}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${(settings as any)[key] ? 'bg-blue-600' : 'bg-gray-300'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${(settings as any)[key] ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+            ))}
           </div>
           <button onClick={saveSettings} disabled={settingsLoading} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
             {settingsLoading ? "Saving..." : "Save Settings"}
           </button>
           {settingsSaved && <span className="ml-3 text-xs text-green-600">Saved!</span>}
-          {settings && <p className="mt-2 text-xs text-gray-400">Current: ALLOW ≤ {settings.allow_max} | REVIEW ≤ {settings.review_max} | BLOCK &gt; {settings.review_max}</p>}
         </div>
 
         {/* Recent Checks */}
@@ -306,11 +317,9 @@ export default function DashboardPage() {
   );
 
   // Settings state
-  const [settings, setSettings] = useState<{ allow_max: number; review_max: number } | null>(null);
+  const [settings, setSettings] = useState<{ block_disposable: boolean; block_high_risk: boolean; review_catch_all: boolean; review_new_domain: boolean } | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
-  const [allowMax, setAllowMax] = useState(29);
-  const [reviewMax, setReviewMax] = useState(59);
 
   useEffect(() => { loadSettings(); }, []);
 
@@ -318,12 +327,10 @@ export default function DashboardPage() {
     try {
       const res = await fetch("/api/settings", { credentials: "include" });
       if (res.ok) {
-        const data = await res.json();
-        setSettings(data.settings);
-        setAllowMax(data.settings.allow_max);
-        setReviewMax(data.settings.review_max);
-      }
-    } catch {}
+      const data = await res.json();
+      setSettings(data.settings);
+    }
+  } catch {}
   }
 
   async function saveSettings() {
@@ -334,7 +341,7 @@ export default function DashboardPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ allow_max: allowMax, review_max: reviewMax }),
+        body: JSON.stringify(settings),
       });
       if (res.ok) {
         const data = await res.json();

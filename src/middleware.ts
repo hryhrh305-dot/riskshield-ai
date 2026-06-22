@@ -22,7 +22,7 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   const path = request.nextUrl.pathname;
 
-  if ((path.startsWith("/dashboard") || path.startsWith("/pricing") || path.startsWith("/risk-check") || path.startsWith("/bulk-check") || path.startsWith("/blacklist")) && !user) {
+  if ((path.startsWith("/dashboard") || path.startsWith("/pricing") || path.startsWith("/risk-check") || path.startsWith("/bulk-check") || path.startsWith("/blacklist") || path.startsWith("/pre-send")) && !user) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
