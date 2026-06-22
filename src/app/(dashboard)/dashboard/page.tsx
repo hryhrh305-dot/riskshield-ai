@@ -23,7 +23,41 @@ export default function DashboardPage() {
   const [copied, setCopied] = useState("");
   const [authChecked, setAuthChecked] = useState(false);
 
-  useEffect(() => { loadData(); }, []);
+  // Settings state
+  const [settings, setSettings] = useState<{ block_disposable: boolean; block_high_risk: boolean; review_catch_all: boolean; review_new_domain: boolean } | null>(null);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsSaved, setSettingsSaved] = useState(false);
+
+  useEffect(() => { loadData(); loadSettings(); }, []);
+
+  async function loadSettings() {
+    try {
+      const res = await fetch("/api/settings", { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setSettings(data.settings);
+      }
+    } catch {}
+  }
+
+  async function saveSettings() {
+    setSettingsLoading(true);
+    setSettingsSaved(false);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(settings),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSettings(data.settings);
+        setSettingsSaved(true);
+        setTimeout(() => setSettingsSaved(false), 3000);
+      }
+    } catch {} finally { setSettingsLoading(false); }
+  }
 
   async function loadData() {
     try {
@@ -315,42 +349,3 @@ export default function DashboardPage() {
       </div>
     </div>
   );
-
-  // Settings state
-  const [settings, setSettings] = useState<{ block_disposable: boolean; block_high_risk: boolean; review_catch_all: boolean; review_new_domain: boolean } | null>(null);
-  const [settingsLoading, setSettingsLoading] = useState(false);
-  const [settingsSaved, setSettingsSaved] = useState(false);
-
-  useEffect(() => { loadSettings(); }, []);
-
-  async function loadSettings() {
-    try {
-      const res = await fetch("/api/settings", { credentials: "include" });
-      if (res.ok) {
-      const data = await res.json();
-      setSettings(data.settings);
-    }
-  } catch {}
-  }
-
-  async function saveSettings() {
-    setSettingsLoading(true);
-    setSettingsSaved(false);
-    try {
-      const res = await fetch("/api/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(settings),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setSettings(data.settings);
-        setSettingsSaved(true);
-        setTimeout(() => setSettingsSaved(false), 3000);
-      }
-    } catch {} finally { setSettingsLoading(false); }
-  }
-
-  // Add Risk Settings card and section before the closing div
-}
