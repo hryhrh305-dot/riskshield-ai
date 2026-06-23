@@ -46,3 +46,16 @@ Do not claim a root cause or fix before verification. Use `Under investigation` 
 - Verification: Queried Supabase directly for the account row and confirmed `credits_remaining = 49968`, `total_checks = 32`. `npm run build` passes after the change.
 - Prevention: Keep `profiles` as the single source of truth for credits and usage counters; use `scan_history` only for history and audit views.
 - Remaining risk: Historical `scan_history` rows still exist and may continue to affect older analytics views until those views are migrated to profile-based counters.
+
+## 2026-06-23 - Risk Check feels too slow
+
+- Priority: P1
+- Status: Fixed
+- Symptom: Single-email Risk Check took too long, especially on first query for a domain.
+- Root cause: The main `/api/web-risk` path repeated RDAP/DNS work it had already done, and `calculateRiskScore` previously ran several independent network checks in a mostly serial order. SMTP validation also had a relatively long timeout.
+- Changed files: `src/lib/risk-engine.ts`, `src/app/api/web-risk/route.ts`.
+- Fix: Parallelized independent blacklist and DNS lookups, overlapped SMTP validation with the DNS checks, cached domain-age lookups, lowered SMTP timeout to 3s, and removed duplicate RDAP/DNS lookups from the main web-risk route by deriving DNS health from the already returned email details.
+- Impact: Risk Check should return faster while keeping the no-token, low-cost behavior for normal email/IP scoring.
+- Verification: `npm run build` passes after the change.
+- Prevention: Keep expensive validations behind the cheapest possible checks, reuse already fetched signals, and prefer in-memory caches before any new external request.
+- Remaining risk: First-time checks for a brand-new domain can still wait on external RDAP/DNS/SMTP providers; if this remains slow in production, we should consider a deliberate “fast mode” that skips SMTP deep validation unless the user explicitly asks for it.

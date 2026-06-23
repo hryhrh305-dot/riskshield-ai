@@ -82,6 +82,7 @@ export const suspiciousTLDs = new Set([
 interface CacheEntry { data: Record<string, unknown>; ts: number; }
 const ipCache = new Map<string, CacheEntry>();
 const dnsCache = new Map<string, CacheEntry>();
+const domainAgeCache = new Map<string, CacheEntry>();
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
 
 
@@ -353,13 +354,15 @@ export async function calculateRiskScore({
       emailDetails.isRoleBased = roleBasedPrefixes.has(localPart);
 
       // ---- 1e: Blacklist check ----
-      const blEmail = await checkBlacklist("email", email);
+      const [blEmail, blDomain] = await Promise.all([
+        checkBlacklist("email", email),
+        checkBlacklist("domain", domain),
+      ]);
       if (blEmail) {
         riskScore += 50;
         reasons.push("Email in blacklist ?flagged from previous abuse");
         blacklistHits.push("email:" + email);
       }
-      const blDomain = await checkBlacklist("domain", domain);
       if (blDomain) {
         riskScore += 35;
         reasons.push("Domain in blacklist: " + domain);
@@ -369,8 +372,13 @@ export async function calculateRiskScore({
       // ============ CATEGORY 2: DOMAIN & MAIL SERVER HEALTH ============
 
       if (shouldCheckMX !== false) {
+        const mxPromise = checkMXRecord(domain);
+        const spfPromise = checkSPFRecord(domain);
+        const dmarcPromise = checkDMARCRecord(domain);
+        const dkimPromise = checkDKIMRecord(domain);
+
         // ---- 2a: MX Record Check (mail server existence) ----
-        const mx = await checkMXRecord(domain);
+        const mx = await mxPromise;
         emailDetails.hasMX = mx.hasMX;
         emailDetails.mxRecords = mx.mxRecords;
         emailDetails.mxChecked = mx.mxChecked;
@@ -387,8 +395,47 @@ export async function calculateRiskScore({
           reasons.push("MX lookup failed - could not verify mail server (network limitation, not a risk signal)");
         }
 
-        // ---- 2b: SMTP Mailbox Existence Check (deep validation) ----
-        // Attempt lightweight SMTP RCPT TO check
+        const [spf, dmarc, dkim] = await Promise.all([spfPromise, dmarcPromise, dkimPromise]);
+
+        // ---- 2b: SPF Record Check ----
+        emailDetails.hasSPF = spf.hasSPF;
+        emailDetails.spfChecked = spf.spfChecked;
+        if (spf.spfChecked && !spf.hasSPF) {
+          riskScore += 5;
+          reasons.push("Missing SPF record ?domain lacks sender authentication");
+        } else if (spf.spfChecked && spf.hasSPF) {
+          riskScore -= 5;
+          reasons.push("SPF record present - domain has sender authentication");
+        }
+
+        // ---- 2c: DMARC Record Check ----
+        emailDetails.hasDMARC = dmarc.hasDMARC;
+        emailDetails.dmarcChecked = dmarc.dmarcChecked;
+        emailDetails.dmarcPolicy = dmarc.dmarcPolicy;
+        if (dmarc.dmarcChecked && !dmarc.hasDMARC) {
+          riskScore += 5;
+          reasons.push("Missing DMARC record ?domain vulnerable to spoofing");
+        } else if (dmarc.dmarcChecked && dmarc.hasDMARC) {
+          riskScore -= 5;
+          reasons.push("DMARC record present - domain protected against spoofing");
+        }
+        if (dmarc.dmarcPolicy === "reject") {
+          riskScore -= 5; // strict DMARC is good
+        }
+
+        // ---- 2d: DKIM Record Check ----
+        emailDetails.hasDKIM = dkim.hasDKIM;
+        emailDetails.dkimChecked = dkim.dkimChecked;
+        emailDetails.dkimSelector = dkim.dkimSelector;
+        if (dkim.dkimChecked && !dkim.hasDKIM) {
+          riskScore += 5;
+          reasons.push("Missing DKIM record - email signing not configured for this domain");
+        } else if (dkim.dkimChecked && dkim.hasDKIM) {
+          riskScore -= 5;
+          reasons.push("DKIM record present - email signing configured (" + dkim.dkimSelector + " selector)");
+        }
+
+        // ---- 2e: SMTP Mailbox Existence Check (deep validation) ----
         if (mx.hasMX && mx.mxRecords.length > 0) {
           try {
             const smtpResult = await checkSMTPMailbox(domain, email, mx.mxRecords[0]);
@@ -437,47 +484,6 @@ export async function calculateRiskScore({
           } catch {
             // SMTP check failed silently ?not all servers allow it
           }
-        }
-
-        // ---- 2c: SPF Record Check ----
-        const spf = await checkSPFRecord(domain);
-        emailDetails.hasSPF = spf.hasSPF;
-        emailDetails.spfChecked = spf.spfChecked;
-        if (spf.spfChecked && !spf.hasSPF) {
-          riskScore += 5;
-          reasons.push("Missing SPF record ?domain lacks sender authentication");
-        } else if (spf.spfChecked && spf.hasSPF) {
-          riskScore -= 5;
-          reasons.push("SPF record present - domain has sender authentication");
-        }
-
-        // ---- 2d: DMARC Record Check ----
-        const dmarc = await checkDMARCRecord(domain);
-        emailDetails.hasDMARC = dmarc.hasDMARC;
-        emailDetails.dmarcChecked = dmarc.dmarcChecked;
-        emailDetails.dmarcPolicy = dmarc.dmarcPolicy;
-        if (dmarc.dmarcChecked && !dmarc.hasDMARC) {
-          riskScore += 5;
-          reasons.push("Missing DMARC record ?domain vulnerable to spoofing");
-        } else if (dmarc.dmarcChecked && dmarc.hasDMARC) {
-          riskScore -= 5;
-          reasons.push("DMARC record present - domain protected against spoofing");
-        }
-        if (dmarc.dmarcPolicy === "reject") {
-          riskScore -= 5; // strict DMARC is good
-        }
-
-        // ---- 2e: DKIM Record Check ----
-        const dkim = await checkDKIMRecord(domain);
-        emailDetails.hasDKIM = dkim.hasDKIM;
-        emailDetails.dkimChecked = dkim.dkimChecked;
-        emailDetails.dkimSelector = dkim.dkimSelector;
-        if (dkim.dkimChecked && !dkim.hasDKIM) {
-          riskScore += 5;
-          reasons.push("Missing DKIM record - email signing not configured for this domain");
-        } else if (dkim.dkimChecked && dkim.hasDKIM) {
-          riskScore -= 5;
-          reasons.push("DKIM record present - email signing configured (" + dkim.dkimSelector + " selector)");
         }
       }
 
@@ -867,7 +873,18 @@ export async function checkDomainAge(domain: string): Promise<{
   ageYears: number | null;
   isNew: boolean;
   registrar: string | null;
-}> {
+  }> {
+  const cached = domainAgeCache.get(domain);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    return cached.data as {
+      checked: boolean;
+      createdDate: string | null;
+      ageDays: number | null;
+      ageYears: number | null;
+      isNew: boolean;
+      registrar: string | null;
+    };
+  }
   const result = { checked: false, createdDate: null as string | null, ageDays: null as number | null, ageYears: null as number | null, isNew: false, registrar: null as string | null };
   try {
     // Use free RDAP protocol (successor to WHOIS) ?no API key needed
@@ -899,8 +916,10 @@ export async function checkDomainAge(domain: string): Promise<{
         break;
       }
     }
+    domainAgeCache.set(domain, { data: result as unknown as Record<string, unknown>, ts: Date.now() });
     return result;
   } catch {
+    domainAgeCache.set(domain, { data: result as unknown as Record<string, unknown>, ts: Date.now() });
     return result;
   }
 }
@@ -976,7 +995,7 @@ export async function checkSMTPMailbox(domain: string, email: string, mxHost: st
       const timeout = setTimeout(() => {
         socket.destroy();
         resolve({ ...result, checked: false, message: "SMTP timeout" });
-      }, 4000);
+      }, 3000);
 
       socket.connect(25, mxHost);
 

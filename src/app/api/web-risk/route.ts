@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { calculateRiskScore, getAIExplanation, checkDomainAge, getDNSHealthScore, calculateCompanyHealth, getCachedResult, setCachedResult, makeResultCacheKey, cleanEmail } from "@/lib/risk-engine";
+import { calculateRiskScore, getAIExplanation, checkDomainAge, calculateCompanyHealth, getCachedResult, setCachedResult, makeResultCacheKey, cleanEmail } from "@/lib/risk-engine";
 import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
@@ -56,6 +56,34 @@ function buildResponseData(email: string | null, requestIP: string | null, riskR
     credits: { remaining: newCredits, success: creditSuccess },
     cached,
   };
+}
+
+function buildDNSHealthFromEmailDetails(emailDetails: Record<string, unknown> | null) {
+  if (!emailDetails) return null;
+  const detailsSource = emailDetails as Record<string, any>;
+  const mx = !!detailsSource.hasMX;
+  const spf = !!detailsSource.hasSPF;
+  const dmarc = !!detailsSource.hasDMARC;
+  const dkim = !!detailsSource.hasDKIM;
+  const dmarcPolicy = (detailsSource.dmarcPolicy as string) || "none";
+  const details: string[] = [];
+  let score = 0;
+  if (mx && detailsSource.mxChecked) { score += 30; details.push("MX: OK"); }
+  else if (detailsSource.mxChecked) { details.push("MX: MISSING"); }
+  else { score += 10; details.push("MX: Unknown"); }
+  if (spf && detailsSource.spfChecked) { score += 25; details.push("SPF: Present"); }
+  else if (detailsSource.spfChecked) { details.push("SPF: Missing"); }
+  if (dmarc && detailsSource.dmarcChecked) {
+    score += 25;
+    details.push("DMARC: Present (" + dmarcPolicy + ")");
+    if (dmarcPolicy === "reject") score += 10;
+  } else if (detailsSource.dmarcChecked) {
+    details.push("DMARC: Missing");
+  }
+  if (dkim && detailsSource.dkimChecked) { score += 25; details.push("DKIM: Present (" + (detailsSource.dkimSelector || "unknown") + ")"); }
+  else if (detailsSource.dkimChecked) { details.push("DKIM: Missing"); }
+  if (mx && spf && dmarc && dkim) score += 10;
+  return { score: Math.min(100, score), mx, spf, dmarc, dmarcPolicy, dkim, dkimSelector: (detailsSource.dkimSelector as string) || "", details };
 }
 
 export async function POST(request: NextRequest) {
@@ -147,46 +175,31 @@ try {
     }, { status: 429 });
   }
 // === STEP 2: Run the actual risk check ===
-  // Compute domain age before risk check (for core scoring)
-  let domainAgeDays: number | null = null;
-  if (email) {
-    const domain = email.split("@")[1]?.toLowerCase();
-    if (domain) {
-      try { const age = await checkDomainAge(domain); domainAgeDays = age.ageDays; } catch { /* skip */ }
-    }
-  }
+  const domain = email ? email.split("@")[1]?.toLowerCase() : null;
+  const domainAge = domain ? await checkDomainAge(domain).catch(() => null) : null;
+  const domainAgeDays: number | null = domainAge?.ageDays ?? null;
   const riskResult = await calculateRiskScore({ email, ip: requestIP, domainAgeDays });
   const aiReason = await getAIExplanation(email, requestIP, riskResult.score, riskResult.reasons);
 
   // Domain extraction for Company Health Score
   let companyHealth = null;
-  let domainAge = null;
-  let dnsHealth = null;
-  if (email) {
-    const domain = email.split("@")[1]?.toLowerCase();
-    if (domain) {
-      try {
-        const [ageResult, dnsResult] = await Promise.all([
-          checkDomainAge(domain),
-          getDNSHealthScore(domain),
-        ]);
-        domainAge = ageResult;
-        dnsHealth = dnsResult;
-        companyHealth = await calculateCompanyHealth({
-          riskScore: riskResult.score,
-          isDisposable: !!riskResult.emailDetails?.isDisposable,
-          hasMX: !!riskResult.emailDetails?.hasMX,
-          hasSPF: !!riskResult.emailDetails?.hasSPF,
-          hasDMARC: !!riskResult.emailDetails?.hasDMARC,
-          dmarcPolicy: (riskResult.emailDetails?.dmarcPolicy as string) || "none",
-          domainAgeDays: ageResult.ageDays,
-          isProxy: !!riskResult.ipDetails?.isProxy,
-          isHosting: !!riskResult.ipDetails?.isHosting,
-          blacklistHits: riskResult.blacklistHits || [],
-          country: (riskResult.ipDetails?.countryCode as string) || null,
-        });
-      } catch { /* non-critical */ }
-    }
+  const dnsHealth = buildDNSHealthFromEmailDetails(riskResult.emailDetails);
+  if (email && domainAge) {
+    try {
+      companyHealth = await calculateCompanyHealth({
+        riskScore: riskResult.score,
+        isDisposable: !!riskResult.emailDetails?.isDisposable,
+        hasMX: !!riskResult.emailDetails?.hasMX,
+        hasSPF: !!riskResult.emailDetails?.hasSPF,
+        hasDMARC: !!riskResult.emailDetails?.hasDMARC,
+        dmarcPolicy: (riskResult.emailDetails?.dmarcPolicy as string) || "none",
+        domainAgeDays: domainAge.ageDays,
+        isProxy: !!riskResult.ipDetails?.isProxy,
+        isHosting: !!riskResult.ipDetails?.isHosting,
+        blacklistHits: riskResult.blacklistHits || [],
+        country: (riskResult.ipDetails?.countryCode as string) || null,
+      });
+    } catch { /* non-critical */ }
   }
 
   // === STEP 3: Cache the result for 24h (prevents re-consumption on duplicate queries) ===
