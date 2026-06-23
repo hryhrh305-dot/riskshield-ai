@@ -1,5 +1,5 @@
 ﻿import Link from "next/link";
-import { Shield, Code, Key, Download } from "lucide-react";
+import { Shield, Code, Key, ExternalLink } from "lucide-react";
 
 export default function DocsPage() {
   return (
@@ -139,30 +139,14 @@ export default function DocsPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold flex items-center gap-2 mb-3"><Code className="w-5 h-5" /> Google Sheets Setup</h2>
+          <h2 className="text-lg font-semibold flex items-center gap-2 mb-3"><Code className="w-5 h-5" /> Google Sheets</h2>
           <div className="bg-white rounded-xl border p-6">
             <p className="text-sm text-gray-600 mb-4">
-              Use this when you want to scan a column of emails inside Google Sheets without exporting a file.
+              The Google Sheets installation guide now lives on its own page, so spreadsheet users can go straight to setup without scrolling through API reference content first.
             </p>
-            <div className="mb-4">
-              <a href="/api/google-sheets-addon" className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
-                <Download className="w-4 h-4" /> Download Code.gs
-              </a>
-            </div>
-            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-600">
-              <li>Open the Google Sheet that contains your email list.</li>
-              <li>Click <strong>Extensions</strong>, then click <strong>Apps Script</strong>.</li>
-              <li>If Apps Script shows sample code, delete all of it.</li>
-              <li>Open the downloaded <strong>Code.gs</strong> file on your computer.</li>
-              <li>Copy all code from <strong>Code.gs</strong>, paste it into Apps Script, then click <strong>Save</strong>.</li>
-              <li>Go back to your Google Sheet and refresh the browser tab.</li>
-              <li>After refresh, open the new <strong>Risk Scanner</strong> menu at the top of the sheet.</li>
-              <li>Click <strong>Risk Scanner</strong> &gt; <strong>Settings</strong>, paste your RiskShield API key, and save.</li>
-              <li>Select the cells that contain emails, then click <strong>Risk Scanner</strong> &gt; <strong>Scan Selected Emails</strong>.</li>
-            </ol>
-            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-              Google Sheets API access requires a Growth, Scale, or Business plan. Free and Starter accounts can use the website scanner, but cannot call the batch API.
-            </div>
+            <Link href="/docs/google-sheets" className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
+              Open Google Sheets Guide <ExternalLink className="w-4 h-4" />
+            </Link>
           </div>
         </section>
 

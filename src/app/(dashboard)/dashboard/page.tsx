@@ -305,7 +305,7 @@ export default function DashboardPage() {
                 <a href="/api/google-sheets-addon" className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 inline-flex items-center gap-1">
                   <Download className="w-4 h-4" /> Download Code.gs
                 </a>
-                <a href="/docs" className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 inline-flex items-center gap-1">
+                <a href="/docs/google-sheets" className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 inline-flex items-center gap-1">
                   View Setup Guide
                 </a>
               </div>
