@@ -138,10 +138,11 @@ export default function DashboardPage() {
   const dailyLimit = planInfo.dailyLimit || 2000;
   const creditsRemaining = profile.credits_remaining ?? 0;
   const apiEnabled = planInfo.apiAccess;
-  const monthlyRemaining = creditsRemaining;
   const dailyRemaining = Math.max(0, dailyLimit - dailyUsed);
   const daysLeftEstimate = dailyUsed > 0 ? Math.max(0, Math.floor(dailyRemaining / (dailyUsed / Math.max(1, new Date().getDate())))) : 999;
-  const creditsPercent = monthlyLimit > 0 ? Math.round((creditsRemaining / monthlyLimit) * 100) : 100;
+  const displayCreditsRemaining = Math.min(creditsRemaining, monthlyLimit);
+  const monthlyRemaining = displayCreditsRemaining;
+  const creditsPercent = monthlyLimit > 0 ? Math.min(100, Math.round((displayCreditsRemaining / monthlyLimit) * 100)) : 100;
   const monthlyPercent = creditsPercent;
   const usageStatus = monthlyPercent <= 20 ? "critical" : monthlyPercent <= 50 ? "warning" : "healthy";
   const activeApiKeys = apiKeys.filter((key) => key.status === "active");
@@ -192,9 +193,9 @@ export default function DashboardPage() {
           {/* Card 1: Credits Remaining */}
           <div className="bg-white rounded-xl border p-5">
             <div className="flex items-center gap-2 text-blue-600 mb-2"><Shield className="w-5 h-5" /><span className="font-semibold text-sm">Credits Remaining</span></div>
-            <div className="text-2xl font-bold">{monthlyRemaining.toLocaleString()}<span className="text-sm font-normal text-gray-400"> / {monthlyLimit.toLocaleString()}</span></div>
+            <div className="text-2xl font-bold">{displayCreditsRemaining.toLocaleString()}<span className="text-sm font-normal text-gray-400"> / {monthlyLimit.toLocaleString()}</span></div>
             <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-              <div className="bg-blue-600 h-2 rounded-full transition-all" style={{ width: Math.min(100, (monthlyUsed / monthlyLimit) * 100) + "%" }} />
+              <div className="bg-blue-600 h-2 rounded-full transition-all" style={{ width: `${creditsPercent}%` }} />
             </div>
             <div className="text-xs text-gray-400 mt-1.5">
                 {usageStatus === "healthy" ? (
