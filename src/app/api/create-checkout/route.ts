@@ -94,7 +94,6 @@ export async function POST(req: NextRequest) {
         product_id: productId,
         request_id: requestId,
         success_url: checkoutUrls.successUrl,
-        cancel_url: checkoutUrls.cancelUrl,
         customer: {
           email: user.email,
         },
@@ -129,7 +128,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       checkoutUrl: data.checkout_url,
       successUrl: checkoutUrls.successUrl,
-      cancelUrl: checkoutUrls.cancelUrl,
     });
   } catch (error) {
     console.error("Checkout error:", error);
