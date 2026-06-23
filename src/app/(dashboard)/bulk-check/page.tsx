@@ -145,10 +145,17 @@ export default function BulkCheckPage() {
 
           <div className="mt-4">
             <p className="text-xs text-gray-400 mb-2 uppercase tracking-wider">Or paste emails one per line, or separated by spaces</p>
+            <pre className="mb-2 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-500 font-mono whitespace-pre-wrap break-words text-left">
+{`john@example.com jane@company.com sales@domain.com
+or
+john@example.com
+jane@company.com
+sales@domain.com`}
+            </pre>
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder={"john@example.com jane@company.com sales@domain.com\nor\njohn@example.com\njane@company.com\nsales@domain.com"}
+              placeholder="Paste emails here"
               rows={6}
               className="w-full border rounded-lg p-4 text-sm font-mono resize-y focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
