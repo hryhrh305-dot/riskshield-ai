@@ -1,8 +1,15 @@
 import { createClient } from "@/lib/supabase";
+import { buildAuthRedirectUrl } from "@/lib/auth-helpers";
 
 export async function signUp(email: string, password: string) {
   const supabase = createClient();
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo: buildAuthRedirectUrl(process.env, "/dashboard"),
+    },
+  });
   return { data, error };
 }
 

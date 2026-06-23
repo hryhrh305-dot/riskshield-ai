@@ -10,6 +10,7 @@ export default function SignUpPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -17,6 +18,7 @@ export default function SignUpPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setSuccessMessage("");
     const { data, error } = await signUp(email, password);
     if (error) {
       if (error.message?.includes("already") || error.message?.includes("exists")) {
@@ -27,7 +29,7 @@ export default function SignUpPage() {
     } else if (data?.user || data?.session) {
       router.push("/dashboard");
     } else {
-      setError("Sign up succeeded but no session. Please try signing in.");
+      setSuccessMessage(`Verification email sent to ${email}. Please open it and click the confirmation link to activate your account.`);
     }
     setLoading(false);
   }
@@ -42,6 +44,7 @@ export default function SignUpPage() {
         </div>
         <form onSubmit={handleSignUp} className="bg-white rounded-xl border p-6 space-y-4">
           {error && <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
+          {successMessage && <div className="p-3 bg-green-50 text-green-700 rounded-lg text-sm">{successMessage}</div>}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
