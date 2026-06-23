@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Check, Clock3, Minus, Shield } from "lucide-react";
 import { plans, type PlanKey } from "@/lib/plans";
+import { createClient } from "@/lib/supabase";
 
 type Availability = "included" | "limited" | "unavailable" | "soon" | "custom";
 
@@ -555,6 +557,65 @@ function AvailabilityCell({ value }: { value: FeatureValue }) {
 
 export default function PricingPage() {
   const planEntries = Object.entries(plans) as [PlanKey, typeof plans[PlanKey]][];
+  const [currentPlan, setCurrentPlan] = useState<PlanKey>("free");
+  const [checkoutLoading, setCheckoutLoading] = useState<PlanKey | null>(null);
+  const [checkoutError, setCheckoutError] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadCurrentPlan() {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user || !mounted) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("plan")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profile?.plan && mounted) {
+        setCurrentPlan(profile.plan as PlanKey);
+      }
+    }
+
+    loadCurrentPlan();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  async function handleCheckout(plan: PlanKey) {
+    if (!["starter", "growth", "scale"].includes(plan)) return;
+
+    setCheckoutLoading(plan);
+    setCheckoutError("");
+
+    try {
+      const response = await fetch("/api/create-checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ plan }),
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data?.checkoutUrl) {
+        throw new Error(data?.error || "Failed to start checkout.");
+      }
+
+      window.location.href = data.checkoutUrl;
+    } catch (error) {
+      setCheckoutError(error instanceof Error ? error.message : "Failed to start checkout.");
+      setCheckoutLoading(null);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -628,19 +689,49 @@ export default function PricingPage() {
 
                 <button
                   type="button"
-                  disabled
-                  className={`mt-6 w-full cursor-not-allowed rounded-lg px-4 py-2.5 text-sm font-semibold ${
-                    isPopular
-                      ? "bg-white/90 text-blue-600"
-                      : "bg-gray-100 text-gray-500"
+                  onClick={() => handleCheckout(key)}
+                  disabled={
+                    key === "free" ||
+                    key === "business" ||
+                    key === currentPlan ||
+                    checkoutLoading !== null
+                  }
+                  className={`mt-6 w-full rounded-lg px-4 py-2.5 text-sm font-semibold transition ${
+                    key === "free" || key === "business" || key === currentPlan || checkoutLoading !== null
+                      ? isPopular
+                        ? "cursor-not-allowed bg-white/90 text-blue-600"
+                        : "cursor-not-allowed bg-gray-100 text-gray-500"
+                      : isPopular
+                        ? "bg-white text-blue-600 hover:bg-blue-50"
+                        : "bg-blue-600 text-white hover:bg-blue-700"
                   }`}
                 >
-                  {key === "free" ? "Current plan" : key === "business" ? "Contact sales" : "Upgrade coming soon"}
+                  {key === "free"
+                    ? currentPlan === "free"
+                      ? "Current plan"
+                      : "Free plan"
+                    : key === "business"
+                      ? "Contact sales"
+                      : key === currentPlan
+                        ? "Current plan"
+                        : checkoutLoading === key
+                          ? "Redirecting..."
+                          : key === "starter"
+                            ? "Start Starter"
+                            : key === "growth"
+                              ? "Start Growth"
+                              : "Run at Scale"}
                 </button>
               </article>
             );
           })}
         </section>
+
+        {checkoutError && (
+          <section className="mb-8 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {checkoutError}
+          </section>
+        )}
 
         <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
           <div className="border-b bg-slate-50 px-5 py-5 sm:px-6">
@@ -685,7 +776,7 @@ export default function PricingPage() {
         </section>
 
         <section className="mt-6 rounded-xl border border-blue-100 bg-blue-50 px-5 py-4 text-sm text-blue-900">
-          Credits are usage units for RiskShield checks. Cached duplicate results may be returned without repeating the underlying check. Final billing, annual plans, and paid checkout will be enabled with the production payment rollout.
+          Credits are usage units for RiskShield checks. Cached duplicate results may be returned without repeating the underlying check. Starter, Growth, and Scale subscriptions are activated automatically after the Creem webhook is processed.
         </section>
       </main>
     </div>
