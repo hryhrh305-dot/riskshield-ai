@@ -44,7 +44,7 @@ export default function BulkCheckPage() {
   }
 
   async function handlePaste() {
-    if (!text.trim()) { setError("Paste emails (one per line) or upload a CSV, TXT, or XLSX file."); return; }
+    if (!text.trim()) { setError("Paste emails one per line or separated by spaces, or upload a CSV, TXT, or XLSX file."); return; }
     setLoading(true); setError(""); setResults(null); setSummary(null);
     setStatusMessage("Scanning pasted emails and building the report...");
     try {
@@ -144,11 +144,11 @@ export default function BulkCheckPage() {
           </div>
 
           <div className="mt-4">
-            <p className="text-xs text-gray-400 mb-2 uppercase tracking-wider">Or paste emails (one per line)</p>
+            <p className="text-xs text-gray-400 mb-2 uppercase tracking-wider">Or paste emails one per line, or separated by spaces</p>
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder={"john@example.com\njane@company.com\nsales@domain.com\n..."}
+              placeholder={"john@example.com jane@company.com sales@domain.com\nor\njohn@example.com\njane@company.com\nsales@domain.com"}
               rows={6}
               className="w-full border rounded-lg p-4 text-sm font-mono resize-y focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
