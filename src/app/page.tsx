@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Shield, Lock, Zap, Code, ArrowRight, CheckCircle, BarChart3, Filter, LogOut } from "lucide-react";
+import { Shield, Zap, Code, ArrowRight, Filter, LogOut, Menu, X } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 
 const features = [
@@ -20,6 +20,7 @@ const differentiators = [
 export default function Home() {
   const [user, setUser] = useState<{ email: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -27,7 +28,9 @@ export default function Home() {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         setUser(user ? { email: user.email || "" } : null);
-      } catch { setUser(null); }
+      } catch {
+        setUser(null);
+      }
       setLoading(false);
     })();
   }, []);
@@ -36,103 +39,160 @@ export default function Home() {
     const supabase = createClient();
     await supabase.auth.signOut();
     setUser(null);
+    setMenuOpen(false);
     window.location.href = "/";
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="px-6 py-4 flex items-center justify-between max-w-6xl mx-auto">
-        <Link href="/" className="flex items-center gap-2">
-          <Shield className="w-7 h-7 text-blue-600" />
-          <span className="font-bold text-xl">RiskShield</span>
-        </Link>
-        <div className="flex items-center gap-4">
-          <Link href="/docs" className="text-sm text-gray-600 hover:text-gray-900">Docs</Link>
-          <Link href="/pricing" className="text-sm text-gray-600 hover:text-gray-900">Pricing</Link>
-          {!loading && (
-            user ? (
-              <>
-                <Link href="/dashboard" className="text-sm text-gray-600 hover:text-gray-900 font-medium">{user.email}</Link>
-                <button onClick={handleSignOut} className="text-sm text-gray-400 hover:text-red-600" title="Sign Out">
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </>
-            ) : (
-              <>
-                <Link href="/login" className="text-sm text-gray-600 hover:text-gray-900">Sign In</Link>
-                <Link href="/signup" className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">Get API Key Free</Link>
-              </>
-            )
-          )}
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+      <nav className="relative border-b border-gray-200 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
+          <Link href="/" className="flex shrink-0 items-center gap-2" onClick={() => setMenuOpen(false)}>
+            <Shield className="h-7 w-7 text-blue-600" />
+            <span className="text-lg font-bold tracking-tight sm:text-xl">RiskShield</span>
+          </Link>
+
+          <div className="hidden items-center gap-4 md:flex">
+            <Link href="/docs" className="text-sm text-gray-600 hover:text-gray-900">Docs</Link>
+            <Link href="/pricing" className="text-sm text-gray-600 hover:text-gray-900">Pricing</Link>
+            {!loading && (
+              user ? (
+                <>
+                  <Link href="/dashboard" className="text-sm font-medium text-gray-600 hover:text-gray-900">{user.email}</Link>
+                  <button onClick={handleSignOut} className="text-sm text-gray-400 hover:text-red-600" title="Sign Out">
+                    <LogOut className="h-4 w-4" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link href="/login" className="text-sm text-gray-600 hover:text-gray-900">Sign In</Link>
+                  <Link href="/signup" className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+                    Get API Key Free
+                  </Link>
+                </>
+              )
+            )}
+          </div>
+
+          <button
+            type="button"
+            aria-label="Toggle navigation menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((v) => !v)}
+            className="inline-flex items-center justify-center rounded-lg border border-gray-200 p-2 text-gray-700 hover:bg-gray-100 md:hidden"
+          >
+            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
+
+        {menuOpen && (
+          <div className="border-t border-gray-200 bg-white px-4 py-3 shadow-sm md:hidden">
+            <div className="mx-auto max-w-6xl space-y-2">
+              <Link href="/docs" onClick={() => setMenuOpen(false)} className="block rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">
+                Docs
+              </Link>
+              <Link href="/pricing" onClick={() => setMenuOpen(false)} className="block rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">
+                Pricing
+              </Link>
+              {!loading && (
+                user ? (
+                  <>
+                    <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="block rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">
+                      Dashboard
+                    </Link>
+                    <button
+                      onClick={handleSignOut}
+                      className="flex w-full items-center justify-center rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                    >
+                      Sign Out
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link href="/login" onClick={() => setMenuOpen(false)} className="block rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">
+                      Sign In
+                    </Link>
+                    <Link href="/signup" onClick={() => setMenuOpen(false)} className="flex items-center justify-center rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+                      Get API Key Free
+                    </Link>
+                  </>
+                )
+              )}
+            </div>
+          </div>
+        )}
       </nav>
 
-      <section className="pt-20 pb-16 px-6 text-center max-w-3xl mx-auto">
-        <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full mb-6">
-          <Zap className="w-3.5 h-3.5" /> AI-Powered Customer Risk Intelligence
-        </div>
-        <h1 className="text-5xl font-extrabold tracking-tight text-gray-900 leading-tight">
-          Know Your Customer Before You <span className="text-blue-600">Engage</span>
-        </h1>
-        <p className="mt-4 text-lg text-gray-500 max-w-xl mx-auto">
-          Instantly assess customer legitimacy, domain health, and fraud risk. From email verification to company intelligence — make confident business decisions at scale.
-        </p>
-        <div className="mt-8 flex items-center justify-center gap-4 flex-wrap">
-          {user ? (
-            <Link href="/dashboard" className="bg-blue-600 text-white px-6 py-3 rounded-lg text-sm font-semibold hover:bg-blue-700 inline-flex items-center gap-2">
-              Go to Dashboard <ArrowRight className="w-4 h-4" />
+      <section className="mx-auto max-w-3xl px-4 pb-12 pt-12 text-center sm:px-6 sm:pb-16 sm:pt-20">
+        <div className="flex flex-col items-center gap-4 sm:gap-5">
+          <div className="inline-flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+            <Zap className="h-3.5 w-3.5" /> AI-Powered Customer Risk Intelligence
+          </div>
+          <h1 className="text-3xl font-extrabold leading-tight tracking-tight text-gray-900 sm:text-4xl lg:text-5xl">
+            Know Your Customer Before You <span className="text-blue-600">Engage</span>
+          </h1>
+          <p className="max-w-xl text-base text-gray-500 sm:text-lg">
+            Instantly assess customer legitimacy, domain health, and fraud risk. From email verification to company intelligence - make confident business decisions at scale.
+          </p>
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center sm:justify-center">
+            {user ? (
+              <Link href="/dashboard" className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-700 sm:w-auto">
+                Go to Dashboard <ArrowRight className="h-4 w-4" />
+              </Link>
+            ) : (
+              <Link href="/signup" className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-700 sm:w-auto">
+                Start Free <ArrowRight className="h-4 w-4" />
+              </Link>
+            )}
+            <Link href="/docs" className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-6 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-100 sm:w-auto">
+              <Code className="h-4 w-4" /> API Docs
             </Link>
-          ) : (
-            <Link href="/signup" className="bg-blue-600 text-white px-6 py-3 rounded-lg text-sm font-semibold hover:bg-blue-700 inline-flex items-center gap-2">
-              Start Free <ArrowRight className="w-4 h-4" />
-            </Link>
-          )}
-          <Link href="/docs" className="bg-white border border-gray-300 text-gray-700 px-6 py-3 rounded-lg text-sm font-semibold hover:bg-gray-100 inline-flex items-center gap-2">
-            <Code className="w-4 h-4" /> API Docs
-          </Link>
+          </div>
         </div>
       </section>
 
-      <section className="py-16 px-6 max-w-5xl mx-auto grid md:grid-cols-3 gap-6">
+      <section className="mx-auto grid max-w-5xl grid-cols-1 gap-6 px-4 py-12 sm:px-6 sm:py-16 md:grid-cols-3">
         {features.map((f, i) => (
-          <div key={i} className="bg-white rounded-xl border p-6">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mb-4"><f.icon className="w-5 h-5 text-blue-600" /></div>
+          <div key={i} className="rounded-xl border bg-white p-6">
+            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
+              <f.icon className="h-5 w-5 text-blue-600" />
+            </div>
             <h3 className="font-semibold">{f.title}</h3>
-            <p className="text-sm text-gray-500 mt-2">{f.desc}</p>
+            <p className="mt-2 text-sm text-gray-500">{f.desc}</p>
           </div>
         ))}
       </section>
 
-      <section className="py-16 px-6 max-w-5xl mx-auto">
-        <h2 className="text-2xl font-bold text-center mb-2">Why RiskShield</h2>
-        <p className="text-center text-gray-500 mb-8 text-sm">Not another email validator. A decision layer for your data pipeline.</p>
-        <div className="grid md:grid-cols-3 gap-6">
+      <section className="mx-auto max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
+        <h2 className="mb-2 text-center text-2xl font-bold">Why RiskShield</h2>
+        <p className="mb-8 text-center text-sm text-gray-500">Not another email validator. A decision layer for your data pipeline.</p>
+        <div className="grid gap-6 md:grid-cols-3">
           {differentiators.map((d, i) => (
-            <div key={i} className="bg-white rounded-xl border p-5">
-              <h3 className="font-semibold text-sm text-blue-600">{d.title}</h3>
-              <p className="text-sm text-gray-500 mt-2">{d.desc}</p>
+            <div key={i} className="rounded-xl border bg-white p-5">
+              <h3 className="text-sm font-semibold text-blue-600">{d.title}</h3>
+              <p className="mt-2 text-sm text-gray-500">{d.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
-      <section className="py-16 px-6 text-center">
-        <div className="bg-blue-600 rounded-2xl p-10 max-w-2xl mx-auto">
-          <h2 className="text-2xl font-bold text-white mb-3">Ready to Stop Wasting Time on Bad Leads?</h2>
-          <p className="text-blue-100 mb-6">1,000 free risk checks per month. No credit card. Instant customer intelligence.</p>
+      <section className="px-4 py-12 text-center sm:px-6 sm:py-16">
+        <div className="mx-auto max-w-2xl rounded-2xl bg-blue-600 px-6 py-10 sm:p-10">
+          <h2 className="mb-3 text-2xl font-bold text-white">Ready to Stop Wasting Time on Bad Leads?</h2>
+          <p className="mb-6 text-blue-100">1,000 free risk checks per month. No credit card. Instant customer intelligence.</p>
           {user ? (
-            <Link href="/risk-check" className="bg-white text-blue-600 px-6 py-3 rounded-lg text-sm font-bold hover:bg-blue-50 inline-flex items-center gap-2">
-              Start Checking Now <ArrowRight className="w-4 h-4" />
+            <Link href="/risk-check" className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 text-sm font-bold text-blue-600 hover:bg-blue-50">
+              Start Checking Now <ArrowRight className="h-4 w-4" />
             </Link>
           ) : (
-            <Link href="/signup" className="bg-white text-blue-600 px-6 py-3 rounded-lg text-sm font-bold hover:bg-blue-50 inline-flex items-center gap-2">
-              Get Started Free <ArrowRight className="w-4 h-4" />
+            <Link href="/signup" className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 text-sm font-bold text-blue-600 hover:bg-blue-50">
+              Get Started Free <ArrowRight className="h-4 w-4" />
             </Link>
           )}
         </div>
       </section>
 
-      <footer className="border-t py-8 px-6 text-center text-sm text-gray-400">
+      <footer className="border-t px-4 py-8 text-center text-sm text-gray-400 sm:px-6">
         <p>&copy; {new Date().getFullYear()} RiskShield. AI-Powered Customer Risk Intelligence.</p>
       </footer>
     </div>
