@@ -94,7 +94,7 @@ const explanationCache = new Map<string, { value: string; ts: number }>();
 const EXPLANATION_CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
 const EXPLANATION_MODEL = process.env.DEEPSEEK_EXPLANATION_MODEL || "deepseek-v4-flash";
 const EXPLANATION_SYSTEM_PROMPT =
-  "你是邮箱与IP风险检测解释器。请只输出一条简短中文句子，不要分点，不要换行，不要补充建议，只概括为什么被标记。";
+  "You write short risk explanations for email and IP checks. Output exactly one short English sentence. No bullets, no line breaks, no markdown, and no extra advice. Summarize only why the item was flagged.";
 
 export function getCachedResult(key: string): Record<string, unknown> | null {
   const entry = resultCache.get(key);
@@ -183,27 +183,27 @@ function buildExplanationCacheKey(plan: string, riskScore: number, reasons: stri
 function getLocalExplanationFromTags(reasonTags: string[], riskScore: number): string {
   const parts: string[] = [];
 
-  if (reasonTags.includes("disposable_email")) parts.push("检测到一次性邮箱，常见于临时注册或低质量线索");
-  if (reasonTags.includes("smtp_permanent_failure")) parts.push("邮箱服务器已明确拒收，该地址大概率不存在或已失效");
-  if (reasonTags.includes("mailbox_full")) parts.push("目标邮箱当前已满，继续发送很可能产生退信");
-  if (reasonTags.includes("smtp_temp_failure")) parts.push("邮箱服务器当前临时拒收，短时间内投递稳定性较差");
-  if (reasonTags.includes("no_mx_records")) parts.push("域名没有可用邮件服务器记录，邮件大概率无法投递");
-  if (reasonTags.includes("catch_all")) parts.push("该域名可能为 catch-all，邮箱真实性无法稳定确认");
-  if (reasonTags.includes("proxy_vpn")) parts.push("检测到代理或 VPN 来源，真实访问身份存在隐藏风险");
-  if (reasonTags.includes("hosting_ip")) parts.push("来源 IP 位于机房或托管网络，自动化流量风险较高");
-  if (reasonTags.includes("high_risk_country")) parts.push("来源地区风险偏高，需要提高人工复核强度");
-  if (reasonTags.includes("blacklisted")) parts.push("目标或来源命中过往风险黑名单");
-  if (reasonTags.includes("new_domain")) parts.push("域名较新，稳定性和可信度仍需观察");
-  if (reasonTags.includes("suspicious_tld")) parts.push("域名后缀属于高滥用类型，历史风险显著更高");
-  if (reasonTags.includes("high_risk_domain_keyword")) parts.push("域名关键词模式异常，存在明显欺诈或钓鱼信号");
-  if (reasonTags.includes("role_based_email")) parts.push("该地址是通用角色邮箱，线索真实性和响应质量通常较弱");
+  if (reasonTags.includes("disposable_email")) parts.push("Disposable email detected, often used for temporary signups or low-quality leads");
+  if (reasonTags.includes("smtp_permanent_failure")) parts.push("The mailbox was explicitly rejected by the server, so the address is likely invalid or inactive");
+  if (reasonTags.includes("mailbox_full")) parts.push("The mailbox is full, so delivery is likely to bounce");
+  if (reasonTags.includes("smtp_temp_failure")) parts.push("The mailbox is temporarily rejecting mail, so delivery reliability is lower right now");
+  if (reasonTags.includes("no_mx_records")) parts.push("The domain has no usable mail server records, so email is unlikely to be delivered");
+  if (reasonTags.includes("catch_all")) parts.push("The domain may be catch-all, so mailbox validity cannot be confirmed reliably");
+  if (reasonTags.includes("proxy_vpn")) parts.push("A proxy or VPN source was detected, which can hide the real origin");
+  if (reasonTags.includes("hosting_ip")) parts.push("The source IP is in hosting or datacenter infrastructure, which is higher risk for automation");
+  if (reasonTags.includes("high_risk_country")) parts.push("The source region is higher risk, so manual review should be stricter");
+  if (reasonTags.includes("blacklisted")) parts.push("The target or source matched a prior risk blacklist");
+  if (reasonTags.includes("new_domain")) parts.push("The domain is relatively new, so stability and trustworthiness still need observation");
+  if (reasonTags.includes("suspicious_tld")) parts.push("The domain extension is associated with higher abuse rates");
+  if (reasonTags.includes("high_risk_domain_keyword")) parts.push("The domain keyword pattern looks unusual and may indicate fraud or phishing");
+  if (reasonTags.includes("role_based_email")) parts.push("This is a role-based mailbox, so lead authenticity and response quality are usually weaker");
 
   if (parts.length > 0) {
-    return parts.slice(0, 2).join("；") + "。";
+    return parts.slice(0, 2).join("; ") + ".";
   }
 
-  if (riskScore >= 85) return "检测到多项高风险异常信号，建议直接拦截或至少人工复核。";
-  if (riskScore >= 70) return "本次检测命中了明显风险信号，建议先人工复核再继续使用。";
+  if (riskScore >= 85) return "Multiple high-risk signals were detected, so blocking or manual review is recommended.";
+  if (riskScore >= 70) return "This check matched clear risk signals, so manual review is recommended before sending.";
   return "";
 }
 
@@ -1196,8 +1196,8 @@ export async function getAIExplanation(
   }
 
   const genericExplanation = riskScore >= 85
-    ? "检测到多项高风险异常信号，建议直接拦截或至少人工复核。"
-    : "本次检测命中了明显风险信号，建议先人工复核再继续使用。";
+    ? "Multiple high-risk signals were detected, so blocking or manual review is recommended."
+    : "This check matched clear risk signals, so manual review is recommended before sending.";
 
   if (!hasApiAccess(plan) || !shouldUseAiExplanation(plan) || !DEEPSEEK_API_KEY) {
     setCachedExplanation(cacheKey, genericExplanation);
@@ -1220,8 +1220,9 @@ export async function getAIExplanation(
     } as any);
 
     const content = completion.choices[0]?.message?.content?.trim()?.replace(/\s+/g, " ") || genericExplanation;
-    setCachedExplanation(cacheKey, content);
-    return content;
+    const finalContent = /[\u4e00-\u9fff]/.test(content) ? genericExplanation : content;
+    setCachedExplanation(cacheKey, finalContent);
+    return finalContent;
   } catch {
     setCachedExplanation(cacheKey, genericExplanation);
     return genericExplanation;

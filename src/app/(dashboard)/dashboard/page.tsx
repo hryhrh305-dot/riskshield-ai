@@ -62,8 +62,9 @@ export default function DashboardPage() {
   async function loadData() {
     try {
       const supabase = createClient();
-      const { data: { user }, error: authErr } = await supabase.auth.getUser();
-      if (authErr || !user) { setAuthChecked(true); return; }
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      if (!user) { setAuthChecked(true); return; }
 
       // Profile - single source of truth for credits
       const { data: p } = await supabase.from("profiles").select("*").eq("id", user.id).single();
@@ -113,7 +114,8 @@ export default function DashboardPage() {
     const currentPlan = profile?.plan || "free";
     if (!getPlanLimits(currentPlan).apiAccess) return;
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
     if (!user) return;
     const key = generateApiKey();
     await supabase.from("api_keys").insert({ user_id: user.id, key, name: "API Key " + (apiKeys.length + 1) });

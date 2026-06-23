@@ -1,43 +1,54 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
 
+const PROJECT_REF = "njhjiavnidssjvnkcxfo";
+
+function decodeBase64Url(input: string): string | null {
+  try {
+    const normalized = input.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    return atob(padded);
+  } catch {
+    return null;
+  }
+}
+
+function isJwtExpired(token: string): boolean | null {
+  const parts = token.split(".");
+  if (parts.length < 2) return null;
+
+  const payloadText = decodeBase64Url(parts[1]);
+  if (!payloadText) return null;
+
+  try {
+    const payload = JSON.parse(payloadText) as { exp?: number };
+    if (typeof payload.exp !== "number") return null;
+    return Date.now() / 1000 >= payload.exp;
+  } catch {
+    return null;
+  }
+}
+
 export async function middleware(request: NextRequest) {
   try {
-    const res = NextResponse.next({ request });
-
     const cookieHeader = request.headers.get("cookie") || "";
-    let userId: string | null = null;
-    if (cookieHeader) {
-      const token = readAccessTokenFromCookieHeader(cookieHeader, "njhjiavnidssjvnkcxfo");
-      if (token) {
-        // Verify token via Supabase REST API
-        const userRes = await fetch("https://njhjiavnidssjvnkcxfo.supabase.co/auth/v1/user", {
-          headers: { "Authorization": "Bearer " + token, "apikey": "sb_publishable_6pS7tKkxxBqYTLcAUu_GPg_0BysHHx8" }
-        });
-        if (userRes.ok) {
-          const userData = await userRes.json();
-          userId = userData?.id || null;
-        }
-      }
-    }
+    const token = cookieHeader ? readAccessTokenFromCookieHeader(cookieHeader, PROJECT_REF) : null;
+    const tokenExpired = token ? isJwtExpired(token) : null;
+    const isAuthed = Boolean(token) && tokenExpired !== true;
 
     const path = request.nextUrl.pathname;
 
-    if ((path.startsWith("/dashboard") || path.startsWith("/pricing") || path.startsWith("/risk-check") || path.startsWith("/bulk-check") || path.startsWith("/blacklist") || path.startsWith("/pre-send")) && !userId) {
-      return NextResponse.redirect(new URL("/login", request.url));
-    }
-
-    if ((path === "/login" || path === "/signup") && userId) {
+    if ((path === "/login" || path === "/signup") && isAuthed) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
 
-    return res;
+    return NextResponse.next();
   } catch (e) {
     console.error("[middleware] error:", e);
-    return NextResponse.next({ request });
+    return NextResponse.next();
   }
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/pricing/:path*", "/risk-check/:path*", "/bulk-check/:path*", "/blacklist/:path*", "/pre-send/:path*", "/login", "/signup"],
+  matcher: ["/login", "/signup"],
 };

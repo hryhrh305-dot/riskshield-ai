@@ -53,7 +53,7 @@ export default function RiskCheckPage() {
   const supabase = createClient();
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
     fetchHistory();
   }, []);
 

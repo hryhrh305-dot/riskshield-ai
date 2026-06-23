@@ -257,7 +257,7 @@ function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCe
       return;
     }
 
-    writeResults_(sheet, anchorRange, result.results, emailPositions);
+    writeResults_(sheet, anchorRange, result.results, result.export_columns || [], emailPositions);
     if (spreadsheet) {
       spreadsheet.toast("RiskShield: scan complete.", "RiskShield", 5);
     }
@@ -291,43 +291,88 @@ function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCe
 
 // ============ WRITE RESULTS TO SHEET ============
 
-function writeResults_(sheet, anchorRange, results, emailPositions) {
+function getFallbackExportColumns_() {
+  return [
+    { key: "email", label: "Email" },
+    { key: "risk_score", label: "Risk Score" },
+    { key: "risk_level", label: "Risk Level" },
+    { key: "recommendation", label: "Recommendation" },
+    { key: "estimated_waste_cost", label: "Estimated Waste Cost" },
+    { key: "cached", label: "Cached?" },
+  ];
+}
+
+function readExportValue_(result, key) {
+  if (key === "risk_level") return result.risk_level || result.decision || "";
+  if (key === "reasons") return (result.reasons || []).join("; ");
+  if (key === "impact") return (result.impact || []).join(" | ");
+  if (key === "risk_factors") return (result.risk_factors || []).join(" | ");
+  if (key === "solution_summary") {
+    if (result.solution_summary) return result.solution_summary;
+    if (Array.isArray(result.solution)) {
+      return result.solution.map(function (item) {
+        var category = item && item.category ? item.category : "Action";
+        var fix = item && item.fix ? item.fix : "";
+        return (category + ": " + fix).trim();
+      }).join(" | ");
+    }
+    return "";
+  }
+  if (key === "mx_status") {
+    if (!result.mxChecked) return "Not checked";
+    return result.hasMX ? "Present" : "Missing";
+  }
+  if (key === "domain_age_days") return result.domain_age && result.domain_age.ageDays != null ? result.domain_age.ageDays : "";
+  if (key === "dns_health_score") return result.dns_health && result.dns_health.score != null ? result.dns_health.score : "";
+  if (key === "estimated_waste_cost") return result.estimated_waste_cost != null ? result.estimated_waste_cost : "";
+  if (key === "ai_explanation") return result.ai_explanation || "";
+  if (key === "health_score") return result.health_score != null ? result.health_score : "";
+  if (key === "disposable") return result.disposable ? "Yes" : "No";
+  if (key === "role_based") return result.role_based ? "Yes" : "No";
+  if (key === "catch_all") return result.catch_all ? "Yes" : "No";
+  if (key === "cached") return result.cached ? "Yes" : "No";
+
+  var value = result[key];
+  if (Array.isArray(value)) return value.join("; ");
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  return value == null ? "" : String(value);
+}
+
+function writeResults_(sheet, anchorRange, results, exportColumns, emailPositions) {
   var startCol = anchorRange.getColumn();
   var numResults = results.length;
   if (numResults === 0) return;
+  var columns = exportColumns && exportColumns.length ? exportColumns : getFallbackExportColumns_();
 
   // Detect email columns: if emailPositions is provided and non-empty,
   // use each email's real row. Otherwise fall back to continuous rows.
   var usePositions = (typeof emailPositions !== 'undefined' && emailPositions && emailPositions.length === numResults);
 
-  // Write headers (if not already present) starting at first row
+  // Write headers aligned with the API export columns
   var firstRow = usePositions ? emailPositions[0].row : anchorRange.getRow();
-  var headerRange = sheet.getRange(firstRow, startCol + 1, 1, 6);
-  var existingHeaders = headerRange.getValues()[0];
-  if (!existingHeaders[0] || String(existingHeaders[0]).indexOf("Risk") === -1) {
-    // Check if headers exist at the anchor range start
-    var altHeaderRange = sheet.getRange(firstRow, startCol + 1, 1, 6);
-    altHeaderRange.setValues([["Risk Score", "Risk Level", "Waste Cost", "Recommendation", "Risk Factors", "Cached?"]]);
+  var headers = columns.map(function (column) { return column.label; });
+  var riskScoreIndex = 0;
+  for (var c = 0; c < columns.length; c++) {
+    if (columns[c].key === "risk_score") {
+      riskScoreIndex = c;
+      break;
+    }
   }
+  sheet.getRange(firstRow, startCol + 1, 1, headers.length).setValues([headers]);
 
   // Write each result to its corresponding row
   for (var i = 0; i < numResults; i++) {
     var r = results[i];
     var rowToWrite = usePositions ? emailPositions[i].row : (anchorRange.getRow() + i);
+    var rowValues = columns.map(function (column) {
+      return readExportValue_(r, column.key);
+    });
     
-    // Get the range for this single row (next 6 columns)
-    var cellRange = sheet.getRange(rowToWrite, startCol + 1, 1, 6);
-    cellRange.setValues([[
-      r.risk_score || 0,
-      r.risk_level || "UNKNOWN",
-      r.estimated_waste_cost != null ? "$" + r.estimated_waste_cost.toFixed(2) : "",
-      r.recommendation || "",
-      (r.risk_factors || []).slice(0, 3).join(" | "),
-      r.cached ? "Yes (free)" : "New"
-    ]]);
+    // Write the full export row next to the source emails
+    sheet.getRange(rowToWrite, startCol + 1, 1, rowValues.length).setValues([rowValues]);
 
     // Color the risk score cell
-    var scoreCell = sheet.getRange(rowToWrite, startCol + 1, 1, 1);
+    var scoreCell = sheet.getRange(rowToWrite, startCol + 1 + riskScoreIndex, 1, 1);
     if (r.risk_score >= 70) {
       scoreCell.setBackground("#FEE2E2");
     } else if (r.risk_score >= 40) {

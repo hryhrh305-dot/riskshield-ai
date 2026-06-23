@@ -26,8 +26,9 @@ export default function Home() {
     (async () => {
       try {
         const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        setUser(user ? { email: user.email || "" } : null);
+        const { data: { session } } = await supabase.auth.getSession();
+        const sessionUser = session?.user || null;
+        setUser(sessionUser ? { email: sessionUser.email || "" } : null);
       } catch {
         setUser(null);
       }
