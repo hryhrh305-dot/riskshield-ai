@@ -53,6 +53,19 @@ test("legacy and alternate product env names still resolve", () => {
   assert.equal(getCreemProductIdForPlan("scale", legacyEnv), "legacy_scale");
 });
 
+test("monthly product env names from Vercel are supported", () => {
+  const monthlyEnv = {
+    CREEM_PRODUCT_STARTER_MONTHLY: "monthly_starter",
+    CREEM_PRODUCT_GROWTH_MONTHLY: "monthly_growth",
+    CREEM_PRODUCT_SCALE_MONTHLY: "monthly_scale",
+  };
+
+  assert.equal(getCreemProductIdForPlan("starter", monthlyEnv), "monthly_starter");
+  assert.equal(getCreemProductIdForPlan("growth", monthlyEnv), "monthly_growth");
+  assert.equal(getCreemProductIdForPlan("scale", monthlyEnv), "monthly_scale");
+  assert.equal(findPlanByCreemProductId("monthly_scale", monthlyEnv), "scale");
+});
+
 test("creem test keys use test api host", () => {
   assert.equal(getCreemApiBaseUrl("creem_test_123"), "https://test-api.creem.io/v1");
   assert.equal(getCreemApiBaseUrl("creem_live_123"), "https://api.creem.io/v1");

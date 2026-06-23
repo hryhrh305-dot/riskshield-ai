@@ -15,13 +15,16 @@ export function getCreemProductEnvMap(env: NodeJS.ProcessEnv = process.env): Pro
   return {
     starter:
       env.CREEM_STARTER_PRODUCT_ID ||
+      env.CREEM_PRODUCT_STARTER_MONTHLY ||
       env.CREEM_PRODUCT_ID_STARTER ||
       env.CREEM_PRODUCT_ID,
     growth:
       env.CREEM_GROWTH_PRODUCT_ID ||
+      env.CREEM_PRODUCT_GROWTH_MONTHLY ||
       env.CREEM_PRODUCT_ID_GROWTH,
     scale:
       env.CREEM_SCALE_PRODUCT_ID ||
+      env.CREEM_PRODUCT_SCALE_MONTHLY ||
       env.CREEM_PRODUCT_ID_SCALE,
   };
 }
