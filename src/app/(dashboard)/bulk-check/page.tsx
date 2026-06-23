@@ -20,6 +20,7 @@ interface BulkResult {
 export default function BulkCheckPage() {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
   const [results, setResults] = useState<BulkResult[] | null>(null);
   const [summary, setSummary] = useState<Record<string, number> | null>(null);
   const [error, setError] = useState("");
@@ -28,6 +29,7 @@ export default function BulkCheckPage() {
 
   async function handleFile(file: File) {
     setLoading(true); setError(""); setResults(null); setSummary(null);
+    setStatusMessage("Uploading file and scanning emails...");
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -36,13 +38,15 @@ export default function BulkCheckPage() {
       if (!res.ok) { setError(data.error || "Upload failed"); return; }
       setResults(data.results);
       setSummary(data.summary);
-    } catch { setError("Network error"); }
+      setStatusMessage("Scan complete.");
+    } catch { setError("Network error"); setStatusMessage("Scan failed. Please try again."); }
     finally { setLoading(false); }
   }
 
   async function handlePaste() {
     if (!text.trim()) { setError("Paste emails (one per line) or upload a CSV."); return; }
     setLoading(true); setError(""); setResults(null); setSummary(null);
+    setStatusMessage("Scanning pasted emails and building the report...");
     try {
       const res = await fetch("/api/bulk-check", {
         method: "POST",
@@ -53,7 +57,8 @@ export default function BulkCheckPage() {
       if (!res.ok) { setError(data.error || "Check failed"); return; }
       setResults(data.results);
       setSummary(data.summary);
-    } catch { setError("Network error"); }
+      setStatusMessage("Scan complete.");
+    } catch { setError("Network error"); setStatusMessage("Scan failed. Please try again."); }
     finally { setLoading(false); }
   }
 
@@ -152,8 +157,11 @@ export default function BulkCheckPage() {
               disabled={loading || !text.trim()}
               className="mt-3 w-full bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {loading ? "Checking..." : "Check All Emails"}
+              {loading ? "Scanning..." : "Check All Emails"}
             </button>
+            {statusMessage && (
+              <p className="mt-2 text-xs text-gray-500 text-center">{statusMessage}</p>
+            )}
           </div>
 
           {error && (

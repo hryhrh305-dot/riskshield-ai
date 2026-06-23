@@ -59,3 +59,16 @@ Do not claim a root cause or fix before verification. Use `Under investigation` 
 - Verification: `npm run build` passes after the change.
 - Prevention: Keep expensive validations behind the cheapest possible checks, reuse already fetched signals, and prefer in-memory caches before any new external request.
 - Remaining risk: First-time checks for a brand-new domain can still wait on external RDAP/DNS/SMTP providers; if this remains slow in production, we should consider a deliberate “fast mode” that skips SMTP deep validation unless the user explicitly asks for it.
+
+## 2026-06-23 - Scanner progress text is unclear
+
+- Priority: P3
+- Status: Fixed
+- Symptom: Google Sheets showed a generic running state, and the web Risk Check / Bulk Check flows only showed minimal loading text.
+- Root cause: The app relied on default execution feedback and terse button labels, which made the process feel unclear even though the scanners themselves were working correctly.
+- Changed files: `google-sheets-addon/Code.gs`, `src/app/(dashboard)/risk-check/page.tsx`, `src/app/(dashboard)/bulk-check/page.tsx`.
+- Fix: Added English progress toasts in Google Sheets and clearer English loading/status text in the web Risk Check and Bulk Check pages.
+- Impact: Users now see a clearer scanning state without changing any detection logic.
+- Verification: `npm run build` passes after the UI-only change.
+- Prevention: Keep long-running flows paired with explicit progress text so the user always knows the action is in flight.
+- Remaining risk: Google Sheets' built-in execution banner is controlled by Google and may still appear separately from our custom toast.

@@ -200,6 +200,7 @@ function scanEntireColumn() {
 // ============ CORE: BATCH PROCESSING ============
 function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCells, skippedSamples, emailPositions) {
   var ui = SpreadsheetApp.getUi();
+  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   
   try {
     var baseUrl = getApiBaseUrl_();
@@ -214,7 +215,13 @@ function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCe
       muteHttpExceptions: true,
     };
 
+    if (spreadsheet) {
+      spreadsheet.toast("RiskShield: scanning " + emails.length + " emails...", "RiskShield", 5);
+    }
     var response = UrlFetchApp.fetch(baseUrl + BATCH_ENDPOINT, options);
+    if (spreadsheet) {
+      spreadsheet.toast("RiskShield: processing results...", "RiskShield", 5);
+    }
     var responseCode = response.getResponseCode();
     var responseText = response.getContentText();
     
@@ -251,6 +258,9 @@ function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCe
     }
 
     writeResults_(sheet, anchorRange, result.results, emailPositions);
+    if (spreadsheet) {
+      spreadsheet.toast("RiskShield: scan complete.", "RiskShield", 5);
+    }
     
     var cachedCount = result.cached_count || 0;
     var newChecks = result.new_checks || emails.length;
@@ -272,6 +282,9 @@ function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCe
     ui.alert("Scan Complete", scanMsg, ui.ButtonSet.OK);
 
   } catch (e) {
+    if (spreadsheet) {
+      spreadsheet.toast("RiskShield: scan failed.", "RiskShield", 5);
+    }
     ui.alert("Connection Error", "Could not reach RiskShield API.\nCheck your network and API Base URL.\n\n" + e.toString(), ui.ButtonSet.OK);
   }
 }

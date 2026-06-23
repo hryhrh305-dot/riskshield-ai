@@ -43,6 +43,7 @@ export default function RiskCheckPage() {
   const [email, setEmail] = useState("");
   const [ip, setIP] = useState("");
   const [loading, setLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
   const [result, setResult] = useState<RiskResult | null>(null);
   const [error, setError] = useState("");
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -91,6 +92,7 @@ export default function RiskCheckPage() {
     setLoading(true);
     setError("");
     setResult(null);
+    setStatusMessage("Running risk checks...");
 
     try {
       const res = await fetch("/api/web-risk", { credentials: "include", 
@@ -111,9 +113,11 @@ export default function RiskCheckPage() {
       }
 
       setResult(data);
+      setStatusMessage("Scan complete.");
       fetchHistory();
     } catch {
       setError("Network error. Please try again.");
+      setStatusMessage("Scan failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -187,8 +191,11 @@ export default function RiskCheckPage() {
             disabled={loading}
             className="w-full bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            {loading ? "Checking..." : "Check Risk"}
+            {loading ? "Scanning..." : "Check Risk"}
           </button>
+          {statusMessage && (
+            <p className="mt-2 text-xs text-gray-500 text-center">{statusMessage}</p>
+          )}
 
           {error && (
             <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-center gap-2">
