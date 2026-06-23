@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { costControlCheck } from "@/lib/cost-control";
 import { createResponse } from "@/lib/response";
-import { calculateRiskScore, getAIExplanation } from "@/lib/risk-engine";
+import { calculateRiskScore, checkDomainAge, calculateCompanyHealth, getAIExplanation } from "@/lib/risk-engine";
+import { sanitizeSingleRiskPayloadForPlan, shouldUseAiExplanation, shouldUseDeepDetection } from "@/lib/plans";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ");
@@ -37,10 +38,34 @@ export async function POST(request: NextRequest) {
   const requestIP = body.ip || ip;
 
   // ---- Risk Scoring Engine ----
-  const riskResult = await calculateRiskScore({ email, ip: requestIP });
+  const useDeepDetection = shouldUseDeepDetection(cc.plan || "free");
+  const domain = email ? email.split("@")[1]?.toLowerCase() || null : null;
+  const domainAge = (domain && useDeepDetection) ? await checkDomainAge(domain).catch(() => null) : null;
+  const riskResult = await calculateRiskScore({
+    email,
+    ip: requestIP,
+    domainAgeDays: useDeepDetection ? (domainAge?.ageDays ?? null) : null,
+  });
 
   // ---- AI (Layer 4: only for score >= 70) ----
-  const aiReason = await getAIExplanation(email, requestIP, riskResult.score, riskResult.reasons, cc.plan || "free");
+  const aiReason = shouldUseAiExplanation(cc.plan || "free")
+    ? await getAIExplanation(email, requestIP, riskResult.score, riskResult.reasons, cc.plan || "free")
+    : null;
+  const companyHealth = (domain && domainAge && useDeepDetection)
+    ? await calculateCompanyHealth({
+        riskScore: riskResult.score,
+        isDisposable: !!riskResult.emailDetails?.isDisposable,
+        hasMX: !!riskResult.emailDetails?.hasMX,
+        hasSPF: !!riskResult.emailDetails?.hasSPF,
+        hasDMARC: !!riskResult.emailDetails?.hasDMARC,
+        dmarcPolicy: (riskResult.emailDetails?.dmarcPolicy as string) || "none",
+        domainAgeDays: domainAge.ageDays,
+        isProxy: !!riskResult.ipDetails?.isProxy,
+        isHosting: !!riskResult.ipDetails?.isHosting,
+        blacklistHits: riskResult.blacklistHits || [],
+        country: (riskResult.ipDetails?.countryCode as string) || null,
+      }).catch(() => null)
+    : null;
 
   // ---- Build Response ----
   const result = createResponse({
@@ -63,6 +88,10 @@ export async function POST(request: NextRequest) {
     daily_remaining: cc.dailyRemaining,
     per_minute_remaining: cc.perMinuteRemaining,
   };
+  (result as any).domain_age = domainAge;
+  (result as any).company_health = companyHealth;
+  const sanitizedResult = sanitizeSingleRiskPayloadForPlan(result as Record<string, unknown>, cc.plan || "free");
+  (sanitizedResult as any).cost = (result as any).cost;
 
   // Async: save risk log
   getSupabaseAdmin().from("risk_logs").insert({
@@ -98,5 +127,5 @@ export async function POST(request: NextRequest) {
     }
   }).then(() => { /* fire and forget */ });
 
-  return NextResponse.json(result, { status: 200 });
+  return NextResponse.json(sanitizedResult, { status: 200 });
 }

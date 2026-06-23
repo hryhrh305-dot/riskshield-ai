@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { costControlCheck } from "@/lib/cost-control";
 import { calculateRiskScore } from "@/lib/risk-engine";
+import { sanitizeSingleRiskPayloadForPlan } from "@/lib/plans";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ");
@@ -34,19 +35,23 @@ export async function POST(req: NextRequest) {
 
   const riskResult = await calculateRiskScore({ ip: requestIP });
 
-  const result = {
+  const rawResult = {
     success: true,
     ip: requestIP,
+    input: requestIP,
+    type: "ip",
     risk_score: riskResult.score,
     reasons: riskResult.reasons,
     decision: riskResult.decision,
-    details: riskResult.ipDetails,
+    details: { email: null, ip: riskResult.ipDetails },
     cost: {
       units_consumed: cc.costUnits,
       monthly_remaining: cc.monthlyRemaining,
       daily_remaining: cc.dailyRemaining,
     },
   };
+  const result = sanitizeSingleRiskPayloadForPlan(rawResult, cc.plan || "free");
+  (result as any).ip = requestIP;
 
   getSupabaseAdmin().from("checks").insert({
     user_id: cc.userId, check_type: "ip", input_value: requestIP,

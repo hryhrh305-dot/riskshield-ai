@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { costControlCheck } from "@/lib/cost-control";
-import { calculateRiskScore, cleanEmail } from "@/lib/risk-engine";
+import { calculateRiskScore, checkDomainAge, calculateCompanyHealth, cleanEmail } from "@/lib/risk-engine";
+import { sanitizeSingleRiskPayloadForPlan, shouldUseDeepDetection } from "@/lib/plans";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ");
@@ -38,24 +39,53 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Email is required" }, { status: 400 });
   }
 
-  const riskResult = await calculateRiskScore({ email, shouldCheckMX: true });
+  const useDeepDetection = shouldUseDeepDetection(cc.plan || "free");
+  const domain = email.split("@")[1]?.toLowerCase() || null;
+  const domainAge = (domain && useDeepDetection) ? await checkDomainAge(domain).catch(() => null) : null;
+  const riskResult = await calculateRiskScore({
+    email,
+    shouldCheckMX: true,
+    domainAgeDays: useDeepDetection ? (domainAge?.ageDays ?? null) : null,
+  });
+  const companyHealth = (domain && domainAge && useDeepDetection)
+    ? await calculateCompanyHealth({
+        riskScore: riskResult.score,
+        isDisposable: !!riskResult.emailDetails?.isDisposable,
+        hasMX: !!riskResult.emailDetails?.hasMX,
+        hasSPF: !!riskResult.emailDetails?.hasSPF,
+        hasDMARC: !!riskResult.emailDetails?.hasDMARC,
+        dmarcPolicy: (riskResult.emailDetails?.dmarcPolicy as string) || "none",
+        domainAgeDays: domainAge.ageDays,
+        isProxy: !!riskResult.ipDetails?.isProxy,
+        isHosting: !!riskResult.ipDetails?.isHosting,
+        blacklistHits: riskResult.blacklistHits || [],
+        country: (riskResult.ipDetails?.countryCode as string) || null,
+      }).catch(() => null)
+    : null;
 
-  const result = {
+  const rawResult = {
     success: true,
     email,
     valid: !riskResult.reasons.includes("Invalid email format"),
-    disposable: riskResult.emailDetails?.isDisposable ?? false,
-    domain: riskResult.emailDetails?.domain ?? "",
     risk_score: riskResult.score,
+    input: email,
+    type: "email",
     reasons: riskResult.reasons,
     decision: riskResult.decision,
-    details: riskResult.emailDetails,
+    domain_age: domainAge,
+    company_health: companyHealth,
+    details: { email: riskResult.emailDetails, ip: null },
     cost: {
       units_consumed: cc.costUnits,
       monthly_remaining: cc.monthlyRemaining,
       daily_remaining: cc.dailyRemaining,
     },
   };
+  const result = sanitizeSingleRiskPayloadForPlan(rawResult, cc.plan || "free");
+  (result as any).valid = !riskResult.reasons.includes("Invalid email format");
+  (result as any).email = email;
+  (result as any).disposable = !!(result as any).details?.email?.isDisposable;
+  (result as any).domain = ((result as any).details?.email?.domain as string) || "";
 
   getSupabaseAdmin().from("checks").insert({
     user_id: cc.userId, check_type: "email", input_value: email,

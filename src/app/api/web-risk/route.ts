@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { calculateRiskScore, getAIExplanation, checkDomainAge, calculateCompanyHealth, getCachedResult, setCachedResult, makeResultCacheKey, cleanEmail } from "@/lib/risk-engine";
 import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
+import { getResultCacheScope, sanitizeSingleRiskPayloadForPlan, shouldUseAiExplanation, shouldUseDeepDetection } from "@/lib/plans";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ");
@@ -142,12 +143,12 @@ try {
   }
 
   // === STEP 0: Check result cache (24h TTL) ?hit returns instantly, NO credit consumed ===
-  const cacheKey = makeResultCacheKey(email, requestIP);
+  const cacheKey = makeResultCacheKey(email, requestIP) + ":" + getResultCacheScope(plan);
   const cachedResult = getCachedResult(cacheKey);
   if (cachedResult) {
     console.log("[RiskCheck] cache HIT for", cacheKey, "?no credit deducted");
     return NextResponse.json({
-      ...cachedResult,
+      ...sanitizeSingleRiskPayloadForPlan(cachedResult, plan),
       cached: true,
       credits: { remaining: creditsRemaining, success: true },
     });
@@ -175,16 +176,19 @@ try {
     }, { status: 429 });
   }
 // === STEP 2: Run the actual risk check ===
+  const useDeepDetection = shouldUseDeepDetection(plan);
   const domain = email ? email.split("@")[1]?.toLowerCase() : null;
-  const domainAge = domain ? await checkDomainAge(domain).catch(() => null) : null;
+  const domainAge = (domain && useDeepDetection) ? await checkDomainAge(domain).catch(() => null) : null;
   const domainAgeDays: number | null = domainAge?.ageDays ?? null;
-  const riskResult = await calculateRiskScore({ email, ip: requestIP, domainAgeDays });
-  const aiReason = await getAIExplanation(email, requestIP, riskResult.score, riskResult.reasons, plan);
+  const riskResult = await calculateRiskScore({ email, ip: requestIP, domainAgeDays: useDeepDetection ? domainAgeDays : null });
+  const aiReason = shouldUseAiExplanation(plan)
+    ? await getAIExplanation(email, requestIP, riskResult.score, riskResult.reasons, plan)
+    : null;
 
   // Domain extraction for Company Health Score
   let companyHealth = null;
-  const dnsHealth = buildDNSHealthFromEmailDetails(riskResult.emailDetails);
-  if (email && domainAge) {
+  const dnsHealth = useDeepDetection ? buildDNSHealthFromEmailDetails(riskResult.emailDetails) : null;
+  if (email && domainAge && useDeepDetection) {
     try {
       companyHealth = await calculateCompanyHealth({
         riskScore: riskResult.score,
@@ -254,7 +258,7 @@ try {
 
   // === STEP 5: Return result with credit info ===
   return NextResponse.json({
-    ...cacheData,
+    ...sanitizeSingleRiskPayloadForPlan(cacheData, plan),
     credits: { remaining: newCredits, success: creditSuccess },
   });
 } catch (e) {

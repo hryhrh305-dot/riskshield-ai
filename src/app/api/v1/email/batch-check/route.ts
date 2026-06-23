@@ -1,7 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { calculateRiskScore, getCachedResult, setCachedResult, makeResultCacheKey, cleanEmails } from "@/lib/risk-engine";
-import { getPlanLimits, type PlanKey } from "@/lib/plans";
+import { calculateRiskScore, getAIExplanation, getCachedResult, setCachedResult, makeResultCacheKey, cleanEmails, checkDomainAge, getDNSHealthScore, calculateCompanyHealth } from "@/lib/risk-engine";
+import { getBatchExportColumnsForPlan, getPlanLimits, getResultCacheScope, sanitizeBatchResultForPlan, shouldUseAiExplanation, shouldUseDeepDetection, type PlanKey } from "@/lib/plans";
 import { planCostLimits } from "@/lib/cost-control";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
@@ -138,49 +138,55 @@ export async function POST(req: NextRequest) {
   const CONCURRENCY = 25;
 
   async function processOneEmail(email: string): Promise<any> {
-    const cacheKey = makeResultCacheKey(email, null);
+    const cacheKey = makeResultCacheKey(email, null) + ":" + getResultCacheScope(planKey);
     const cached = getCachedResult(cacheKey);
     if (cached) {
-      return {
-        email,
-        risk_score: cached.risk_score,
-        health_score: (cached as any).company_health?.healthScore ?? 0,
-        risk_level: cached.decision,
-        reasons: cached.reasons || [],
-        details: (cached as any).details?.email || null,
-        cached: true,
-        risk_factors: (cached as any).risk_factors || [],
-        recommendation: (cached as any).recommendation || "",
-        estimated_waste_cost: (cached as any).estimated_waste_cost ?? 0,
-        impact: (cached as any).impact || [],
-        solution: (cached as any).solution || [],
-        domain_age: (cached as any).domain_age || null,
-        dns_health: (cached as any).dns_health || null,
-        company_health: (cached as any).company_health || null,
-      };
+      return sanitizeBatchResultForPlan({ ...cached, cached: true }, planKey);
     }
-    const riskResult = await calculateRiskScore({ email, shouldCheckMX: true });
-    setCachedResult(cacheKey, {
-      input: email, type: "email",
-      risk_score: riskResult.score, decision: riskResult.decision,
+
+    const useDeepDetection = shouldUseDeepDetection(planKey);
+    const domain = email.split("@")[1]?.toLowerCase() || null;
+    const domainAge = (domain && useDeepDetection) ? await checkDomainAge(domain).catch(() => null) : null;
+    const riskResult = await calculateRiskScore({
+      email,
+      shouldCheckMX: true,
+      domainAgeDays: useDeepDetection ? (domainAge?.ageDays ?? null) : null,
+    });
+    const dnsHealth = (domain && useDeepDetection) ? await getDNSHealthScore(domain).catch(() => null) : null;
+    const companyHealth = (domain && domainAge && useDeepDetection)
+      ? await calculateCompanyHealth({
+          riskScore: riskResult.score,
+          isDisposable: !!riskResult.emailDetails?.isDisposable,
+          hasMX: !!riskResult.emailDetails?.hasMX,
+          hasSPF: !!riskResult.emailDetails?.hasSPF,
+          hasDMARC: !!riskResult.emailDetails?.hasDMARC,
+          dmarcPolicy: (riskResult.emailDetails?.dmarcPolicy as string) || "none",
+          domainAgeDays: domainAge.ageDays,
+          isProxy: !!riskResult.ipDetails?.isProxy,
+          isHosting: !!riskResult.ipDetails?.isHosting,
+          blacklistHits: riskResult.blacklistHits || [],
+          country: (riskResult.ipDetails?.countryCode as string) || null,
+        }).catch(() => null)
+      : null;
+    const rawResult = {
+      email,
+      risk_score: riskResult.score,
+      risk_level: riskResult.decision,
       reasons: riskResult.reasons,
-      details: { email: riskResult.emailDetails, ip: null },
-      ai_explanation: null, domain_age: null, dns_health: null, company_health: null,
-      impact: riskResult.impact || [], solution: riskResult.solution || [],
+      details: riskResult.emailDetails,
+      ai_explanation: shouldUseAiExplanation(planKey) ? await getAIExplanation(email, null, riskResult.score, riskResult.reasons, planKey) : null,
+      domain_age: domainAge,
+      dns_health: dnsHealth,
+      company_health: companyHealth,
+      impact: riskResult.impact || [],
+      solution: riskResult.solution || [],
       risk_factors: riskResult.risk_factors || [],
       recommendation: riskResult.recommendation || "",
       estimated_waste_cost: riskResult.estimated_waste_cost ?? 0,
       cached: false,
-    });
-    return {
-      email, risk_score: riskResult.score, health_score: 0,
-      risk_level: riskResult.decision, reasons: riskResult.reasons,
-      details: riskResult.emailDetails, cached: false,
-      risk_factors: riskResult.risk_factors || [],
-      recommendation: riskResult.recommendation || "",
-      estimated_waste_cost: riskResult.estimated_waste_cost ?? 0,
-      impact: riskResult.impact || [], solution: riskResult.solution || [],
     };
+    setCachedResult(cacheKey, rawResult);
+    return sanitizeBatchResultForPlan(rawResult, planKey);
   }
 
   // Process in concurrent chunks of CONCURRENCY
@@ -233,6 +239,8 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     success: true,
     batch_size: batchSize,
+    detail_tier: getResultCacheScope(planKey),
+    export_columns: getBatchExportColumnsForPlan(planKey),
     results,
     cached_count: results.filter((r: any) => r.cached).length,
     new_checks: creditsConsumed,

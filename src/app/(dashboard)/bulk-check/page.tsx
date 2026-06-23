@@ -3,18 +3,38 @@
 import { useState } from "react";
 import * as XLSXLib from "xlsx";
 import Link from "next/link";
-import { Upload, FileText, Download, CheckCircle, AlertTriangle, XCircle, ArrowRight, BarChart3, Shield } from "lucide-react";
+import { Upload, FileText, Download, CheckCircle, AlertTriangle, XCircle, ArrowRight, BarChart3 } from "lucide-react";
 
 interface BulkResult {
   impact?: string[];
+  reasons?: string[];
+  recommendation?: string;
+  risk_factors?: string[];
+  ai_explanation?: string | null;
   email: string;
   risk_score: number;
-  health_score: number | null;
-  decision: string;
-  reasons: string[];
-  disposable: boolean;
-  hasMX: boolean;
-  mxChecked: boolean;
+  health_score?: number | null;
+  decision?: string;
+  risk_level?: string;
+  disposable?: boolean;
+  role_based?: boolean;
+  catch_all?: boolean;
+  hasMX?: boolean;
+  mxChecked?: boolean;
+  domain_age?: { ageDays?: number | null } | null;
+  dns_health?: { score?: number | null } | null;
+  estimated_bounce_rate?: string | null;
+  inbox_probability?: string | null;
+  sender_reputation_risk?: string | null;
+  estimated_waste_cost?: number | null;
+  dmarc_policy?: string | null;
+  dkim_selector?: string | null;
+  mx_records?: string | null;
+}
+
+interface ExportColumn {
+  key: string;
+  label: string;
 }
 
 export default function BulkCheckPage() {
@@ -26,26 +46,67 @@ export default function BulkCheckPage() {
   const [error, setError] = useState("");
   const [xlsxDownloading, setXlsxDownloading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [exportColumns, setExportColumns] = useState<ExportColumn[]>([
+    { key: "email", label: "Email" },
+    { key: "risk_score", label: "Risk Score" },
+    { key: "risk_level", label: "Risk Level" },
+  ]);
+
+  function readExportValue(result: BulkResult, key: string) {
+    if (key === "risk_level") return result.risk_level || result.decision || "";
+    if (key === "reasons") return (result.reasons || []).join("; ");
+    if (key === "impact") return (result.impact || []).join(" | ");
+    if (key === "risk_factors") return (result.risk_factors || []).join(" | ");
+    if (key === "mx_status") {
+      if (!result.mxChecked) return "Not checked";
+      return result.hasMX ? "Present" : "Missing";
+    }
+    if (key === "domain_age_days") return result.domain_age?.ageDays ?? "";
+    if (key === "dns_health_score") return result.dns_health?.score ?? "";
+    if (key === "estimated_waste_cost") return result.estimated_waste_cost ?? "";
+
+    const value = result[key as keyof BulkResult];
+    if (Array.isArray(value)) return value.join("; ");
+    if (typeof value === "boolean") return value ? "Yes" : "No";
+    return value == null ? "" : String(value);
+  }
 
   async function handleFile(file: File) {
-    setLoading(true); setError(""); setResults(null); setSummary(null);
+    setLoading(true);
+    setError("");
+    setResults(null);
+    setSummary(null);
     setStatusMessage("Uploading file and scanning emails...");
     try {
       const formData = new FormData();
       formData.append("file", file);
       const res = await fetch("/api/bulk-check", { method: "POST", body: formData });
       const data = await res.json();
-      if (!res.ok) { setError(data.error || "Upload failed"); return; }
+      if (!res.ok) {
+        setError(data.error || "Upload failed");
+        return;
+      }
       setResults(data.results);
       setSummary(data.summary);
+      setExportColumns(data.export_columns || exportColumns);
       setStatusMessage("Scan complete.");
-    } catch { setError("Network error"); setStatusMessage("Scan failed. Please try again."); }
-    finally { setLoading(false); }
+    } catch {
+      setError("Network error");
+      setStatusMessage("Scan failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handlePaste() {
-    if (!text.trim()) { setError("Paste emails one per line or separated by spaces, or upload a CSV, TXT, or XLSX file."); return; }
-    setLoading(true); setError(""); setResults(null); setSummary(null);
+    if (!text.trim()) {
+      setError("Paste emails one per line or separated by spaces, or upload a CSV, TXT, or XLSX file.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    setResults(null);
+    setSummary(null);
     setStatusMessage("Scanning pasted emails and building the report...");
     try {
       const res = await fetch("/api/bulk-check", {
@@ -54,53 +115,69 @@ export default function BulkCheckPage() {
         body: JSON.stringify({ text }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error || "Check failed"); return; }
+      if (!res.ok) {
+        setError(data.error || "Check failed");
+        return;
+      }
       setResults(data.results);
       setSummary(data.summary);
+      setExportColumns(data.export_columns || exportColumns);
       setStatusMessage("Scan complete.");
-    } catch { setError("Network error"); setStatusMessage("Scan failed. Please try again."); }
-    finally { setLoading(false); }
+    } catch {
+      setError("Network error");
+      setStatusMessage("Scan failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function downloadXLSX() {
     if (!results || results.length === 0) return;
     setXlsxDownloading(true);
     try {
-      var data = [["email","risk_score","risk_level","disposable","hasMX","reasons","recommendation"]];
-      for (var i = 0; i < results.length; i++) {
-        var r = results[i];
-        data.push([
-          r.email || "", r.risk_score ?? "", r.risk_level || "",
-          r.disposable ? "Yes" : "No", r.hasMX ? "Yes" : "No",
-          (r.reasons || []).join("; "), r.recommendation || ""
-        ]);
+      const data = [exportColumns.map((column) => column.label)];
+      for (const result of results) {
+        data.push(exportColumns.map((column) => readExportValue(result, column.key)));
       }
-      var ws = XLSXLib.utils.aoa_to_sheet(data);
-      var wb = XLSXLib.utils.book_new();
+      const ws = XLSXLib.utils.aoa_to_sheet(data);
+      const wb = XLSXLib.utils.book_new();
       XLSXLib.utils.book_append_sheet(wb, ws, "RiskShield Results");
       XLSXLib.writeFile(wb, "riskshield-results.xlsx");
     } catch (e) {
       console.error("XLSX failed:", e);
+    } finally {
+      setXlsxDownloading(false);
     }
-    finally { setXlsxDownloading(false); }
   }
 
   function exportCSV(filter: "all" | "clean" | "risky") {
     if (!results) return;
-    const filtered = filter === "all" ? results : filter === "clean"
-      ? results.filter(r => r.risk_level === "ALLOW")
-      : results.filter(r => (r.risk_level === "REVIEW" || r.risk_level === "BLOCK"));
-    const header = "email,risk_score,decision,disposable,hasMX,mxChecked,reasons";
-    const rows = filtered.map(r => `${r.email},${r.risk_score},${r.risk_level},${r.disposable},${r.hasMX},${r.mxChecked},"${r.reasons.join("; ")}"`);
+    const filtered = filter === "all"
+      ? results
+      : filter === "clean"
+        ? results.filter((result) => (result.risk_level || result.decision) === "ALLOW")
+        : results.filter((result) => {
+            const level = result.risk_level || result.decision;
+            return level === "REVIEW" || level === "BLOCK";
+          });
+
+    const header = exportColumns.map((column) => column.key).join(",");
+    const rows = filtered.map((result) => exportColumns.map((column) => {
+      const value = String(readExportValue(result, column.key)).replace(/"/g, "\"\"");
+      return `"${value}"`;
+    }).join(","));
     const csv = header + "\n" + rows.join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = `${filter}_list.csv`; a.click();
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${filter}_list.csv`;
+    a.click();
     URL.revokeObjectURL(url);
   }
 
-  const scoreColor = (s: number) => s >= 60 ? "text-red-600" : s >= 30 ? "text-yellow-600" : "text-green-600";
-  const decisionBadge = (d: string) => d === "BLOCK" ? "bg-red-50 text-red-600" : d === "REVIEW" ? "bg-yellow-50 text-yellow-600" : "bg-green-50 text-green-600";
+  const scoreColor = (score: number) => score >= 60 ? "text-red-600" : score >= 30 ? "text-yellow-600" : "text-green-600";
+  const decisionBadge = (decision: string) => decision === "BLOCK" ? "bg-red-50 text-red-600" : decision === "REVIEW" ? "bg-yellow-50 text-yellow-600" : "bg-green-50 text-green-600";
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -126,19 +203,18 @@ export default function BulkCheckPage() {
           </Link>
         </div>
 
-        {/* Input */}
         <div className="bg-white rounded-xl border p-6 mb-6 shadow-sm">
           <div
             className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${dragOver ? "border-blue-400 bg-blue-50" : "border-gray-200"}`}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+            onDrop={(e) => { e.preventDefault(); setDragOver(false); const file = e.dataTransfer.files[0]; if (file) handleFile(file); }}
           >
             <FileText className="w-10 h-10 text-gray-300 mx-auto mb-3" />
             <p className="text-sm text-gray-500 mb-2">Drop a CSV, TXT, or XLSX file here, or</p>
             <label className="bg-white border px-4 py-2 rounded-lg text-sm font-medium cursor-pointer hover:bg-gray-50">
               Browse Files
-              <input type="file" accept=".csv,.txt,.xlsx,.xls" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+              <input type="file" accept=".csv,.txt,.xlsx,.xls" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFile(file); }} />
             </label>
             <p className="text-xs text-gray-400 mt-2">CSV, TXT, or XLSX. Paste text one email per line. Max 5,000.</p>
           </div>
@@ -178,7 +254,6 @@ sales@domain.com`}
           )}
         </div>
 
-        {/* Summary + Export */}
         {summary && (
           <div className="bg-white rounded-xl border p-6 mb-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
@@ -220,7 +295,6 @@ sales@domain.com`}
           </div>
         )}
 
-        {/* Results Table */}
         {results && (
           <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
             <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
@@ -234,24 +308,27 @@ sales@domain.com`}
                     <th className="text-left px-4 py-3 font-medium text-gray-500">Reasons</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-500 w-24">Disposable</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-500 w-16">MX</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Impact</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500">Impact</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {results.map((r, i) => (
-                    <tr key={i} className="border-t border-gray-100 hover:bg-gray-50">
-                      <td className="px-4 py-2.5 font-mono text-gray-700">{r.email}</td>
-                      <td className={`px-4 py-2.5 font-bold ${scoreColor(r.risk_score)}`}>{r.risk_score}</td>
-                      <td className="px-4 py-2.5 font-bold text-blue-700">{r.health_score ?? "-"}</td>
-                      <td className="px-4 py-2.5">
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${decisionBadge(r.decision)}`}>{r.decision}</span>
-                      </td>
-                      <td className="px-4 py-2.5 text-gray-500 text-xs">{r.reasons.join(", ") || "-"}</td>
-                      <td className="px-4 py-2.5">{r.disposable ? <XCircle className="w-4 h-4 text-red-500" /> : <CheckCircle className="w-4 h-4 text-green-500" />}</td>
-                      <td className="px-4 py-2.5">{r.mxChecked ? (r.hasMX ? <CheckCircle className="w-4 h-4 text-green-500" /> : <XCircle className="w-4 h-4 text-red-500" />) : <span className="text-gray-300">-</span>}</td>
-                      <td className="px-4 py-2.5 text-xs text-amber-700 max-w-[260px]">{r.impact?.slice(0, 2).join(" | ") || "-"}</td>
-                    </tr>
-                  ))}
+                  {results.map((result, index) => {
+                    const decision = result.risk_level || result.decision || "";
+                    return (
+                      <tr key={index} className="border-t border-gray-100 hover:bg-gray-50">
+                        <td className="px-4 py-2.5 font-mono text-gray-700">{result.email}</td>
+                        <td className={`px-4 py-2.5 font-bold ${scoreColor(result.risk_score)}`}>{result.risk_score}</td>
+                        <td className="px-4 py-2.5 font-bold text-blue-700">{result.health_score ?? "-"}</td>
+                        <td className="px-4 py-2.5">
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${decisionBadge(decision)}`}>{decision}</span>
+                        </td>
+                        <td className="px-4 py-2.5 text-gray-500 text-xs">{(result.reasons || []).join(", ") || "-"}</td>
+                        <td className="px-4 py-2.5">{result.disposable ? <XCircle className="w-4 h-4 text-red-500" /> : <CheckCircle className="w-4 h-4 text-green-500" />}</td>
+                        <td className="px-4 py-2.5">{result.mxChecked ? (result.hasMX ? <CheckCircle className="w-4 h-4 text-green-500" /> : <XCircle className="w-4 h-4 text-red-500" />) : <span className="text-gray-300">-</span>}</td>
+                        <td className="px-4 py-2.5 text-xs text-amber-700 max-w-[260px]">{result.impact?.slice(0, 2).join(" | ") || "-"}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

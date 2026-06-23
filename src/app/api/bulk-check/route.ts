@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { calculateRiskScore, checkDomainAge, getDNSHealthScore, calculateCompanyHealth, cleanEmail, cleanEmails } from "@/lib/risk-engine";
-import { costControlCheck } from "@/lib/cost-control";
+import { calculateRiskScore, checkDomainAge, getAIExplanation, getCachedResult, getDNSHealthScore, makeResultCacheKey, setCachedResult, calculateCompanyHealth, cleanEmails } from "@/lib/risk-engine";
 import * as XLSX from "xlsx";
 import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
+import {
+  getBatchExportColumnsForPlan,
+  getResultCacheScope,
+  sanitizeBatchResultForPlan,
+  shouldUseAiExplanation,
+  shouldUseDeepDetection,
+} from "@/lib/plans";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ");
@@ -93,10 +99,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Please log in." }, { status: 401 });
   }
 
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
+  const { data: profile } = await getSupabaseAdmin()
+    .from("profiles")
+    .select("plan")
+    .eq("id", user.id)
+    .single();
+  const plan = profile?.plan || "free";
+
   const contentType = request.headers.get("content-type") || "";
   let emails: string[] = [];
-  let allRows: string[][] | null = null;
 
   if (contentType.includes("multipart/form-data")) {
     const formData = await request.formData();
@@ -107,7 +118,6 @@ export async function POST(request: NextRequest) {
       const buffer = Buffer.from(await file.arrayBuffer());
       const parsed = parseFileBuffer(buffer, file.name);
       emails = parsed.emails;
-      allRows = parsed.rows;
     } else if (textField) {
       emails = parseEmails(textField);
     }
@@ -131,17 +141,7 @@ export async function POST(request: NextRequest) {
   emails = emails.slice(0, 5000);
 
   // Process in batches
-  const results: Array<{
-    email: string;
-    risk_score: number;
-    health_score: number | null;
-    decision: string;
-    reasons: string[];
-    disposable: boolean;
-    hasMX: boolean;
-    mxChecked: boolean;
-    impact?: string[];
-  }> = [];
+  const results: Array<Record<string, unknown>> = [];
 
   let cleanCount = 0, riskyCount = 0, blockedCount = 0;
   const BATCH_SIZE = 10;
@@ -150,19 +150,33 @@ export async function POST(request: NextRequest) {
     const batch = emails.slice(i, i + BATCH_SIZE);
     const batchResults = await Promise.all(batch.map(async (email) => {
       const domain = email.split("@")[1]?.toLowerCase();
+      const useDeepDetection = shouldUseDeepDetection(plan);
+      let domainAge: Awaited<ReturnType<typeof checkDomainAge>> | null = null;
       let domainAgeDays: number | null = null;
-      if (domain) {
-        try { const age = await checkDomainAge(domain); domainAgeDays = age.ageDays; } catch { /* skip */ }
+      if (domain && useDeepDetection) {
+        try {
+          const age = await checkDomainAge(domain);
+          domainAge = age;
+          domainAgeDays = age.ageDays;
+        } catch { /* skip */ }
       }
-      const riskResult = await calculateRiskScore({ email, shouldCheckMX: true, domainAgeDays });
+      const cacheKey = makeResultCacheKey(email, null) + ":" + getResultCacheScope(plan);
+      const cached = getCachedResult(cacheKey);
+      if (cached) {
+        return sanitizeBatchResultForPlan({ ...cached, cached: true }, plan);
+      }
+
+      const riskResult = await calculateRiskScore({ email, shouldCheckMX: true, domainAgeDays: useDeepDetection ? domainAgeDays : null });
       const decision = riskResult.decision;
 
       let healthScore: number | null = null;
-      // domain is already declared above (line 157), reusing
-      if (domain) {
+      let dnsHealth: Awaited<ReturnType<typeof getDNSHealthScore>> | null = null;
+      let companyHealth: Awaited<ReturnType<typeof calculateCompanyHealth>> | null = null;
+      if (domain && useDeepDetection) {
         try {
-          const age = await checkDomainAge(domain);
-          const health = await calculateCompanyHealth({
+          const age = domainAge || await checkDomainAge(domain);
+          dnsHealth = await getDNSHealthScore(domain);
+          companyHealth = await calculateCompanyHealth({
             riskScore: riskResult.score,
             isDisposable: !!riskResult.emailDetails?.isDisposable,
             hasMX: !!riskResult.emailDetails?.hasMX,
@@ -175,16 +189,21 @@ export async function POST(request: NextRequest) {
             blacklistHits: riskResult.blacklistHits || [],
             country: (riskResult.ipDetails?.countryCode as string) || null,
           });
-          healthScore = health.healthScore;
+          healthScore = companyHealth.healthScore;
         } catch { /* skip */ }
       }
 
-      return {
+      const rawResult = {
         email,
         risk_score: riskResult.score,
         health_score: healthScore,
         risk_level: decision,
         reasons: riskResult.reasons,
+        details: riskResult.emailDetails,
+        domain_age: domainAge,
+        dns_health: dnsHealth,
+        company_health: companyHealth,
+        ai_explanation: shouldUseAiExplanation(plan) ? await getAIExplanation(email, null, riskResult.score, riskResult.reasons, plan) : null,
         risk_factors: riskResult.risk_factors || [],
         recommendation: riskResult.recommendation || "",
         estimated_waste_cost: riskResult.estimated_waste_cost ?? 0,
@@ -195,6 +214,8 @@ export async function POST(request: NextRequest) {
         solution: riskResult.solution || [],
         cached: false,
       };
+      setCachedResult(cacheKey, rawResult);
+      return sanitizeBatchResultForPlan(rawResult, plan);
     }));
 
     for (const r of batchResults) {
@@ -212,7 +233,7 @@ export async function POST(request: NextRequest) {
   if (todayUsg) {
     await getSupabaseAdmin().from("api_usage").update({ request_count: (todayUsg.request_count || 0) + results.length }).eq("user_id", user.id).eq("date", today);
   } else {
-    await getSupabaseAdmin().from("api_usage").insert({ user_id: user.id, date: today, request_count: results.length, plan: "free" });
+    await getSupabaseAdmin().from("api_usage").insert({ user_id: user.id, date: today, request_count: results.length, plan });
   }
 
   const total = results.length;
@@ -220,9 +241,16 @@ export async function POST(request: NextRequest) {
   // Check if XLSX download requested
   const url = request.nextUrl;
   if (url.searchParams.get("format") === "xlsx") {
-    const wsData = [["email", "risk_score", "health_score", "risk_level", "disposable", "hasMX", "reasons", "recommendation"]];
-    for (const r of results) {
-      wsData.push([r.email, String(r.risk_score), String(r.health_score ?? ""), r.risk_level, r.disposable ? "Yes" : "No", r.hasMX ? "Yes" : "No", r.reasons.join("; ")]);
+    const exportColumns = getBatchExportColumnsForPlan(plan);
+    const wsData = [exportColumns.map((item) => item.label)];
+    for (const record of results) {
+      const row = exportColumns.map((item) => {
+        const value = (record as Record<string, unknown>)[item.key];
+        if (Array.isArray(value)) return value.join("; ");
+        if (typeof value === "boolean") return value ? "Yes" : "No";
+        return value == null ? "" : String(value);
+      });
+      wsData.push(row);
     }
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -238,6 +266,9 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     success: true,
+    plan,
+    detail_tier: getResultCacheScope(plan),
+    export_columns: getBatchExportColumnsForPlan(plan),
     summary: {
       total,
       clean: cleanCount,

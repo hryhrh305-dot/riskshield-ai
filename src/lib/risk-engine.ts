@@ -1,7 +1,7 @@
 import dns from "dns/promises";
 import { checkBlacklist, autoBlacklistIfHighRisk } from "@/lib/blacklist";
 import { disposableDomainsSet } from "@/lib/disposable-domains";
-import { hasApiAccess } from "@/lib/plans";
+import { hasApiAccess, shouldUseAiExplanation } from "@/lib/plans";
 const disposableDomains: Set<string> = disposableDomainsSet;
 
 // NOTE: OpenAI/dns imports are dynamic to prevent Vercel build-time evaluation
@@ -175,7 +175,7 @@ function buildExplanationPayload(
 function buildExplanationCacheKey(plan: string, riskScore: number, reasons: string[], email: string | null, ip: string | null): string {
   return JSON.stringify({
     v: 2,
-    plan: hasApiAccess(plan) ? "api" : "web",
+    plan,
     ...buildExplanationPayload(riskScore, reasons, email, ip),
   });
 }
@@ -1199,7 +1199,7 @@ export async function getAIExplanation(
     ? "检测到多项高风险异常信号，建议直接拦截或至少人工复核。"
     : "本次检测命中了明显风险信号，建议先人工复核再继续使用。";
 
-  if (!hasApiAccess(plan) || !DEEPSEEK_API_KEY) {
+  if (!hasApiAccess(plan) || !shouldUseAiExplanation(plan) || !DEEPSEEK_API_KEY) {
     setCachedExplanation(cacheKey, genericExplanation);
     return genericExplanation;
   }
