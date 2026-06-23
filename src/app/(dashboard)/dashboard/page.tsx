@@ -6,7 +6,7 @@ import { getPlanLimits, type PlanKey } from "@/lib/plans";
 import { generateApiKey } from "@/lib/api-auth";
 import { signOut } from "@/lib/auth";
 import Link from "next/link";
-import { LogOut, Shield, Key, Copy, Trash2, Activity, AlertTriangle, Search, Upload, Globe, Mail, Settings } from "lucide-react";
+import { LogOut, Shield, Key, Copy, Trash2, Activity, AlertTriangle, Search, Upload, Globe, Mail, Settings, Download } from "lucide-react";
 
 interface Profile { id: string; email: string; plan: string; subscription_status: string; credits_remaining: number; total_checks: number; }
 interface ApiKeyRow { id: string; key: string; name: string; status: string; created_at: string; last_used_at: string | null; }
@@ -291,18 +291,23 @@ export default function DashboardPage() {
                 <span className="text-2xl">📊</span>
                 <h2 className="font-semibold text-lg">Google Sheets Add-on</h2>
               </div>
-              <p className="text-sm text-gray-600 mb-3">Scan emails in bulk directly from Google Sheets. Install our add-on and use your API key to verify thousands of leads without leaving your spreadsheet.</p>
-              <ol className="text-sm text-gray-600 space-y-1 list-decimal list-inside mb-4">
-                <li>Open Google Sheets → <strong>Extensions</strong> → <strong>Apps Script</strong></li>
-                <li>Paste the script from <a href="/docs" className="text-blue-600 underline">our docs</a></li>
-                <li>Save and reload the sheet</li>
-                <li>Go to <strong>Risk Scanner → Settings</strong> and paste your API key</li>
+              <p className="text-sm text-gray-600 mb-3">Scan emails in bulk directly from Google Sheets. Download the script, paste it into Apps Script, then connect it with your RiskShield API key.</p>
+              <ol className="text-sm text-gray-600 space-y-1.5 list-decimal list-inside mb-4">
+                <li>Click <strong>Download Code.gs</strong> below.</li>
+                <li>Open your Google Sheet, then click <strong>Extensions</strong> &gt; <strong>Apps Script</strong>.</li>
+                <li>Delete the default sample code in Apps Script.</li>
+                <li>Open the downloaded <strong>Code.gs</strong> file, copy all code, and paste it into Apps Script.</li>
+                <li>Click <strong>Save</strong>, then reload your Google Sheet.</li>
+                <li>Open <strong>Risk Scanner</strong> &gt; <strong>Settings</strong>, paste your API key, and save.</li>
+                <li>Select the email cells, then choose <strong>Risk Scanner</strong> &gt; <strong>Scan Selected Emails</strong>.</li>
               </ol>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <a href="/api/google-sheets-addon" className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 inline-flex items-center gap-1">
+                  <Download className="w-4 h-4" /> Download Code.gs
+                </a>
                 <a href="/docs" className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 inline-flex items-center gap-1">
                   View Setup Guide
                 </a>
-                <span className="text-xs text-gray-400">Script: D:/ai-saas-mvp/google-sheets-addon/Code.gs</span>
               </div>
             </div>
             <div className="bg-white rounded-lg border border-green-100 p-4 text-sm shrink-0">
