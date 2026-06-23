@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (emails.length === 0) {
-    return NextResponse.json({ error: "No valid emails found. Please upload a CSV/XLSX file or paste emails." }, { status: 400 });
+    return NextResponse.json({ error: "No valid emails found. Please upload a CSV, TXT, or XLSX file, or paste emails one per line." }, { status: 400 });
   }
 
   emails = emails.slice(0, 5000);

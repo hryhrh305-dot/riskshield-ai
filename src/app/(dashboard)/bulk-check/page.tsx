@@ -44,7 +44,7 @@ export default function BulkCheckPage() {
   }
 
   async function handlePaste() {
-    if (!text.trim()) { setError("Paste emails (one per line) or upload a CSV."); return; }
+    if (!text.trim()) { setError("Paste emails (one per line) or upload a CSV, TXT, or XLSX file."); return; }
     setLoading(true); setError(""); setResults(null); setSummary(null);
     setStatusMessage("Scanning pasted emails and building the report...");
     try {
@@ -135,12 +135,12 @@ export default function BulkCheckPage() {
             onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
           >
             <FileText className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-sm text-gray-500 mb-2">Drop a CSV file here, or</p>
+            <p className="text-sm text-gray-500 mb-2">Drop a CSV, TXT, or XLSX file here, or</p>
             <label className="bg-white border px-4 py-2 rounded-lg text-sm font-medium cursor-pointer hover:bg-gray-50">
               Browse Files
-              <input type="file" accept=".csv,.txt" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+              <input type="file" accept=".csv,.txt,.xlsx,.xls" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
             </label>
-            <p className="text-xs text-gray-400 mt-2">CSV or TXT, one email per line. Max 5,000.</p>
+            <p className="text-xs text-gray-400 mt-2">CSV, TXT, or XLSX. Paste text one email per line. Max 5,000.</p>
           </div>
 
           <div className="mt-4">

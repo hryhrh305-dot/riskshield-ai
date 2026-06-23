@@ -1016,18 +1016,7 @@ export async function checkSMTPMailbox(domain: string, email: string, mxHost: st
           clearTimeout(timeout);
           socket.write("QUIT\r\n");
           socket.destroy();
-
-          if (code >= 200 && code < 300) {
-            resolve({ checked: true, valid: true, code, message: response.trim(), mailboxFull: false, tempRejected: false, permanentRejected: false });
-          } else if (code >= 400 && code < 500) {
-            const isFull = response.toLowerCase().includes("quota") || response.toLowerCase().includes("full") || response.toLowerCase().includes("space");
-            resolve({ checked: true, valid: false, code, message: response.trim(), mailboxFull: isFull, tempRejected: !isFull, permanentRejected: false });
-          } else if (code >= 500) {
-            const isFull = response.toLowerCase().includes("quota") || response.toLowerCase().includes("full") || response.toLowerCase().includes("space");
-            resolve({ checked: true, valid: false, code, message: response.trim(), mailboxFull: isFull, tempRejected: false, permanentRejected: !isFull });
-          } else {
-            resolve({ ...result, checked: true, valid: false, code, message: response.trim() });
-          }
+          resolve({ checked: true, ...classifySmtpResponse(code, response.trim()) });
         }
       });
 
@@ -1048,6 +1037,45 @@ export async function checkSMTPMailbox(domain: string, email: string, mxHost: st
   } catch {
     return result;
   }
+}
+
+export function classifySmtpResponse(code: number, message: string): {
+  valid: boolean;
+  code: number;
+  message: string;
+  mailboxFull: boolean;
+  tempRejected: boolean;
+  permanentRejected: boolean;
+} {
+  const text = message.toLowerCase();
+  const isMailboxFull =
+    code === 552 ||
+    text.includes("mailbox full") ||
+    text.includes("over quota") ||
+    text.includes("quota exceeded") ||
+    text.includes("storage limit") ||
+    text.includes("inbox full");
+
+  if (code >= 200 && code < 300) {
+    return { valid: true, code, message, mailboxFull: false, tempRejected: false, permanentRejected: false };
+  }
+
+  if (code >= 400 && code < 500) {
+    return { valid: false, code, message, mailboxFull: isMailboxFull, tempRejected: !isMailboxFull, permanentRejected: false };
+  }
+
+  if (code >= 500) {
+    return {
+      valid: false,
+      code,
+      message,
+      mailboxFull: isMailboxFull,
+      tempRejected: false,
+      permanentRejected: !isMailboxFull,
+    };
+  }
+
+  return { valid: false, code, message, mailboxFull: false, tempRejected: false, permanentRejected: false };
 }
 
 
