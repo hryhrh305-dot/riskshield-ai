@@ -1,7 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
 
 const PROJECT_REF = "njhjiavnidssjvnkcxfo";
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co";
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ";
+let _supabaseAdmin: ReturnType<typeof createClient> | null = null;
 
 function decodeBase64Url(input: string): string | null {
   try {
@@ -29,14 +33,47 @@ function isJwtExpired(token: string): boolean | null {
   }
 }
 
+async function isValidSessionToken(token: string): Promise<boolean> {
+  try {
+    if (!_supabaseAdmin) {
+      _supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      });
+    }
+    const { data: { user }, error } = await _supabaseAdmin.auth.getUser(token);
+    return !error && !!user;
+  } catch {
+    return false;
+  }
+}
+
 export async function middleware(request: NextRequest) {
   try {
     const cookieHeader = request.headers.get("cookie") || "";
     const token = cookieHeader ? readAccessTokenFromCookieHeader(cookieHeader, PROJECT_REF) : null;
     const tokenExpired = token ? isJwtExpired(token) : null;
-    const isAuthed = Boolean(token) && tokenExpired !== true;
+    const isAuthed = Boolean(token) && tokenExpired !== true && await isValidSessionToken(token);
 
     const path = request.nextUrl.pathname;
+
+    const protectedPaths = [
+      "/dashboard",
+      "/risk-check",
+      "/bulk-check",
+      "/pre-send",
+      "/blacklist",
+      "/pricing",
+    ];
+
+    if (protectedPaths.some((protectedPath) => path === protectedPath || path.startsWith(protectedPath + "/"))) {
+      if (!isAuthed) {
+        const loginUrl = new URL("/login", request.url);
+        loginUrl.searchParams.set("reason", "invalid_session");
+        loginUrl.searchParams.set("next", path);
+        return NextResponse.redirect(loginUrl);
+      }
+      return NextResponse.next();
+    }
 
     if ((path === "/login" || path === "/signup") && isAuthed) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
@@ -50,5 +87,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/login", "/signup"],
+  matcher: ["/login", "/signup", "/dashboard/:path*", "/risk-check/:path*", "/bulk-check/:path*", "/pre-send/:path*", "/blacklist/:path*", "/pricing/:path*"],
 };

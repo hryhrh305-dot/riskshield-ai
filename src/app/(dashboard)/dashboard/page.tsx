@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { getPlanLimits, type PlanKey } from "@/lib/plans";
 import { generateApiKey } from "@/lib/api-auth";
@@ -13,6 +14,7 @@ interface ApiKeyRow { id: string; key: string; name: string; status: string; cre
 interface CheckRecord { id: string; check_type: string; input_value: string; risk_score: number; created_at: string; }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [apiKeys, setApiKeys] = useState<ApiKeyRow[]>([]);
   const [checks, setChecks] = useState<CheckRecord[]>([]);
@@ -29,6 +31,11 @@ export default function DashboardPage() {
   const [settingsSaved, setSettingsSaved] = useState(false);
 
   useEffect(() => { loadData(); loadSettings(); }, []);
+  useEffect(() => {
+    if (authChecked && !profile) {
+      router.replace("/login?reason=invalid_session&next=/dashboard");
+    }
+  }, [authChecked, profile, router]);
 
   async function loadSettings() {
     try {
@@ -64,11 +71,12 @@ export default function DashboardPage() {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user;
-      if (!user) { setAuthChecked(true); return; }
+      if (!user) { setProfile(null); setAuthChecked(true); return; }
 
       // Profile - single source of truth for credits
       const { data: p } = await supabase.from("profiles").select("*").eq("id", user.id).single();
       if (p) setProfile(p);
+      else setProfile(null);
 
       const todayStr = new Date().toISOString().split("T")[0] + "T00:00:00Z";
       const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
@@ -106,6 +114,7 @@ export default function DashboardPage() {
       setAuthChecked(true);
     } catch (e) {
       console.error("Dashboard loadData error:", e);
+      setProfile(null);
       setAuthChecked(true);
     }
   }
@@ -130,7 +139,7 @@ export default function DashboardPage() {
   }
 
   if (!authChecked) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-500">Loading...</p></div>;
-  if (!profile) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-500">Please sign in to access the dashboard.</p></div>;
+  if (!profile) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-500">Redirecting to sign in...</p></div>;
 
   const planKey = profile.plan as PlanKey;
   const planInfo = getPlanLimits(planKey);
