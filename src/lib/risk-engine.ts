@@ -1,6 +1,7 @@
 import dns from "dns/promises";
 import { checkBlacklist, autoBlacklistIfHighRisk } from "@/lib/blacklist";
 import { disposableDomainsSet } from "@/lib/disposable-domains";
+import { hasApiAccess } from "@/lib/plans";
 const disposableDomains: Set<string> = disposableDomainsSet;
 
 // NOTE: OpenAI/dns imports are dynamic to prevent Vercel build-time evaluation
@@ -89,6 +90,11 @@ const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
 // ============ RESULT-LEVEL CACHE (24h TTL, avoids re-consuming credits) ============
 const resultCache = new Map<string, { result: Record<string, unknown>; ts: number }>();
 const RESULT_CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
+const explanationCache = new Map<string, { value: string; ts: number }>();
+const EXPLANATION_CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
+const EXPLANATION_MODEL = process.env.DEEPSEEK_EXPLANATION_MODEL || "deepseek-v4-flash";
+const EXPLANATION_SYSTEM_PROMPT =
+  "你是邮箱与IP风险检测解释器。请只输出一条简短中文句子，不要分点，不要换行，不要补充建议，只概括为什么被标记。";
 
 export function getCachedResult(key: string): Record<string, unknown> | null {
   const entry = resultCache.get(key);
@@ -109,6 +115,96 @@ export function setCachedResult(key: string, result: Record<string, unknown>): v
 
 export function makeResultCacheKey(email?: string | null, ip?: string | null): string {
   return [email || "", ip || ""].join("|").toLowerCase();
+}
+
+function getCachedExplanation(key: string): string | null {
+  const entry = explanationCache.get(key);
+  if (entry && Date.now() - entry.ts < EXPLANATION_CACHE_TTL) return entry.value;
+  if (entry) explanationCache.delete(key);
+  return null;
+}
+
+function setCachedExplanation(key: string, value: string): void {
+  if (!value) return;
+  if (explanationCache.size > 5000) {
+    const oldest = [...explanationCache.entries()].sort((a, b) => a[1].ts - b[1].ts)[0];
+    if (oldest) explanationCache.delete(oldest[0]);
+  }
+  explanationCache.set(key, { value, ts: Date.now() });
+}
+
+function canonicalizeReason(reason: string): string {
+  const text = reason.toLowerCase();
+  if (text.includes("disposable email")) return "disposable_email";
+  if (text.includes("role-based email")) return "role_based_email";
+  if (text.includes("suspicious tld")) return "suspicious_tld";
+  if (text.includes("high-risk keyword")) return "high_risk_domain_keyword";
+  if (text.includes("blacklist")) return "blacklisted";
+  if (text.includes("no mx records")) return "no_mx_records";
+  if (text.includes("missing spf")) return "missing_spf";
+  if (text.includes("missing dmarc")) return "missing_dmarc";
+  if (text.includes("missing dkim")) return "missing_dkim";
+  if (text.includes("mailbox full") || text.includes("inbox full")) return "mailbox_full";
+  if (text.includes("temporary delivery failure") || text.includes("temporarily rejecting")) return "smtp_temp_failure";
+  if (text.includes("permanent rejection") || text.includes("mailbox does not exist")) return "smtp_permanent_failure";
+  if (text.includes("catch-all")) return "catch_all";
+  if (text.includes("proxy") || text.includes("vpn")) return "proxy_vpn";
+  if (text.includes("datacenter") || text.includes("hosting ip")) return "hosting_ip";
+  if (text.includes("high-risk country")) return "high_risk_country";
+  if (text.includes("newly registered") || text.includes("domain age")) return "new_domain";
+  if (text.includes("invalid email format")) return "invalid_email_format";
+  return "generic_risk";
+}
+
+function buildExplanationPayload(
+  riskScore: number,
+  reasons: string[],
+  email: string | null,
+  ip: string | null
+) {
+  const canonicalReasons = [...new Set(reasons.map(canonicalizeReason))].sort();
+  return {
+    score_bucket: Math.min(100, Math.floor(riskScore / 10) * 10),
+    severity: riskScore >= 85 ? "critical" : riskScore >= 70 ? "high" : "medium",
+    reason_tags: canonicalReasons,
+    has_email: !!email,
+    has_ip: !!ip,
+  };
+}
+
+function buildExplanationCacheKey(plan: string, riskScore: number, reasons: string[], email: string | null, ip: string | null): string {
+  return JSON.stringify({
+    v: 2,
+    plan: hasApiAccess(plan) ? "api" : "web",
+    ...buildExplanationPayload(riskScore, reasons, email, ip),
+  });
+}
+
+function getLocalExplanationFromTags(reasonTags: string[], riskScore: number): string {
+  const parts: string[] = [];
+
+  if (reasonTags.includes("disposable_email")) parts.push("检测到一次性邮箱，常见于临时注册或低质量线索");
+  if (reasonTags.includes("smtp_permanent_failure")) parts.push("邮箱服务器已明确拒收，该地址大概率不存在或已失效");
+  if (reasonTags.includes("mailbox_full")) parts.push("目标邮箱当前已满，继续发送很可能产生退信");
+  if (reasonTags.includes("smtp_temp_failure")) parts.push("邮箱服务器当前临时拒收，短时间内投递稳定性较差");
+  if (reasonTags.includes("no_mx_records")) parts.push("域名没有可用邮件服务器记录，邮件大概率无法投递");
+  if (reasonTags.includes("catch_all")) parts.push("该域名可能为 catch-all，邮箱真实性无法稳定确认");
+  if (reasonTags.includes("proxy_vpn")) parts.push("检测到代理或 VPN 来源，真实访问身份存在隐藏风险");
+  if (reasonTags.includes("hosting_ip")) parts.push("来源 IP 位于机房或托管网络，自动化流量风险较高");
+  if (reasonTags.includes("high_risk_country")) parts.push("来源地区风险偏高，需要提高人工复核强度");
+  if (reasonTags.includes("blacklisted")) parts.push("目标或来源命中过往风险黑名单");
+  if (reasonTags.includes("new_domain")) parts.push("域名较新，稳定性和可信度仍需观察");
+  if (reasonTags.includes("suspicious_tld")) parts.push("域名后缀属于高滥用类型，历史风险显著更高");
+  if (reasonTags.includes("high_risk_domain_keyword")) parts.push("域名关键词模式异常，存在明显欺诈或钓鱼信号");
+  if (reasonTags.includes("role_based_email")) parts.push("该地址是通用角色邮箱，线索真实性和响应质量通常较弱");
+
+  if (parts.length > 0) {
+    return parts.slice(0, 2).join("；") + "。";
+  }
+
+  if (riskScore >= 85) return "检测到多项高风险异常信号，建议直接拦截或至少人工复核。";
+  if (riskScore >= 70) return "本次检测命中了明显风险信号，建议先人工复核再继续使用。";
+  return "";
 }
 
 // ============ LAYER 3: EXTERNAL API HELPERS ============
@@ -1079,17 +1175,57 @@ export function classifySmtpResponse(code: number, message: string): {
 }
 
 
-export async function getAIExplanation(email: string | null, ip: string | null, riskScore: number, reasons: string[]): Promise<string> {
+export async function getAIExplanation(
+  email: string | null,
+  ip: string | null,
+  riskScore: number,
+  reasons: string[],
+  plan = "free"
+): Promise<string> {
   if (riskScore < 70) return "";
+
+  const reasonTags = [...new Set(reasons.map(canonicalizeReason))].sort();
+  const cacheKey = buildExplanationCacheKey(plan, riskScore, reasons, email, ip);
+  const cached = getCachedExplanation(cacheKey);
+  if (cached) return cached;
+
+  const localExplanation = getLocalExplanationFromTags(reasonTags, riskScore);
+  if (localExplanation) {
+    setCachedExplanation(cacheKey, localExplanation);
+    return localExplanation;
+  }
+
+  const genericExplanation = riskScore >= 85
+    ? "检测到多项高风险异常信号，建议直接拦截或至少人工复核。"
+    : "本次检测命中了明显风险信号，建议先人工复核再继续使用。";
+
+  if (!hasApiAccess(plan) || !DEEPSEEK_API_KEY) {
+    setCachedExplanation(cacheKey, genericExplanation);
+    return genericExplanation;
+  }
+
   try {
-    const summary = "Email: " + (email || "N/A") + ", IP: " + (ip || "N/A") + ", Score: " + riskScore + ", Reasons: " + (reasons.join(", ") || "none");
-    const completion = (await getDeepSeek()).chat.completions.create({
-      model: "deepseek-chat",
-      messages: [{ role: "system", content: "You are a fraud detection AI. Explain in one short Chinese sentence why this request was flagged." }, { role: "user", content: summary }],
-      max_tokens: 80, temperature: 0.3,
-    });
-    return completion.choices[0]?.message?.content?.trim() || "";
-  } catch { return ""; }
+    const payload = buildExplanationPayload(riskScore, reasons, email, ip);
+    const completion = await (await getDeepSeek()).chat.completions.create({
+      model: EXPLANATION_MODEL,
+      messages: [
+        { role: "system", content: EXPLANATION_SYSTEM_PROMPT },
+        { role: "user", content: JSON.stringify(payload) },
+      ],
+      max_tokens: 48,
+      temperature: 0,
+      extra_body: {
+        thinking: { type: "disabled" },
+      },
+    } as any);
+
+    const content = completion.choices[0]?.message?.content?.trim()?.replace(/\s+/g, " ") || genericExplanation;
+    setCachedExplanation(cacheKey, content);
+    return content;
+  } catch {
+    setCachedExplanation(cacheKey, genericExplanation);
+    return genericExplanation;
+  }
 }
 
 // ============ SCORING ENGINE ============

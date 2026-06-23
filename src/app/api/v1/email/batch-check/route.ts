@@ -54,7 +54,15 @@ export async function POST(req: NextRequest) {
   }
 
   const planKey = (profile.plan || "free") as PlanKey;
+  const planInfo = getPlanLimits(planKey);
   const limits = planCostLimits[planKey] || planCostLimits.free;
+
+  if (!planInfo.apiAccess) {
+    return NextResponse.json({
+      error: "API_ACCESS_REQUIRED",
+      message: "API access starts on Growth. Upgrade to unlock automation and batch API.",
+    }, { status: 403 });
+  }
 
   // Parse body
   let body: { emails?: string[] };

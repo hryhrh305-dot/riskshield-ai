@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { getPlanLimits, hasApiAccess, plans } from "@/lib/plans";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ");
@@ -33,12 +34,17 @@ export function getEndpointCost(endpoint: string): number {
 
 // ============ PLAN COST UNIT LIMITS ============
 
-export const planCostLimits: Record<string, { monthlyUnits: number; dailyUnits: number; perMinute: number }> = {
-  free: { monthlyUnits: 1000, dailyUnits: 30, perMinute: 5 },
-  starter: { monthlyUnits: 50000, dailyUnits: 2000, perMinute: 20 },
-  growth: { monthlyUnits: 200000, dailyUnits: 10000, perMinute: 50 },
-  business: { monthlyUnits: 1000000, dailyUnits: 50000, perMinute: 100 },
-};
+export const planCostLimits: Record<string, { monthlyUnits: number; dailyUnits: number; perMinute: number }> =
+  Object.fromEntries(
+    Object.entries(plans).map(([key, plan]) => [
+      key,
+      {
+        monthlyUnits: plan.monthlyLimit,
+        dailyUnits: plan.dailyLimit,
+        perMinute: plan.perMinuteLimit,
+      },
+    ])
+  );
 
 // ============ MIDDLEWARE: 7-STEP VALIDATION ============
 
@@ -100,6 +106,22 @@ export async function costControlCheck(params: {
   const planKey = profile.plan || "free";
   const limits = planCostLimits[planKey] || planCostLimits.free;
 
+  if (!hasApiAccess(planKey)) {
+    return {
+      allowed: false,
+      errorCode: "SUBSCRIPTION_INACTIVE",
+      errorMessage: "API access starts on Growth. Upgrade to unlock API.",
+      costUnits,
+      monthlyRemaining: 0,
+      dailyRemaining: 0,
+      perMinuteRemaining: 0,
+      ipRemaining: 0,
+      userId: keyData.user_id,
+      apiKeyId: keyData.id,
+      plan: planKey,
+    };
+  }
+
   // ---- Step 3: Check monthly cost unit quota ----
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
@@ -153,7 +175,7 @@ export async function costControlCheck(params: {
     .eq("ip_address", ip)
     .gte("window_start", oneMinuteAgo);
 
-  const ipLimit = limits.perMinute * 2; // IP limit = 2x per-minute user limit
+  const ipLimit = Math.max(getPlanLimits(planKey).ipPerMinuteLimit, limits.perMinute * 2);
   const ipUsed = (ipRows || []).reduce((sum: any, r: any) => sum + (r.request_count || 0), 0);
   const ipRemaining = ipLimit - ipUsed;
 

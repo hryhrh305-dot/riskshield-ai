@@ -110,6 +110,8 @@ export default function DashboardPage() {
   }
 
   async function createKey() {
+    const currentPlan = profile?.plan || "free";
+    if (!getPlanLimits(currentPlan).apiAccess) return;
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -132,6 +134,7 @@ export default function DashboardPage() {
   const monthlyLimit = planInfo.monthlyLimit || 50000;
   const dailyLimit = planInfo.dailyLimit || 2000;
   const creditsRemaining = profile.credits_remaining ?? 0;
+  const apiEnabled = planInfo.apiAccess;
   const monthlyRemaining = creditsRemaining;
   const dailyRemaining = Math.max(0, dailyLimit - dailyUsed);
   const daysLeftEstimate = dailyUsed > 0 ? Math.max(0, Math.floor(dailyRemaining / (dailyUsed / Math.max(1, new Date().getDate())))) : 999;
@@ -174,7 +177,7 @@ export default function DashboardPage() {
             <AlertTriangle className="w-5 h-5 text-yellow-600 shrink-0" />
             <div className="flex-1">
               <p className="text-sm font-medium text-yellow-800">Only {monthlyRemaining.toLocaleString()} credits left — you are approaching your monthly limit</p>
-              <p className="text-xs text-yellow-600 mt-0.5">Upgrade to continue unlimited verification of your customers</p>
+              <p className="text-xs text-yellow-600 mt-0.5">Upgrade to increase credits, unlock deeper checks, and enable API access</p>
             </div>
             <Link href="/pricing" className="bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-yellow-700 shrink-0">Upgrade Plan</Link>
           </div>
@@ -230,7 +233,7 @@ export default function DashboardPage() {
             <div className="text-xs text-gray-400 mt-1">{profile.subscription_status}</div>
             {profile.plan === "free" && (
               <Link href="/pricing" className="mt-2 inline-block text-sm text-blue-600 font-medium hover:underline">
-                Upgrade to unlock unlimited verification
+                Upgrade to unlock deep checks and API access
               </Link>
             )}
           </div>
@@ -250,9 +253,24 @@ export default function DashboardPage() {
         <div className="bg-white rounded-xl border p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold flex items-center gap-2"><Key className="w-5 h-5" /> API Keys</h2>
-            <button onClick={createKey} className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700">Generate Key</button>
+            <button
+              onClick={createKey}
+              disabled={!apiEnabled}
+              className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Generate Key
+            </button>
           </div>
-          {apiKeys.length === 0 && <p className="text-sm text-gray-400">No API keys yet. Generate one to start using the API.</p>}
+          {!apiEnabled && (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              API access starts on Growth. Free and Starter are optimized for zero-paid-cost checks.
+            </div>
+          )}
+          {apiKeys.length === 0 && (
+            <p className="text-sm text-gray-400">
+              {apiEnabled ? "No API keys yet. Generate one to start using the API." : "Upgrade to Growth to generate API keys."}
+            </p>
+          )}
           {apiKeys.map((k) => (
             <div key={k.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3 mt-3">
               <div>

@@ -67,7 +67,7 @@ export default function Home() {
                 <>
                   <Link href="/login" className="text-sm text-gray-600 hover:text-gray-900">Sign In</Link>
                   <Link href="/signup" className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-                    Get API Key Free
+                    Start Free
                   </Link>
                 </>
               )
@@ -113,7 +113,7 @@ export default function Home() {
                       Sign In
                     </Link>
                     <Link href="/signup" onClick={() => setMenuOpen(false)} className="flex items-center justify-center rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">
-                      Get API Key Free
+                      Start Free
                     </Link>
                   </>
                 )
@@ -179,7 +179,7 @@ export default function Home() {
       <section className="px-4 py-12 text-center sm:px-6 sm:py-16">
         <div className="mx-auto max-w-2xl rounded-2xl bg-blue-600 px-6 py-10 sm:p-10">
           <h2 className="mb-3 text-2xl font-bold text-white">Ready to Stop Wasting Time on Bad Leads?</h2>
-          <p className="mb-6 text-blue-100">1,000 free risk checks per month. No credit card. Instant customer intelligence.</p>
+          <p className="mb-6 text-blue-100">50 free credits per month. No credit card. Upgrade only when you need deeper checks or API access.</p>
           {user ? (
             <Link href="/risk-check" className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 text-sm font-bold text-blue-600 hover:bg-blue-50">
               Start Checking Now <ArrowRight className="h-4 w-4" />

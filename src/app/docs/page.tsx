@@ -7,7 +7,7 @@ export default function DocsPage() {
       <header className="bg-white border-b px-6 py-4 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3">
           <Shield className="w-6 h-6 text-blue-600" />
-          <span className="font-bold text-lg">Fraud Shield API</span>
+          <span className="font-bold text-lg">RiskShield</span>
         </Link>
         <div className="flex items-center gap-4 text-sm">
           <Link href="/pricing" className="text-gray-600 hover:text-gray-900">Pricing</Link>
@@ -19,6 +19,7 @@ export default function DocsPage() {
         <div>
           <h1 className="text-3xl font-bold">API Documentation</h1>
           <p className="text-gray-500 mt-2">Integrate fraud detection in minutes. All endpoints require a Bearer token.</p>
+          <p className="text-xs text-amber-600 mt-2">API access is available on Growth and above.</p>
         </div>
 
         <section>
@@ -149,8 +150,8 @@ export default function DocsPage() {
         <section className="pb-10">
           <div className="bg-blue-50 rounded-xl p-6 text-center">
             <p className="text-sm text-blue-700 font-medium">Ready to integrate?</p>
-            <p className="text-xs text-blue-500 mt-1 mb-4">Start with 1,000 free API calls per month.</p>
-            <Link href="/signup" className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-blue-700">Get Free API Key</Link>
+            <p className="text-xs text-blue-500 mt-1 mb-4">Create a free account now, then upgrade to Growth when you need API access.</p>
+            <Link href="/signup" className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-blue-700">Create Free Account</Link>
           </div>
         </section>
       </div>

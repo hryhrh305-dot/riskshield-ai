@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
   const riskResult = await calculateRiskScore({ email, ip: requestIP });
 
   // ---- AI (Layer 4: only for score >= 70) ----
-  const aiReason = await getAIExplanation(email, requestIP, riskResult.score, riskResult.reasons);
+  const aiReason = await getAIExplanation(email, requestIP, riskResult.score, riskResult.reasons, cc.plan || "free");
 
   // ---- Build Response ----
   const result = createResponse({

@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { getPlanLimits, hasApiAccess } from "@/lib/plans";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ");
@@ -34,15 +35,15 @@ export async function validateApiKey(apiKey: string) {
 }
 
 export async function getMonthlyLimit(plan: string): Promise<number> {
-  switch (plan) { case "starter": return 50_000; case "growth": return 200_000; case "business": return 1_000_000; default: return 1_000; }
+  return getPlanLimits(plan).monthlyLimit;
 }
 
 export async function getDailyLimit(plan: string): Promise<number> {
-  switch (plan) { case "starter": return 2_000; case "growth": return 10_000; case "business": return 50_000; default: return 30; }
+  return getPlanLimits(plan).dailyLimit;
 }
 
 export async function getMaxTokens(plan: string): Promise<number> {
-  switch (plan) { case "starter": return 8_000; case "growth": return 16_000; case "business": return 32_000; default: return 2_000; }
+  return getPlanLimits(plan).maxTokensPerRequest;
 }
 
 export function generateApiKey(): string {
@@ -56,6 +57,10 @@ export function generateApiKey(): string {
 export async function validateAndCheckLimits(apiKey: string) {
   const auth = await validateApiKey(apiKey);
   if (!auth.valid) return auth;
+
+  if (!hasApiAccess(auth.plan)) {
+    return { valid: false, error: "API access starts on Growth. Upgrade to unlock API." };
+  }
 
   const monthlyLimit = await getMonthlyLimit(auth.plan);
   if ((auth.monthlyUsed || 0) >= monthlyLimit) {

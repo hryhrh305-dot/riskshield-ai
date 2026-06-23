@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI SaaS - Your AI Assistant",
+  title: "RiskShield - Email & IP Risk Intelligence",
   description:
-    "AI-powered SaaS platform. Generate content, analyze data, write code. Start free, upgrade for unlimited access.",
+    "RiskShield helps teams detect risky emails, suspicious IPs, and low-quality leads with cost-controlled checks and automation-ready workflows.",
 };
 
 export default function RootLayout({

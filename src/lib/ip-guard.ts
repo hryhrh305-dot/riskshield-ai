@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { getPlanLimits } from "@/lib/plans";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ");
@@ -12,13 +13,6 @@ function getSupabaseAdmin() {
   }
   return _supabaseAdmin;
 }
-
-const ipRateLimits: Record<string, number> = {
-  free: 30,
-  starter: 100,
-  growth: 300,
-  business: 1000,
-};
 
 export interface IPGuardResult {
   allowed: boolean;
@@ -35,7 +29,7 @@ export async function checkIPRateLimit(
   endpoint?: string
 ): Promise<IPGuardResult> {
   const effectivePlan = plan || "free";
-  const limit = ipRateLimits[effectivePlan] || 30;
+  const limit = getPlanLimits(effectivePlan).ipPerMinuteLimit || 10;
   const oneMinuteAgo = new Date(Date.now() - 60000).toISOString();
 
   const { data: rows } = await getSupabaseAdmin()

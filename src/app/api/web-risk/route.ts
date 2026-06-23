@@ -179,7 +179,7 @@ try {
   const domainAge = domain ? await checkDomainAge(domain).catch(() => null) : null;
   const domainAgeDays: number | null = domainAge?.ageDays ?? null;
   const riskResult = await calculateRiskScore({ email, ip: requestIP, domainAgeDays });
-  const aiReason = await getAIExplanation(email, requestIP, riskResult.score, riskResult.reasons);
+  const aiReason = await getAIExplanation(email, requestIP, riskResult.score, riskResult.reasons, plan);
 
   // Domain extraction for Company Health Score
   let companyHealth = null;
