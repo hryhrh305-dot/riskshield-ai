@@ -92,7 +92,7 @@ export default function DashboardPage() {
       setMonthlyUsed(p?.total_checks ?? 0);
       setRiskyCount(riskyC ?? 0);
       setBlockedCount(blockedC ?? 0);
-      if (keys) setApiKeys(keys);
+      if (keys) setApiKeys(keys.filter((key: ApiKeyRow) => key.status === "active"));
       if (recentChecks) {
         setChecks(recentChecks.map((r: any) => ({
           id: r.id,
@@ -125,6 +125,7 @@ export default function DashboardPage() {
   async function revokeKey(id: string) {
     const supabase = createClient();
     await supabase.from("api_keys").update({ status: "revoked" }).eq("id", id);
+    setApiKeys((prev) => prev.filter((key) => key.id !== id));
     loadData();
   }
 
@@ -143,6 +144,7 @@ export default function DashboardPage() {
   const creditsPercent = monthlyLimit > 0 ? Math.round((creditsRemaining / monthlyLimit) * 100) : 100;
   const monthlyPercent = creditsPercent;
   const usageStatus = monthlyPercent <= 20 ? "critical" : monthlyPercent <= 50 ? "warning" : "healthy";
+  const activeApiKeys = apiKeys.filter((key) => key.status === "active");
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -243,9 +245,9 @@ export default function DashboardPage() {
           {/* Card 4: API Keys */}
           <div className="bg-white rounded-xl border p-5">
             <div className="flex items-center gap-2 text-indigo-600 mb-2"><Key className="w-5 h-5" /><span className="font-semibold text-sm">API Keys</span></div>
-            <div className="text-2xl font-bold">{apiKeys.filter(k => k.status === "active").length}</div>
+            <div className="text-2xl font-bold">{activeApiKeys.length}</div>
             <div className="text-xs text-gray-400 mt-1">active keys</div>
-            {apiKeys.filter(k => k.status === "active").length === 0 && (
+            {activeApiKeys.length === 0 && (
               <button onClick={createKey} className="mt-2 text-sm text-blue-600 font-medium hover:underline">Generate your first key</button>
             )}
           </div>
@@ -273,15 +275,24 @@ export default function DashboardPage() {
               {apiEnabled ? "No API keys yet. Generate one to start using the API." : "Upgrade to Growth to generate API keys."}
             </p>
           )}
-          {apiKeys.map((k) => (
+          {activeApiKeys.map((k) => (
             <div key={k.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3 mt-3">
               <div>
-                <div className="font-mono text-sm text-gray-800">{k.key ? k.key.slice(0, 12) + "..." + k.key.slice(-6) : "N/A"}{k.status === "revoked" ? <span className="ml-2 text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded">Revoked</span> : null}</div>
+                <div className="font-mono text-sm text-gray-800">{k.key ? k.key.slice(0, 12) + "..." + k.key.slice(-6) : "N/A"}</div>
                 <div className="text-xs text-gray-400 mt-0.5">Created {new Date(k.created_at).toLocaleDateString()}{k.last_used_at ? " 路 Last used " + new Date(k.last_used_at).toLocaleDateString() : ""}</div>
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={() => { if (k.key) { navigator.clipboard.writeText(k.key); setCopied(k.id); setTimeout(() => setCopied(""), 2000); } }} className="p-1.5 text-gray-400 hover:text-gray-700 rounded"><Copy className="w-4 h-4" />{copied === k.id && <span className="text-xs ml-1 text-green-600">Copied!</span>}</button>
-                {k.status === "active" && <button onClick={() => revokeKey(k.id)} className="p-1.5 text-gray-400 hover:text-red-600 rounded"><Trash2 className="w-4 h-4" /></button>}
+                <button
+                  onClick={() => {
+                    const confirmed = window.confirm("Delete this API key? This action cannot be undone.");
+                    if (confirmed) void revokeKey(k.id);
+                  }}
+                  className="p-1.5 text-gray-400 hover:text-red-600 rounded"
+                  title="Delete API key"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             </div>
           ))}
