@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { calculateRiskScore, getAIExplanation, checkDomainAge, getDNSHealthScore, calculateCompanyHealth, getCachedResult, setCachedResult, makeResultCacheKey, cleanEmail } from "@/lib/risk-engine";
+import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ");
@@ -19,22 +20,10 @@ function getSupabaseAdmin() {
 async function getUserFromRequest(request: NextRequest) {
   try {
     const supabase = getSupabaseAdmin();
-    // Read auth token from cookie directly (avoids @supabase/ssr dependency issues on Vercel)
     const cookieHeader = request.headers.get("cookie") || "";
-    const cookieParts = cookieHeader.split(";").reduce((acc, c) => {
-      const [k, ...v] = c.trim().split("=");
-      if (k) acc[k.trim()] = decodeURIComponent(v.join("="));
-      return acc;
-    }, {} as Record<string, string>);
     const projectRef = "njhjiavnidssjvnkcxfo";
-    const rawToken = cookieParts["sb-" + projectRef + "-auth-token"] || cookieParts["sb-access-token"];
-    if (!rawToken) return null;
-    // Cookie value may be JSON: ["access_token","refresh_token"] or {"access_token":"..."}
-    var token = rawToken;
-    try {
-      var parsed = JSON.parse(rawToken);
-      token = Array.isArray(parsed) ? parsed[0] : (parsed.access_token || parsed);
-    } catch {}
+    const token = readAccessTokenFromCookieHeader(cookieHeader, projectRef);
+    if (!token) return null;
     var { data: { user }, error } = await supabase.auth.getUser(token);
     if (error || !user) return null;
     return user;

@@ -1,26 +1,15 @@
-import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
 
 export async function middleware(request: NextRequest) {
   try {
     const res = NextResponse.next({ request });
 
-    // Read auth token from cookie directly (same as API routes)
     const cookieHeader = request.headers.get("cookie") || "";
     let userId: string | null = null;
     if (cookieHeader) {
-      const cookies: Record<string, string> = {};
-      cookieHeader.split(";").forEach((c) => {
-        const [k, ...v] = c.trim().split("=");
-        if (k) cookies[k.trim()] = decodeURIComponent(v.join("="));
-      });
-      const rawToken = cookies["sb-njhjiavnidssjvnkcxfo-auth-token"] || cookies["sb-access-token"];
-      if (rawToken) {
-        let token = rawToken;
-        try {
-          const parsed = JSON.parse(rawToken);
-          token = Array.isArray(parsed) ? parsed[0] : (parsed.access_token || parsed);
-        } catch { /* raw string */ }
+      const token = readAccessTokenFromCookieHeader(cookieHeader, "njhjiavnidssjvnkcxfo");
+      if (token) {
         // Verify token via Supabase REST API
         const userRes = await fetch("https://njhjiavnidssjvnkcxfo.supabase.co/auth/v1/user", {
           headers: { "Authorization": "Bearer " + token, "apikey": "sb_publishable_6pS7tKkxxBqYTLcAUu_GPg_0BysHHx8" }
@@ -50,5 +39,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/pricing/:path*", "/risk-check/:path*", "/bulk-check/:path*", "/blacklist/:path*", "/login", "/signup"],
+  matcher: ["/dashboard/:path*", "/pricing/:path*", "/risk-check/:path*", "/bulk-check/:path*", "/blacklist/:path*", "/pre-send/:path*", "/login", "/signup"],
 };

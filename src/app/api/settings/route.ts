@@ -1,5 +1,6 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ");
@@ -17,18 +18,8 @@ async function getUserFromRequest(request: NextRequest) {
   try {
     const supabase = getSupabaseAdmin();
     const cookieHeader = request.headers.get("cookie") || "";
-    const cookies = cookieHeader.split(";").reduce((acc, c) => {
-      const [k, ...v] = c.trim().split("=");
-      if (k) acc[k.trim()] = decodeURIComponent(v.join("="));
-      return acc;
-    }, {} as Record<string, string>);
-    const rawToken = cookies["sb-njhjiavnidssjvnkcxfo-auth-token"] || cookies["sb-access-token"];
-    if (!rawToken) return null;
-    var token = rawToken;
-    try {
-      var parsed = JSON.parse(rawToken);
-      token = Array.isArray(parsed) ? parsed[0] : (parsed.access_token || parsed);
-    } catch {}
+    const token = readAccessTokenFromCookieHeader(cookieHeader, "njhjiavnidssjvnkcxfo");
+    if (!token) return null;
     const { data: { user }, error } = await supabase.auth.getUser(token);
     if (error || !user) return null;
     return user;
@@ -40,7 +31,6 @@ const defaultSettings = { block_disposable: true, block_high_risk: true, review_
 export async function GET(request: NextRequest) {
   const user = await getUserFromRequest(request);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  // Try to fetch risk_settings (column may not exist yet)
   let settings = defaultSettings;
   try {
     const { data: profile } = await getSupabaseAdmin().from("profiles").select("risk_settings").eq("id", user.id).single();
@@ -55,7 +45,6 @@ export async function PUT(request: NextRequest) {
   let body: { block_disposable?: boolean; block_high_risk?: boolean; review_catch_all?: boolean; review_new_domain?: boolean };
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
   const settings = { ...defaultSettings, ...body };
-  // Try to save risk_settings (column may not exist yet)
   try {
     await getSupabaseAdmin().from("profiles").update({ risk_settings: settings }).eq("id", user.id);
   } catch { /* column may not exist, settings not saved */ }

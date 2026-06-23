@@ -1,5 +1,10 @@
 ## Changelog
 
+### 2026-06-23
+- Fixed login redirect loop caused by base64-encoded Supabase auth cookies not being decoded in middleware and core authenticated API routes
+- Added a shared auth-cookie helper for base64, legacy JSON, and chunked auth cookie parsing
+- Added a regression test covering the current Supabase cookie formats
+
 ### 2026-06-22 (985df12)
 - XLSX: static import xlsx, real ZIP+XLSX via writeFile()
 - Clean CSV: fixed decision to risk_level field name
