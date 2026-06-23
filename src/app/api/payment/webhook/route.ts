@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { plans, type PlanKey } from "@/lib/plans";
+import { plans, type PlanKey, getPlanRank } from "@/lib/plans";
 import {
   findPlanByCreemProductId,
   getCreditsForPlan,
@@ -97,15 +97,23 @@ async function upsertProfileForPaidSubscription(params: {
   currentPeriodEnd?: string | null;
 }) {
   const credits = getCreditsForPlan(params.plan);
+  const { data: currentProfile } = await getSupabaseAdmin()
+    .from("profiles")
+    .select("plan, credits_remaining")
+    .eq("id", params.userId)
+    .maybeSingle();
+
+  const currentPlan = currentProfile?.plan || "free";
+  const shouldUpgrade = getPlanRank(params.plan) >= getPlanRank(currentPlan);
 
   await getSupabaseAdmin()
     .from("profiles")
     .update({
-      plan: params.plan,
+      plan: shouldUpgrade ? params.plan : currentPlan,
       subscription_status: "active",
       subscription_start: asIso(params.currentPeriodStart) || new Date().toISOString(),
       subscription_end: asIso(params.currentPeriodEnd),
-      credits_remaining: credits,
+      credits_remaining: shouldUpgrade ? credits : currentProfile?.credits_remaining ?? credits,
       updated_at: new Date().toISOString(),
     })
     .eq("id", params.userId);

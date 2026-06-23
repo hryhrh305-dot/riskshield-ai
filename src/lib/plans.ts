@@ -108,6 +108,22 @@ export function getPlanLimits(plan: string) {
   return plans[plan as PlanKey] ?? plans.free;
 }
 
+const planRank: Record<PlanKey, number> = {
+  free: 0,
+  starter: 1,
+  growth: 2,
+  scale: 3,
+  business: 4,
+};
+
+export function getPlanRank(plan: string): number {
+  return planRank[plan as PlanKey] ?? 0;
+}
+
+export function isPlanAtLeast(plan: string, minimumPlan: PlanKey): boolean {
+  return getPlanRank(plan) >= planRank[minimumPlan];
+}
+
 export function hasApiAccess(plan: string): boolean {
   return getPlanLimits(plan).apiAccess;
 }

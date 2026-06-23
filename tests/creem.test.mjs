@@ -5,13 +5,14 @@ import crypto from "node:crypto";
 import {
   findPlanByCreemProductId,
   getCreemApiBaseUrl,
-  getCreemEnvDebugInfo,
   getCreemCheckoutUrls,
+  getCreemEnvDebugInfo,
   getCreemProductIdForPlan,
   isCreemSelfServePlan,
   verifyCreemRedirectSignature,
   verifyCreemWebhookSignature,
 } from "../src/lib/creem.ts";
+import { getPlanRank, isPlanAtLeast } from "../src/lib/plans.ts";
 
 const env = {
   NEXT_PUBLIC_APP_URL: "https://www.574269.xyz",
@@ -137,4 +138,14 @@ test("creem env debug info returns booleans only", () => {
     vercelEnv: "production",
     nodeEnv: "production",
   });
+});
+
+test("plan rank treats business as higher than paid self-serve plans", () => {
+  assert.equal(getPlanRank("free"), 0);
+  assert.equal(getPlanRank("starter"), 1);
+  assert.equal(getPlanRank("growth"), 2);
+  assert.equal(getPlanRank("scale"), 3);
+  assert.equal(getPlanRank("business"), 4);
+  assert.equal(isPlanAtLeast("business", "growth"), true);
+  assert.equal(isPlanAtLeast("growth", "scale"), false);
 });
