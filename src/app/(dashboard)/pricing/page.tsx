@@ -1,288 +1,726 @@
 "use client";
 
-import { useState } from "react";
-import { plans, PlanKey } from "@/lib/plans";
-import { Check, Shield } from "lucide-react";
 import Link from "next/link";
+import { Check, Clock3, Minus, Shield } from "lucide-react";
+import { plans, type PlanKey } from "@/lib/plans";
+
+type Availability = "included" | "limited" | "unavailable" | "soon" | "custom";
+
+type FeatureValue = {
+  text: string;
+  availability: Availability;
+};
+
+type ComparisonSection = {
+  title: string;
+  rows: Array<{
+    label: string;
+    values: Record<PlanKey, FeatureValue>;
+  }>;
+};
+
+const included = (text = "Included"): FeatureValue => ({ text, availability: "included" });
+const limited = (text: string): FeatureValue => ({ text, availability: "limited" });
+const unavailable = (): FeatureValue => ({ text: "—", availability: "unavailable" });
+const soon = (): FeatureValue => ({ text: "Coming soon", availability: "soon" });
+const custom = (text = "Custom"): FeatureValue => ({ text, availability: "custom" });
 
 const planHighlights: Record<PlanKey, string[]> = {
   free: [
-    "Basic email risk only",
-    "Single checks only",
-    "Advanced signals hidden",
-    "No API or automation",
+    "50 monthly credits",
+    "Individual risk checks",
+    "Risk score and decision",
+    "Recent check history",
   ],
   starter: [
-    "Deep email checks",
-    "CSV/XLSX export",
-    "Bulk list cleaning",
-    "No API access",
+    "1,000 monthly credits",
+    "Deep email verification",
+    "Bulk list screening",
+    "CSV and XLSX exports",
   ],
   growth: [
-    "Email + IP risk",
-    "API access",
-    "Google Sheets integration",
-    "Pre-send workflows",
+    "5,000 monthly credits",
+    "Email and IP intelligence",
+    "API and Google Sheets",
+    "Pre-send protection",
   ],
   scale: [
-    "Production API",
-    "Webhook + custom rules",
-    "Priority processing",
-    "10 team members",
+    "30,000 monthly credits",
+    "Higher API throughput",
+    "Production-volume workflows",
+    "Everything in Growth",
   ],
   business: [
     "100,000+ monthly credits",
-    "Custom API limits",
-    "SLA and enterprise support",
-    "White-label options",
+    "Custom API capacity",
+    "Enterprise onboarding",
+    "Negotiated support and terms",
   ],
 };
 
-const comparisonRows: Array<{
-  label: string;
-  values: Record<PlanKey, string>;
-}> = [
+const comparisonSections: ComparisonSection[] = [
   {
-    label: "Monthly credits",
-    values: {
-      free: "50",
-      starter: "1,000",
-      growth: "5,000",
-      scale: "30,000",
-      business: "100,000+",
-    },
+    title: "Usage and workflow",
+    rows: [
+      {
+        label: "Monthly credits",
+        values: {
+          free: included("50"),
+          starter: included("1,000"),
+          growth: included("5,000"),
+          scale: included("30,000"),
+          business: custom("100,000+"),
+        },
+      },
+      {
+        label: "Daily usage allowance",
+        values: {
+          free: included("5/day"),
+          starter: included("300/day"),
+          growth: included("1,500/day"),
+          scale: included("8,000/day"),
+          business: custom(),
+        },
+      },
+      {
+        label: "Individual checks",
+        values: {
+          free: included(),
+          starter: included(),
+          growth: included(),
+          scale: included(),
+          business: included(),
+        },
+      },
+      {
+        label: "Bulk list screening",
+        values: {
+          free: unavailable(),
+          starter: included(),
+          growth: included(),
+          scale: included(),
+          business: included(),
+        },
+      },
+      {
+        label: "Maximum planned batch size",
+        values: {
+          free: included("1"),
+          starter: included("1,000"),
+          growth: included("5,000"),
+          scale: included("30,000"),
+          business: custom(),
+        },
+      },
+      {
+        label: "CSV / TXT / XLSX upload",
+        values: {
+          free: unavailable(),
+          starter: included(),
+          growth: included(),
+          scale: included(),
+          business: included(),
+        },
+      },
+      {
+        label: "CSV / XLSX result export",
+        values: {
+          free: unavailable(),
+          starter: included(),
+          growth: included(),
+          scale: included(),
+          business: included(),
+        },
+      },
+      {
+        label: "Recent check history",
+        values: {
+          free: included(),
+          starter: included(),
+          growth: included(),
+          scale: included(),
+          business: included(),
+        },
+      },
+      {
+        label: "Extended history retention",
+        values: {
+          free: unavailable(),
+          starter: unavailable(),
+          growth: soon(),
+          scale: soon(),
+          business: custom(),
+        },
+      },
+    ],
   },
   {
-    label: "Daily limit",
-    values: {
-      free: "5/day",
-      starter: "300/day",
-      growth: "1,500/day",
-      scale: "8,000/day",
-      business: "Custom",
-    },
+    title: "Email risk intelligence",
+    rows: [
+      {
+        label: "Email syntax and format",
+        values: {
+          free: included(),
+          starter: included(),
+          growth: included(),
+          scale: included(),
+          business: included(),
+        },
+      },
+      {
+        label: "Disposable email detection",
+        values: {
+          free: included(),
+          starter: included(),
+          growth: included(),
+          scale: included(),
+          business: included(),
+        },
+      },
+      {
+        label: "Role-based and suspicious address patterns",
+        values: {
+          free: included(),
+          starter: included(),
+          growth: included(),
+          scale: included(),
+          business: included(),
+        },
+      },
+      {
+        label: "Suspicious domains and TLDs",
+        values: {
+          free: included(),
+          starter: included(),
+          growth: included(),
+          scale: included(),
+          business: included(),
+        },
+      },
+      {
+        label: "MX mail-server verification",
+        values: {
+          free: limited("Basic"),
+          starter: included("Deep"),
+          growth: included("Deep"),
+          scale: included("Deep"),
+          business: included("Deep"),
+        },
+      },
+      {
+        label: "SMTP mailbox response",
+        values: {
+          free: unavailable(),
+          starter: included(),
+          growth: included(),
+          scale: included(),
+          business: included(),
+        },
+      },
+      {
+        label: "Mailbox full / temporary rejection",
+        values: {
+          free: unavailable(),
+          starter: included(),
+          growth: included(),
+          scale: included(),
+          business: included(),
+        },
+      },
+      {
+        label: "Catch-all domain detection",
+        values: {
+          free: unavailable(),
+          starter: included(),
+          growth: included(),
+          scale: included(),
+          business: included(),
+        },
+      },
+      {
+        label: "SPF / DMARC / DKIM checks",
+        values: {
+          free: unavailable(),
+          starter: included(),
+          growth: included(),
+          scale: included(),
+          business: included(),
+        },
+      },
+      {
+        label: "Domain age and new-domain risk",
+        values: {
+          free: unavailable(),
+          starter: included(),
+          growth: included(),
+          scale: included(),
+          business: included(),
+        },
+      },
+      {
+        label: "Blacklist matching",
+        values: {
+          free: limited("Risk signal"),
+          starter: included(),
+          growth: included(),
+          scale: included(),
+          business: included(),
+        },
+      },
+      {
+        label: "Detailed risk factors",
+        values: {
+          free: limited("Summary"),
+          starter: included(),
+          growth: included(),
+          scale: included(),
+          business: included(),
+        },
+      },
+      {
+        label: "Recommended actions and remediation",
+        values: {
+          free: limited("Summary"),
+          starter: included(),
+          growth: included(),
+          scale: included(),
+          business: included(),
+        },
+      },
+      {
+        label: "Company health score",
+        values: {
+          free: limited("Summary"),
+          starter: included(),
+          growth: included(),
+          scale: included(),
+          business: included(),
+        },
+      },
+    ],
   },
   {
-    label: "Basic email risk",
-    values: {
-      free: "Included",
-      starter: "Included",
-      growth: "Included",
-      scale: "Included",
-      business: "Included",
-    },
+    title: "IP and combined risk",
+    rows: [
+      {
+        label: "IP geolocation and network context",
+        values: {
+          free: unavailable(),
+          starter: unavailable(),
+          growth: included(),
+          scale: included(),
+          business: included(),
+        },
+      },
+      {
+        label: "Proxy / VPN detection",
+        values: {
+          free: unavailable(),
+          starter: unavailable(),
+          growth: included(),
+          scale: included(),
+          business: included(),
+        },
+      },
+      {
+        label: "Hosting / datacenter IP detection",
+        values: {
+          free: unavailable(),
+          starter: unavailable(),
+          growth: included(),
+          scale: included(),
+          business: included(),
+        },
+      },
+      {
+        label: "High-risk geography signals",
+        values: {
+          free: unavailable(),
+          starter: unavailable(),
+          growth: included(),
+          scale: included(),
+          business: included(),
+        },
+      },
+      {
+        label: "Email + IP combined scoring",
+        values: {
+          free: unavailable(),
+          starter: unavailable(),
+          growth: included(),
+          scale: included(),
+          business: included(),
+        },
+      },
+    ],
   },
   {
-    label: "Deep email checks",
-    values: {
-      free: "Hidden",
-      starter: "Included",
-      growth: "Included",
-      scale: "Included",
-      business: "Included",
-    },
+    title: "Automation and integrations",
+    rows: [
+      {
+        label: "API access",
+        values: {
+          free: unavailable(),
+          starter: unavailable(),
+          growth: included("Standard"),
+          scale: included("Higher limits"),
+          business: custom(),
+        },
+      },
+      {
+        label: "Google Sheets integration",
+        values: {
+          free: unavailable(),
+          starter: unavailable(),
+          growth: included(),
+          scale: included(),
+          business: custom(),
+        },
+      },
+      {
+        label: "Pre-send API protection",
+        values: {
+          free: unavailable(),
+          starter: unavailable(),
+          growth: included(),
+          scale: included(),
+          business: custom(),
+        },
+      },
+      {
+        label: "Campaign reporting dashboard",
+        values: {
+          free: unavailable(),
+          starter: unavailable(),
+          growth: soon(),
+          scale: soon(),
+          business: custom(),
+        },
+      },
+      {
+        label: "Risk settings",
+        values: {
+          free: unavailable(),
+          starter: unavailable(),
+          growth: included(),
+          scale: included(),
+          business: custom(),
+        },
+      },
+      {
+        label: "Blacklist management",
+        values: {
+          free: unavailable(),
+          starter: unavailable(),
+          growth: included(),
+          scale: included(),
+          business: custom(),
+        },
+      },
+      {
+        label: "Webhook delivery",
+        values: {
+          free: unavailable(),
+          starter: unavailable(),
+          growth: unavailable(),
+          scale: soon(),
+          business: custom(),
+        },
+      },
+      {
+        label: "Multiple API keys and key permissions",
+        values: {
+          free: unavailable(),
+          starter: unavailable(),
+          growth: unavailable(),
+          scale: soon(),
+          business: custom(),
+        },
+      },
+      {
+        label: "Custom risk rules and allowlists",
+        values: {
+          free: unavailable(),
+          starter: unavailable(),
+          growth: unavailable(),
+          scale: soon(),
+          business: custom(),
+        },
+      },
+    ],
   },
   {
-    label: "IP risk + combined scoring",
-    values: {
-      free: "No",
-      starter: "No",
-      growth: "Included",
-      scale: "Included",
-      business: "Included",
-    },
-  },
-  {
-    label: "API access",
-    values: {
-      free: "No",
-      starter: "No",
-      growth: "Included",
-      scale: "Included",
-      business: "Custom",
-    },
-  },
-  {
-    label: "Google Sheets",
-    values: {
-      free: "No",
-      starter: "No",
-      growth: "Included",
-      scale: "Included",
-      business: "Custom",
-    },
-  },
-  {
-    label: "Pre-send workflows",
-    values: {
-      free: "No",
-      starter: "No",
-      growth: "Included",
-      scale: "Included",
-      business: "Custom",
-    },
-  },
-  {
-    label: "Team members",
-    values: {
-      free: "1",
-      starter: "1",
-      growth: "3",
-      scale: "10",
-      business: "Custom",
-    },
+    title: "Operations and service",
+    rows: [
+      {
+        label: "API throughput",
+        values: {
+          free: unavailable(),
+          starter: unavailable(),
+          growth: included("Standard"),
+          scale: included("Higher"),
+          business: custom(),
+        },
+      },
+      {
+        label: "Team workspace and member roles",
+        values: {
+          free: unavailable(),
+          starter: unavailable(),
+          growth: soon(),
+          scale: soon(),
+          business: custom(),
+        },
+      },
+      {
+        label: "Priority processing queue",
+        values: {
+          free: unavailable(),
+          starter: unavailable(),
+          growth: unavailable(),
+          scale: soon(),
+          business: custom(),
+        },
+      },
+      {
+        label: "Implementation assistance",
+        values: {
+          free: unavailable(),
+          starter: unavailable(),
+          growth: unavailable(),
+          scale: soon(),
+          business: custom("Dedicated"),
+        },
+      },
+      {
+        label: "SLA and enterprise procurement",
+        values: {
+          free: unavailable(),
+          starter: unavailable(),
+          growth: unavailable(),
+          scale: unavailable(),
+          business: custom(),
+        },
+      },
+      {
+        label: "White-label reporting",
+        values: {
+          free: unavailable(),
+          starter: unavailable(),
+          growth: unavailable(),
+          scale: unavailable(),
+          business: custom("Optional"),
+        },
+      },
+    ],
   },
 ];
 
-export default function PricingPage() {
-  const [error, setError] = useState("");
-
-  async function handleUpgrade(plan: string) {
-    void plan;
-    setError("New tier display is live, but checkout mapping is intentionally held for the next payment step.");
+function AvailabilityCell({ value }: { value: FeatureValue }) {
+  if (value.availability === "unavailable") {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-gray-300">
+        <Minus className="h-4 w-4" />
+        <span className="sr-only">Not included</span>
+      </span>
+    );
   }
 
+  if (value.availability === "soon") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">
+        <Clock3 className="h-3.5 w-3.5" />
+        {value.text}
+      </span>
+    );
+  }
+
+  if (value.availability === "custom") {
+    return (
+      <span className="inline-flex rounded-full bg-purple-50 px-2 py-1 text-xs font-medium text-purple-700">
+        {value.text}
+      </span>
+    );
+  }
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${
+      value.availability === "limited" ? "text-slate-600" : "text-emerald-700"
+    }`}>
+      <Check className="h-3.5 w-3.5 shrink-0" />
+      {value.text}
+    </span>
+  );
+}
+
+export default function PricingPage() {
   const planEntries = Object.entries(plans) as [PlanKey, typeof plans[PlanKey]][];
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b px-6 py-4 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-3">
-          <Shield className="w-6 h-6 text-blue-600" />
-          <span className="font-bold text-lg">RiskShield</span>
-        </Link>
-        <Link href="/dashboard" className="text-sm text-gray-600 hover:text-gray-900">Dashboard</Link>
+      <header className="border-b bg-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
+          <Link href="/" className="flex items-center gap-3">
+            <Shield className="h-6 w-6 text-blue-600" />
+            <span className="text-lg font-bold">RiskShield</span>
+          </Link>
+          <Link href="/dashboard" className="text-sm text-gray-600 hover:text-gray-900">Dashboard</Link>
+        </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6">
-        <div className="text-center max-w-3xl mx-auto mb-10">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Choose the plan that fits your workflow</h1>
-          <p className="text-gray-500">
-            Free and Starter focus on zero-paid-cost email checks. Growth and above unlock API, IP risk, Google Sheets, and automation.
+      <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+        <section className="mx-auto mb-10 max-w-3xl text-center">
+          <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-600">Simple plans, clear capabilities</p>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+            Choose the level of risk intelligence your workflow needs
+          </h1>
+          <p className="mt-4 text-gray-600">
+            Start with individual email checks, add deep list verification, then move to API-driven email and IP protection as your workflow grows.
           </p>
-          <p className="text-xs text-gray-400 mt-2">
-            Annual billing 15% off is planned, but not enabled yet. New checkout mapping is the next payment step.
-          </p>
-        </div>
+        </section>
 
-        {error && (
-          <div className="mb-6 p-3 bg-red-50 text-red-600 rounded-lg text-sm text-center">
-            {error}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-10">
+        <section className="mb-12 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
           {planEntries.map(([key, plan]) => {
             const isPopular = key === "growth";
-            const disabled = true;
 
             return (
-              <div
+              <article
                 key={key}
-                className={`relative rounded-2xl border p-6 ${
-                  isPopular ? "bg-blue-600 border-blue-600 text-white" : "bg-white border-gray-200"
+                className={`relative flex min-h-[390px] flex-col rounded-2xl border p-6 shadow-sm ${
+                  isPopular
+                    ? "border-blue-600 bg-blue-600 text-white shadow-blue-100"
+                    : "border-gray-200 bg-white text-gray-900"
                 }`}
               >
                 {plan.badge && (
-                  <div className="absolute top-3 right-3 bg-white text-blue-600 text-xs font-bold px-2 py-0.5 rounded-full">
+                  <div className="absolute right-3 top-3 rounded-full bg-white px-2 py-0.5 text-xs font-bold text-blue-600">
                     {plan.badge}
                   </div>
                 )}
 
-                <div className="mb-3">
-                  <h2 className="font-semibold text-lg">{plan.name}</h2>
-                  <p className={`text-sm mt-1 ${isPopular ? "text-blue-100" : "text-gray-500"}`}>
+                <div>
+                  <h2 className="text-lg font-semibold">{plan.name}</h2>
+                  <p className={`mt-1 min-h-10 text-sm ${isPopular ? "text-blue-100" : "text-gray-500"}`}>
                     {plan.tagline}
                   </p>
                 </div>
 
-                <div className="mb-2">
+                <div className="mt-5">
                   <span className="text-3xl font-bold">{plan.priceLabel}</span>
-                  {!plan.contactOnly && <span className={isPopular ? "text-blue-100" : "text-gray-400"}>/mo</span>}
+                  {!plan.contactOnly && <span className={isPopular ? "text-blue-100" : "text-gray-400"}>/month</span>}
+                  <p className={`mt-2 text-sm font-medium ${isPopular ? "text-blue-50" : "text-gray-700"}`}>
+                    {plan.creditsLabel}
+                  </p>
                 </div>
 
-                <div className={`text-sm font-medium ${isPopular ? "text-blue-50" : "text-gray-700"}`}>
-                  {plan.creditsLabel}
-                </div>
-                <div className={`text-xs mt-1 ${isPopular ? "text-blue-100" : "text-gray-400"}`}>
-                  {plan.billedPerCreditLabel}
-                </div>
-                <div className={`text-xs mt-1 ${isPopular ? "text-blue-100" : "text-gray-400"}`}>
-                  {plan.actualCostLabel}
-                </div>
+                <p className={`mt-4 text-sm leading-6 ${isPopular ? "text-blue-100" : "text-gray-500"}`}>
+                  {plan.description}
+                </p>
 
-                <ul className="mt-6 space-y-2 mb-6">
+                <ul className="mt-5 flex-1 space-y-2.5">
                   {planHighlights[key].map((item) => (
-                    <li
-                      key={item}
-                      className={`flex items-start gap-2 text-xs ${isPopular ? "text-blue-50" : "text-gray-600"}`}
-                    >
-                      <Check className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${isPopular ? "text-blue-200" : "text-green-500"}`} />
+                    <li key={item} className={`flex items-start gap-2 text-sm ${isPopular ? "text-blue-50" : "text-gray-600"}`}>
+                      <Check className={`mt-0.5 h-4 w-4 shrink-0 ${isPopular ? "text-blue-200" : "text-emerald-500"}`} />
                       <span>{item}</span>
                     </li>
                   ))}
                 </ul>
 
                 <button
-                  onClick={() => handleUpgrade(key)}
-                  disabled={disabled}
-                  className={`w-full py-2 rounded-lg text-sm font-bold transition ${
-                    key === "free"
-                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                      : key === "business"
-                      ? "bg-gray-100 text-gray-500 cursor-not-allowed"
-                      : isPopular
-                      ? "bg-white text-blue-600 hover:bg-blue-50 disabled:opacity-50"
-                      : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                  type="button"
+                  disabled
+                  className={`mt-6 w-full cursor-not-allowed rounded-lg px-4 py-2.5 text-sm font-semibold ${
+                    isPopular
+                      ? "bg-white/90 text-blue-600"
+                      : "bg-gray-100 text-gray-500"
                   }`}
                 >
-                  {key === "free"
-                    ? "Current"
-                    : key === "business"
-                    ? "Contact Sales"
-                    : "Checkout Next Step"}
+                  {key === "free" ? "Current plan" : key === "business" ? "Contact sales" : "Upgrade coming soon"}
                 </button>
-              </div>
+              </article>
             );
           })}
-        </div>
+        </section>
 
-        <div className="bg-white rounded-2xl border overflow-hidden">
-          <div className="px-6 py-4 border-b bg-gray-50">
-            <h2 className="font-semibold text-gray-900">Plan comparison</h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Free lets users see risk. Starter explains the risk. Growth and above unlock automation.
+        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <div className="border-b bg-slate-50 px-5 py-5 sm:px-6">
+            <h2 className="text-xl font-semibold text-gray-900">Detailed plan comparison</h2>
+            <p className="mt-1 text-sm text-gray-600">
+              Features marked “Coming soon” are roadmap items and are not presented as currently available.
             </p>
+            <div className="mt-3 flex flex-wrap gap-3 text-xs">
+              <span className="inline-flex items-center gap-1.5 text-emerald-700"><Check className="h-3.5 w-3.5" /> Included</span>
+              <span className="inline-flex items-center gap-1.5 text-slate-600"><Check className="h-3.5 w-3.5" /> Limited or plan-specific</span>
+              <span className="inline-flex items-center gap-1.5 text-amber-700"><Clock3 className="h-3.5 w-3.5" /> Coming soon</span>
+              <span className="inline-flex items-center gap-1.5 text-purple-700">Custom enterprise terms</span>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-white">
-                <tr className="border-b">
-                  <th className="text-left px-6 py-4 font-semibold text-gray-900">Feature</th>
+            <table className="min-w-[1040px] w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b bg-white">
+                  <th className="sticky left-0 z-10 min-w-64 bg-white px-5 py-4 text-left font-semibold text-gray-900">
+                    Capability
+                  </th>
                   {planEntries.map(([key, plan]) => (
-                    <th key={key} className="text-left px-4 py-4 font-semibold text-gray-900 whitespace-nowrap">
+                    <th
+                      key={key}
+                      className={`min-w-36 px-4 py-4 text-left font-semibold ${
+                        key === "growth" ? "bg-blue-50 text-blue-800" : "text-gray-900"
+                      }`}
+                    >
                       {plan.name}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {comparisonRows.map((row) => (
-                  <tr key={row.label} className="border-b last:border-0">
-                    <td className="px-6 py-4 text-gray-700 font-medium">{row.label}</td>
-                    {planEntries.map(([key]) => (
-                      <td key={key} className="px-4 py-4 text-gray-600 whitespace-nowrap">
-                        {row.values[key]}
-                      </td>
-                    ))}
-                  </tr>
+                {comparisonSections.map((section) => (
+                  <FragmentRows key={section.title} section={section} planEntries={planEntries} />
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
-      </div>
+        </section>
+
+        <section className="mt-6 rounded-xl border border-blue-100 bg-blue-50 px-5 py-4 text-sm text-blue-900">
+          Credits are usage units for RiskShield checks. Cached duplicate results may be returned without repeating the underlying check. Final billing, annual plans, and paid checkout will be enabled with the production payment rollout.
+        </section>
+      </main>
     </div>
+  );
+}
+
+function FragmentRows({
+  section,
+  planEntries,
+}: {
+  section: ComparisonSection;
+  planEntries: [PlanKey, typeof plans[PlanKey]][];
+}) {
+  return (
+    <>
+      <tr>
+        <th
+          colSpan={planEntries.length + 1}
+          className="border-b border-t bg-slate-100 px-5 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-600"
+        >
+          {section.title}
+        </th>
+      </tr>
+      {section.rows.map((row) => (
+        <tr key={row.label} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/60">
+          <th className="sticky left-0 z-10 bg-white px-5 py-3.5 text-left text-sm font-medium text-gray-700">
+            {row.label}
+          </th>
+          {planEntries.map(([key]) => (
+            <td key={key} className={`px-4 py-3.5 align-middle ${key === "growth" ? "bg-blue-50/50" : ""}`}>
+              <AvailabilityCell value={row.values[key]} />
+            </td>
+          ))}
+        </tr>
+      ))}
+    </>
   );
 }

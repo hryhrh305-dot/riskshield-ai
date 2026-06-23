@@ -13,8 +13,6 @@ export interface PlanConfig {
   tagline: string;
   description: string;
   creditsLabel: string;
-  billedPerCreditLabel: string;
-  actualCostLabel: string;
   badge?: string;
   contactOnly?: boolean;
 }
@@ -32,11 +30,9 @@ export const plans = {
     batchLimit: 1,
     teamMembers: 1,
     apiAccess: false,
-    tagline: "Explore basic email risk",
-    description: "50 credits/month · basic email risk only",
+    tagline: "Explore essential email risk signals",
+    description: "Essential risk checks for evaluating individual contacts.",
     creditsLabel: "50 credits / month",
-    billedPerCreditLabel: "Free tier",
-    actualCostLabel: "0 paid AI/API cost",
   },
   starter: {
     name: "Starter",
@@ -50,11 +46,9 @@ export const plans = {
     batchLimit: 1000,
     teamMembers: 1,
     apiAccess: false,
-    tagline: "For occasional list cleaning",
-    description: "1,000 credits/month · deep email checks, no API",
+    tagline: "For regular list cleaning",
+    description: "Deeper email verification and practical bulk-list workflows.",
     creditsLabel: "1,000 credits / month",
-    billedPerCreditLabel: "$0.049 / credit",
-    actualCostLabel: "0 paid AI cost target",
   },
   growth: {
     name: "Growth",
@@ -69,10 +63,8 @@ export const plans = {
     teamMembers: 3,
     apiAccess: true,
     tagline: "Best value for outbound teams",
-    description: "5,000 credits/month · email + IP risk, API, Sheets, pre-send",
+    description: "Complete risk intelligence and automation for growing teams.",
     creditsLabel: "5,000 credits / month",
-    billedPerCreditLabel: "$0.0498 / credit",
-    actualCostLabel: "Cache-first near-zero AI cost",
     badge: "MOST POPULAR",
   },
   scale: {
@@ -87,11 +79,9 @@ export const plans = {
     batchLimit: 30000,
     teamMembers: 10,
     apiAccess: true,
-    tagline: "For agencies and production workflows",
-    description: "30,000 credits/month · production API, webhook, custom rules",
+    tagline: "For production-scale operations",
+    description: "Higher throughput and operational capacity for demanding workflows.",
     creditsLabel: "30,000 credits / month",
-    billedPerCreditLabel: "$0.0499 / credit",
-    actualCostLabel: "Cache-first near-zero AI cost",
   },
   business: {
     name: "Business",
@@ -105,11 +95,9 @@ export const plans = {
     batchLimit: 100000,
     teamMembers: 25,
     apiAccess: true,
-    tagline: "Custom volume, API limits, and team workflows",
-    description: "100,000+ credits/month · SLA, white-label, enterprise support",
+    tagline: "Built around enterprise requirements",
+    description: "Custom capacity, onboarding, governance, and commercial terms.",
     creditsLabel: "100,000+ credits / month",
-    billedPerCreditLabel: "Custom volume pricing",
-    actualCostLabel: "Custom optimized routing",
     contactOnly: true,
   },
 } as const satisfies Record<string, PlanConfig>;
