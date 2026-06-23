@@ -33,3 +33,16 @@ Do not claim a root cause or fix before verification. Use `Under investigation` 
 - Verification: `node --test tests/auth-cookie.test.mjs` passes. `npm run build` passes. Browser automation against a local production server confirms the flow `POST /auth/v1/token -> GET /dashboard -> GET /api/settings` now returns `200` and the final URL stays on `/dashboard`.
 - Prevention: Centralized cookie decoding in one helper and added regression coverage for base64 and chunked cookie formats.
 - Remaining risk: Other old routes that still carry custom auth parsing and were not part of this P0 fix may need the same helper when we move on to the route-migration task.
+
+## 2026-06-23 - Dashboard credits display mismatch
+
+- Priority: P1
+- Status: Fixed
+- Symptom: The Risk Check page showed `49968` remaining credits for the same account, while the Dashboard showed `48745`, making the account look like it had consumed far more credits than it actually had.
+- Root cause: Dashboard mixed two different sources. It treated `scan_history` counts as the remaining quota, while the authoritative credit balance lives in `profiles.credits_remaining`. On this account, `scan_history` had `1255` rows, but `profiles.total_checks` was `32` and `profiles.credits_remaining` was `49968`.
+- Changed files: `src/app/(dashboard)/dashboard/page.tsx`.
+- Fix: Switched the Dashboard credit card and quota status to read from `profiles.credits_remaining`, and changed the monthly usage card to read from `profiles.total_checks` instead of `scan_history` counts.
+- Impact: The Dashboard now shows the same remaining credit balance as the Risk Check page, avoiding misleading quota alerts.
+- Verification: Queried Supabase directly for the account row and confirmed `credits_remaining = 49968`, `total_checks = 32`. `npm run build` passes after the change.
+- Prevention: Keep `profiles` as the single source of truth for credits and usage counters; use `scan_history` only for history and audit views.
+- Remaining risk: Historical `scan_history` rows still exist and may continue to affect older analytics views until those views are migrated to profile-based counters.

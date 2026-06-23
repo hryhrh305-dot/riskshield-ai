@@ -75,14 +75,12 @@ export default function DashboardPage() {
       // Parallel: usage stats + API keys + recent checks
       const [
         { count: todayC },
-        { count: monthC },
         { count: riskyC },
         { count: blockedC },
         { data: keys },
         { data: recentChecks },
       ] = await Promise.all([
         supabase.from("scan_history").select("*", { count: "exact", head: true }).eq("user_id", user.id).gte("created_at", todayStr),
-        supabase.from("scan_history").select("*", { count: "exact", head: true }).eq("user_id", user.id).gte("created_at", startOfMonth),
         supabase.from("scan_history").select("*", { count: "exact", head: true }).eq("user_id", user.id).eq("success", true).gte("risk_score", 40).lte("risk_score", 69).gte("created_at", startOfMonth),
         supabase.from("scan_history").select("*", { count: "exact", head: true }).eq("user_id", user.id).gte("risk_score", 70).gte("created_at", startOfMonth),
         supabase.from("api_keys").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
@@ -90,7 +88,7 @@ export default function DashboardPage() {
       ]);
 
       setDailyUsed(todayC ?? 0);
-      setMonthlyUsed(monthC ?? 0);
+      setMonthlyUsed(p?.total_checks ?? 0);
       setRiskyCount(riskyC ?? 0);
       setBlockedCount(blockedC ?? 0);
       if (keys) setApiKeys(keys);
@@ -134,11 +132,11 @@ export default function DashboardPage() {
   const monthlyLimit = planInfo.monthlyLimit || 50000;
   const dailyLimit = planInfo.dailyLimit || 2000;
   const creditsRemaining = profile.credits_remaining ?? 0;
-  const monthlyRemaining = Math.max(0, monthlyLimit - monthlyUsed);
+  const monthlyRemaining = creditsRemaining;
   const dailyRemaining = Math.max(0, dailyLimit - dailyUsed);
   const daysLeftEstimate = dailyUsed > 0 ? Math.max(0, Math.floor(dailyRemaining / (dailyUsed / Math.max(1, new Date().getDate())))) : 999;
   const creditsPercent = monthlyLimit > 0 ? Math.round((creditsRemaining / monthlyLimit) * 100) : 100;
-  const monthlyPercent = monthlyLimit > 0 ? Math.round((monthlyRemaining / monthlyLimit) * 100) : 100;
+  const monthlyPercent = creditsPercent;
   const usageStatus = monthlyPercent <= 20 ? "critical" : monthlyPercent <= 50 ? "warning" : "healthy";
 
   return (
@@ -184,9 +182,9 @@ export default function DashboardPage() {
 
         {/* 4-Card Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1: Checks Remaining This Month */}
+          {/* Card 1: Credits Remaining */}
           <div className="bg-white rounded-xl border p-5">
-            <div className="flex items-center gap-2 text-blue-600 mb-2"><Shield className="w-5 h-5" /><span className="font-semibold text-sm">Checks Remaining This Month</span></div>
+            <div className="flex items-center gap-2 text-blue-600 mb-2"><Shield className="w-5 h-5" /><span className="font-semibold text-sm">Credits Remaining</span></div>
             <div className="text-2xl font-bold">{monthlyRemaining.toLocaleString()}<span className="text-sm font-normal text-gray-400"> / {monthlyLimit.toLocaleString()}</span></div>
             <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
               <div className="bg-blue-600 h-2 rounded-full transition-all" style={{ width: Math.min(100, (monthlyUsed / monthlyLimit) * 100) + "%" }} />
@@ -219,7 +217,7 @@ export default function DashboardPage() {
                 <div className="text-xs text-gray-400 mt-0.5">blocked / prevented</div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-gray-700">{monthlyUsed + monthlyRemaining > 0 ? Math.round((monthlyRemaining / (monthlyUsed + monthlyRemaining)) * 100) : 100}%</div>
+                <div className="text-2xl font-bold text-gray-700">{creditsPercent}%</div>
                 <div className="text-xs text-gray-400 mt-0.5">quota available</div>
               </div>
             </div>
