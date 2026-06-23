@@ -5,6 +5,7 @@ import crypto from "node:crypto";
 import {
   findPlanByCreemProductId,
   getCreemApiBaseUrl,
+  getCreemEnvDebugInfo,
   getCreemCheckoutUrls,
   getCreemProductIdForPlan,
   isCreemSelfServePlan,
@@ -112,4 +113,28 @@ test("webhook signature verification matches HMAC-SHA256 payload signing", () =>
 
   assert.equal(verifyCreemWebhookSignature(payload, signature, secret), true);
   assert.equal(verifyCreemWebhookSignature(payload, "bad-signature", secret), false);
+});
+
+test("creem env debug info returns booleans only", () => {
+  const debug = getCreemEnvDebugInfo({
+    CREEM_API_KEY: "secret",
+    CREEM_PRODUCT_STARTER_MONTHLY: "starter-product",
+    CREEM_PRODUCT_GROWTH_MONTHLY: "growth-product",
+    CREEM_PRODUCT_SCALE_MONTHLY: "scale-product",
+    NEXT_PUBLIC_APP_URL: "https://www.574269.xyz",
+    VERCEL_ENV: "production",
+    NODE_ENV: "production",
+  });
+
+  assert.deepEqual(debug, {
+    hasCreemApiKey: true,
+    hasStarterProduct: true,
+    hasGrowthProduct: true,
+    hasScaleProduct: true,
+    hasLegacyStarterProduct: false,
+    hasLegacyGrowthProduct: false,
+    hasLegacyScaleProduct: false,
+    vercelEnv: "production",
+    nodeEnv: "production",
+  });
 });

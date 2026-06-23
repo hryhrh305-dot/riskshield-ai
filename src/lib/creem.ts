@@ -29,6 +29,33 @@ export function getCreemProductEnvMap(env: NodeJS.ProcessEnv = process.env): Pro
   };
 }
 
+export function getCreemEnvDebugInfo(env: NodeJS.ProcessEnv = process.env) {
+  return {
+    hasCreemApiKey: Boolean(env.CREEM_API_KEY),
+    hasStarterProduct: Boolean(
+      env.CREEM_STARTER_PRODUCT_ID ||
+        env.CREEM_PRODUCT_STARTER_MONTHLY ||
+        env.CREEM_PRODUCT_ID_STARTER ||
+        env.CREEM_PRODUCT_ID,
+    ),
+    hasGrowthProduct: Boolean(
+      env.CREEM_GROWTH_PRODUCT_ID ||
+        env.CREEM_PRODUCT_GROWTH_MONTHLY ||
+        env.CREEM_PRODUCT_ID_GROWTH,
+    ),
+    hasScaleProduct: Boolean(
+      env.CREEM_SCALE_PRODUCT_ID ||
+        env.CREEM_PRODUCT_SCALE_MONTHLY ||
+        env.CREEM_PRODUCT_ID_SCALE,
+    ),
+    hasLegacyStarterProduct: Boolean(env.CREEM_PRODUCT_ID),
+    hasLegacyGrowthProduct: Boolean(env.CREEM_PRODUCT_ID_GROWTH),
+    hasLegacyScaleProduct: Boolean(env.CREEM_PRODUCT_ID_SCALE),
+    vercelEnv: env.VERCEL_ENV || null,
+    nodeEnv: env.NODE_ENV || null,
+  };
+}
+
 export function getCreemProductIdForPlan(
   plan: string,
   env: NodeJS.ProcessEnv = process.env,
