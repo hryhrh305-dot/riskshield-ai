@@ -64,7 +64,7 @@ export default function LoginPage() {
         setShowResendVerification(true);
       }
     }
-    else if (data?.session) router.push("/dashboard");
+    else if (data?.session) window.location.href = "/dashboard";
     setLoading(false);
   }
 
