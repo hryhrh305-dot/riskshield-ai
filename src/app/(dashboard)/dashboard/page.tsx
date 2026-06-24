@@ -332,7 +332,7 @@ export default function DashboardPage() {
           </div>
           {!apiEnabled && (
             <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              API access starts on Growth. Free and Starter are optimized for zero-paid-cost checks.
+              API access starts on Growth. Upgrade to create and manage API keys.
             </div>
           )}
           {apiKeys.length === 0 && (
