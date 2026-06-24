@@ -12,6 +12,7 @@ import { LogOut, Shield, Key, Copy, Trash2, Activity, AlertTriangle, Search, Upl
 interface Profile { id: string; email: string; plan: string; subscription_status: string; credits_remaining: number; total_checks: number; }
 interface ApiKeyRow { id: string; key: string; name: string; status: string; created_at: string; last_used_at: string | null; }
 interface CheckRecord { id: string; check_type: string; input_value: string; risk_score: number; created_at: string; }
+const defaultSettings = { block_disposable: true, block_high_risk: true, review_catch_all: true, review_new_domain: true };
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -34,8 +35,15 @@ export default function DashboardPage() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState("");
   const [passwordSaved, setPasswordSaved] = useState(false);
+  const [feedbackSubject, setFeedbackSubject] = useState("");
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackError, setFeedbackError] = useState("");
+  const [feedbackSaved, setFeedbackSaved] = useState(false);
+  const [feedbackSentToday, setFeedbackSentToday] = useState(0);
+  const [feedbackDailyLimit, setFeedbackDailyLimit] = useState(3);
 
-  useEffect(() => { loadData(); loadSettings(); }, []);
+  useEffect(() => { loadData(); loadSettings(); loadFeedbackQuota(); }, []);
   useEffect(() => {
     if (authChecked && !profile) {
       router.replace("/login?reason=invalid_session&next=/dashboard");
@@ -71,6 +79,16 @@ export default function DashboardPage() {
     } catch {} finally { setSettingsLoading(false); }
   }
 
+  async function loadFeedbackQuota() {
+    try {
+      const res = await fetch("/api/feedback", { credentials: "include" });
+      if (!res.ok) return;
+      const data = await res.json();
+      setFeedbackSentToday(data.sentToday ?? 0);
+      setFeedbackDailyLimit(data.dailyLimit ?? 3);
+    } catch {}
+  }
+
   async function handlePasswordUpdate(e: React.FormEvent) {
     e.preventDefault();
     setPasswordError("");
@@ -99,6 +117,42 @@ export default function DashboardPage() {
       setTimeout(() => setPasswordSaved(false), 3000);
     } finally {
       setPasswordLoading(false);
+    }
+  }
+
+  async function handleFeedbackSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setFeedbackLoading(true);
+    setFeedbackError("");
+    setFeedbackSaved(false);
+
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          subject: feedbackSubject,
+          message: feedbackMessage,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setFeedbackError(data?.error || "Failed to send feedback.");
+        if (typeof data?.sentToday === "number") setFeedbackSentToday(data.sentToday);
+        if (typeof data?.dailyLimit === "number") setFeedbackDailyLimit(data.dailyLimit);
+        return;
+      }
+
+      setFeedbackSubject("");
+      setFeedbackMessage("");
+      setFeedbackSaved(true);
+      setFeedbackSentToday(data?.sentToday ?? feedbackSentToday + 1);
+      setFeedbackDailyLimit(data?.dailyLimit ?? feedbackDailyLimit);
+      setTimeout(() => setFeedbackSaved(false), 3000);
+    } finally {
+      setFeedbackLoading(false);
     }
   }
 
@@ -183,6 +237,7 @@ export default function DashboardPage() {
   const dailyLimit = planInfo.dailyLimit || 2000;
   const creditsRemaining = profile.credits_remaining ?? 0;
   const apiEnabled = planInfo.apiAccess;
+  const feedbackRemaining = Math.max(0, feedbackDailyLimit - feedbackSentToday);
   const dailyRemaining = Math.max(0, dailyLimit - dailyUsed);
   const daysLeftEstimate = dailyUsed > 0 ? Math.max(0, Math.floor(dailyRemaining / (dailyUsed / Math.max(1, new Date().getDate())))) : 999;
   const displayCreditsRemaining = Math.min(creditsRemaining, monthlyLimit);
@@ -451,6 +506,62 @@ export default function DashboardPage() {
               className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
             >
               {passwordLoading ? "Updating..." : "Change Password"}
+            </button>
+          </form>
+        </div>
+
+        <div className="bg-white rounded-xl border p-6">
+          <h2 className="font-semibold flex items-center gap-2 mb-1"><Mail className="w-5 h-5" /> Send Feedback</h2>
+          <p className="text-xs text-gray-400 mb-4">
+            Send product feedback directly inside RiskShield. Daily limit: {feedbackSentToday}/{feedbackDailyLimit}.
+          </p>
+          <form onSubmit={handleFeedbackSubmit} className="space-y-4 max-w-2xl">
+            {feedbackError && (
+              <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+                {feedbackError}
+              </div>
+            )}
+            {feedbackSaved && (
+              <div className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
+                Feedback sent successfully. Thanks for helping us improve RiskShield.
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+              <input
+                type="text"
+                value={feedbackSubject}
+                onChange={(e) => setFeedbackSubject(e.target.value)}
+                minLength={4}
+                maxLength={120}
+                required
+                placeholder="Bug report, feature request, UX issue..."
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
+              <textarea
+                value={feedbackMessage}
+                onChange={(e) => setFeedbackMessage(e.target.value)}
+                minLength={10}
+                maxLength={2000}
+                required
+                rows={5}
+                placeholder="Tell us what happened, what you expected, and how we can improve."
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <div className="mt-1 flex items-center justify-between text-xs text-gray-400">
+                <span>{feedbackRemaining} submissions left today</span>
+                <span>{feedbackMessage.length}/2000</span>
+              </div>
+            </div>
+            <button
+              type="submit"
+              disabled={feedbackLoading || feedbackRemaining <= 0}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+            >
+              {feedbackLoading ? "Sending..." : feedbackRemaining <= 0 ? "Daily limit reached" : "Send Feedback"}
             </button>
           </form>
         </div>
