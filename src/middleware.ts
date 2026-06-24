@@ -62,7 +62,6 @@ export async function middleware(request: NextRequest) {
       "/bulk-check",
       "/pre-send",
       "/blacklist",
-      "/pricing",
     ];
 
     if (protectedPaths.some((protectedPath) => path === protectedPath || path.startsWith(protectedPath + "/"))) {
@@ -87,5 +86,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/login", "/signup", "/dashboard/:path*", "/risk-check/:path*", "/bulk-check/:path*", "/pre-send/:path*", "/blacklist/:path*", "/pricing/:path*"],
+  matcher: ["/login", "/signup", "/dashboard/:path*", "/risk-check/:path*", "/bulk-check/:path*", "/pre-send/:path*", "/blacklist/:path*"],
 };
