@@ -37,6 +37,13 @@ interface ExportColumn {
   label: string;
 }
 
+interface BulkApiError {
+  error?: string;
+  message?: string;
+  upgradeNeeded?: boolean;
+  plan?: string;
+}
+
 export default function BulkCheckPage() {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
@@ -44,6 +51,7 @@ export default function BulkCheckPage() {
   const [results, setResults] = useState<BulkResult[] | null>(null);
   const [summary, setSummary] = useState<Record<string, number> | null>(null);
   const [error, setError] = useState("");
+  const [upgradeNeeded, setUpgradeNeeded] = useState(false);
   const [xlsxDownloading, setXlsxDownloading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [exportColumns, setExportColumns] = useState<ExportColumn[]>([
@@ -113,6 +121,7 @@ export default function BulkCheckPage() {
   async function handleFile(file: File) {
     setLoading(true);
     setError("");
+    setUpgradeNeeded(false);
     setResults(null);
     setSummary(null);
     setStatusMessage("Uploading file and scanning emails...");
@@ -120,9 +129,11 @@ export default function BulkCheckPage() {
       const formData = new FormData();
       formData.append("file", file);
       const res = await fetch("/api/bulk-check", { method: "POST", body: formData });
-      const data = await res.json();
+      const data: BulkApiError & { results?: BulkResult[]; summary?: Record<string, number>; export_columns?: ExportColumn[] } = await res.json();
       if (!res.ok) {
-        setError(data.error || "Upload failed");
+        setUpgradeNeeded(!!data.upgradeNeeded);
+        setError(data.message || data.error || "Upload failed");
+        setStatusMessage(data.upgradeNeeded ? "Upgrade required for bulk scanning." : "");
         return;
       }
       setResults(data.results);
@@ -144,6 +155,7 @@ export default function BulkCheckPage() {
     }
     setLoading(true);
     setError("");
+    setUpgradeNeeded(false);
     setResults(null);
     setSummary(null);
     setStatusMessage("Scanning pasted emails and building the report...");
@@ -153,9 +165,11 @@ export default function BulkCheckPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
       });
-      const data = await res.json();
+      const data: BulkApiError & { results?: BulkResult[]; summary?: Record<string, number>; export_columns?: ExportColumn[] } = await res.json();
       if (!res.ok) {
-        setError(data.error || "Check failed");
+        setUpgradeNeeded(!!data.upgradeNeeded);
+        setError(data.message || data.error || "Check failed");
+        setStatusMessage(data.upgradeNeeded ? "Upgrade required for bulk scanning." : "");
         return;
       }
       setResults(data.results);
@@ -242,6 +256,10 @@ export default function BulkCheckPage() {
           </Link>
         </div>
 
+        <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          Bulk list screening is available on <span className="font-semibold">Starter and above</span>. Free plan users can still use the single Risk Check page.
+        </div>
+
         <div className="bg-white rounded-xl border p-6 mb-6 shadow-sm">
           <div
             className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${dragOver ? "border-blue-400 bg-blue-50" : "border-gray-200"}`}
@@ -289,6 +307,11 @@ sales@domain.com`}
           {error && (
             <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 flex-shrink-0" /> {error}
+              {upgradeNeeded && (
+                <Link href="/pricing" className="ml-1 font-medium underline">
+                  Upgrade
+                </Link>
+              )}
             </div>
           )}
         </div>

@@ -6,6 +6,7 @@ import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
 import {
   getBatchExportColumnsForPlan,
   getResultCacheScope,
+  isPlanAtLeast,
   sanitizeBatchResultForPlan,
   shouldUseAiExplanation,
   shouldUseDeepDetection,
@@ -105,6 +106,15 @@ export async function POST(request: NextRequest) {
     .eq("id", user.id)
     .single();
   const plan = profile?.plan || "free";
+
+  if (!isPlanAtLeast(plan, "starter")) {
+    return NextResponse.json({
+      error: "BULK_PLAN_REQUIRED",
+      message: "Bulk list screening starts on Starter. Upgrade to scan CSV, TXT, or XLSX files.",
+      upgradeNeeded: true,
+      plan,
+    }, { status: 403 });
+  }
 
   const contentType = request.headers.get("content-type") || "";
   let emails: string[] = [];
