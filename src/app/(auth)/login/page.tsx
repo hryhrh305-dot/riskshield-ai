@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { signIn } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -12,6 +12,27 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const message = params.get("message");
+    const errorCode = params.get("error");
+    const reason = params.get("reason");
+
+    if (message) {
+      setError(message);
+      return;
+    }
+
+    if (errorCode === "verification_failed") {
+      setError("Email verification failed or the link has expired. Please request a new email and try again.");
+      return;
+    }
+
+    if (reason === "invalid_session") {
+      setError("Your session expired or became invalid. Please sign in again.");
+    }
+  }, []);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -29,7 +50,7 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <Shield className="w-10 h-10 text-blue-600 mx-auto" />
           <h1 className="text-2xl font-bold mt-3">Sign In</h1>
-          <p className="text-sm text-gray-500 mt-1">Fraud Shield API</p>
+          <p className="text-sm text-gray-500 mt-1">RiskShield AI</p>
         </div>
         <form onSubmit={handleLogin} className="bg-white rounded-xl border p-6 space-y-4">
           {error && <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}

@@ -6,7 +6,7 @@ export async function GET(request: Request) {
   const code = searchParams.get("code");
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type");
-  const next = searchParams.get("next") ?? "/dashboard";
+  const next = searchParams.get("next") ?? (type === "recovery" ? "/reset-password" : "/dashboard");
 
   if (code || tokenHash) {
     const supabase = await createServerSupabaseClient();
@@ -20,7 +20,12 @@ export async function GET(request: Request) {
     if (error) {
       const loginUrl = new URL("/login", origin);
       loginUrl.searchParams.set("error", "verification_failed");
-      loginUrl.searchParams.set("message", error.message);
+      loginUrl.searchParams.set(
+        "message",
+        type === "recovery"
+          ? "Password reset link is invalid or expired. Please request a new one."
+          : "Email verification failed or the link has expired. Please request a new email and try again."
+      );
       return NextResponse.redirect(loginUrl);
     }
   }
