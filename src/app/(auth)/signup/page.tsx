@@ -37,6 +37,27 @@ export default function SignUpPage() {
     setError("");
     setSuccessMessage("");
     setResendMessage("");
+    setPendingVerificationEmail("");
+
+    const checkRes = await fetch("/api/auth/check-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const checkData = await checkRes.json().catch(() => null);
+
+    if (checkRes.ok && checkData?.exists) {
+      if (checkData.confirmed) {
+        setError("This email is already registered. Please sign in instead.");
+      } else {
+        setPendingVerificationEmail(email);
+        setSuccessMessage(`This email is already registered but not confirmed. Please check ${email} and click the verification link.`);
+        startResendCooldown();
+      }
+      setLoading(false);
+      return;
+    }
+
     const { data, error } = await signUp(email, password);
     if (error) {
       if (error.message?.includes("already") || error.message?.includes("exists")) {
