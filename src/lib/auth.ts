@@ -19,6 +19,18 @@ export async function signIn(email: string, password: string) {
   return { data, error };
 }
 
+export async function resendSignupConfirmation(email: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase.auth.resend({
+    type: "signup",
+    email,
+    options: {
+      emailRedirectTo: buildAuthRedirectUrl(process.env, "/dashboard"),
+    },
+  });
+  return { data, error };
+}
+
 export async function signOut() {
   const supabase = createClient();
   await supabase.auth.signOut();
