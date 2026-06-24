@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
 import { Shield, Search, Mail, Globe, AlertTriangle, CheckCircle, XCircle, ArrowRight, Zap, History, ChevronDown, ChevronUp, Upload, LogOut } from "lucide-react";
 import Link from "next/link";
+import { getResultVisibility } from "@/lib/plans";
 
 interface RiskResult {
   impact?: string[];
@@ -134,6 +135,7 @@ export default function RiskCheckPage() {
 
   const emailDetails = result?.details?.email as Record<string, any> | null | undefined;
   const ipDetails = result?.details?.ip as Record<string, any> | null | undefined;
+  const visibility = result ? getResultVisibility((result as any).plan || (result as any).subscription_plan || "free") : null;
   const basicEmailChecks = emailDetails ? [
     {
       label: "Email format",
@@ -496,20 +498,22 @@ export default function RiskCheckPage() {
               </div>
             )}
 
-            <div className="mb-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Reasons</h3>
-              {result.reasons.length === 0 ? (
-                <p className="text-sm text-gray-400">No risk signals detected.</p>
-              ) : (
-                <ul className="space-y-1">
-                  {result.reasons.map((r, i) => (
-                    <li key={i} className="text-sm text-gray-600 flex items-start gap-2">
-                      <span className="text-red-400 mt-0.5">-</span> {r}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            {visibility?.includeReasons && (
+              <div className="mb-4">
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Reasons</h3>
+                {result.reasons.length === 0 ? (
+                  <p className="text-sm text-gray-400">No risk signals detected.</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {result.reasons.map((r, i) => (
+                      <li key={i} className="text-sm text-gray-600 flex items-start gap-2">
+                        <span className="text-red-400 mt-0.5">-</span> {r}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
 
             {result.solution && result.solution.length > 0 && (
               <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">

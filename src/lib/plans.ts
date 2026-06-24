@@ -370,6 +370,7 @@ export function sanitizeSingleRiskPayloadForPlan<T extends Record<string, any>>(
 
   return {
     ...payload,
+    plan,
     reasons: visibility.includeReasons ? (payload.reasons ?? []) : [],
     impact: visibility.includeImpact ? (payload.impact ?? []) : [],
     solution: visibility.includeSolution ? (payload.solution ?? []) : [],
