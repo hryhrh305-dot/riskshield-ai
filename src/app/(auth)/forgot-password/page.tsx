@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Shield } from "lucide-react";
 import { requestPasswordReset } from "@/lib/auth";
@@ -10,9 +10,39 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [cooldown, setCooldown] = useState(0);
+  const timerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        window.clearInterval(timerRef.current);
+      }
+    };
+  }, []);
+
+  function startCooldown() {
+    setCooldown(60);
+    if (timerRef.current) {
+      window.clearInterval(timerRef.current);
+    }
+    timerRef.current = window.setInterval(() => {
+      setCooldown((current) => {
+        if (current <= 1) {
+          if (timerRef.current) {
+            window.clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+          return 0;
+        }
+        return current - 1;
+      });
+    }, 1000);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (cooldown > 0) return;
     setLoading(true);
     setError("");
     setSuccess("");
@@ -22,6 +52,7 @@ export default function ForgotPasswordPage() {
       setError(error.message);
     } else {
       setSuccess(`Password reset email sent to ${email}. Please open the email and follow the link to set a new password.`);
+      startCooldown();
     }
 
     setLoading(false);
@@ -51,10 +82,10 @@ export default function ForgotPasswordPage() {
           </div>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || cooldown > 0}
             className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
           >
-            {loading ? "Sending..." : "Send Reset Link"}
+            {loading ? "Sending..." : cooldown > 0 ? `Send again in ${cooldown}s` : "Send Reset Link"}
           </button>
         </form>
 

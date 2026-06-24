@@ -18,21 +18,23 @@ export async function GET(request: Request) {
         });
 
     if (error) {
-      const loginUrl = new URL("/login", origin);
       if (type === "recovery") {
-        loginUrl.searchParams.set("error", "verification_failed");
-        loginUrl.searchParams.set(
+        const resetUrl = new URL("/reset-password", origin);
+        resetUrl.searchParams.set("error", "verification_failed");
+        resetUrl.searchParams.set(
           "message",
           "Password reset link is invalid or expired. Please request a new one."
         );
+        return NextResponse.redirect(resetUrl);
       } else {
+        const loginUrl = new URL("/login", origin);
         loginUrl.searchParams.set("status", "info");
         loginUrl.searchParams.set(
           "message",
           "This email confirmation link may already have been used. If your account is already confirmed, please sign in. Otherwise, request a new verification email."
         );
+        return NextResponse.redirect(loginUrl);
       }
-      return NextResponse.redirect(loginUrl);
     }
   }
 
