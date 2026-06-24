@@ -79,6 +79,18 @@ export default function BillingSuccessPage() {
           return;
         }
 
+        const rawQuery = window.location.search.replace(/^\?/, "");
+        if (rawQuery && rawQuery.includes("signature=") && rawQuery.includes("checkout_id=")) {
+          try {
+            await fetch("/api/payment/confirm-redirect", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ rawQuery }),
+            });
+          } catch {}
+        }
+
         const [{ data: profileRow }, { data: paymentRow }] = await Promise.all([
           supabase
             .from("profiles")
