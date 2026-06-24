@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { getPlanLimits, type PlanKey } from "@/lib/plans";
 import { generateApiKey } from "@/lib/api-auth";
-import { signOut } from "@/lib/auth";
+import { signOut, updatePassword } from "@/lib/auth";
 import Link from "next/link";
 import { LogOut, Shield, Key, Copy, Trash2, Activity, AlertTriangle, Search, Upload, Globe, Mail, Settings, Download } from "lucide-react";
 
@@ -29,6 +29,11 @@ export default function DashboardPage() {
   const [settings, setSettings] = useState<{ block_disposable: boolean; block_high_risk: boolean; review_catch_all: boolean; review_new_domain: boolean } | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSaved, setPasswordSaved] = useState(false);
 
   useEffect(() => { loadData(); loadSettings(); }, []);
   useEffect(() => {
@@ -64,6 +69,37 @@ export default function DashboardPage() {
         setTimeout(() => setSettingsSaved(false), 3000);
       }
     } catch {} finally { setSettingsLoading(false); }
+  }
+
+  async function handlePasswordUpdate(e: React.FormEvent) {
+    e.preventDefault();
+    setPasswordError("");
+    setPasswordSaved(false);
+
+    if (newPassword.length < 10) {
+      setPasswordError("Password must be at least 10 characters.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Passwords do not match.");
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      const { error } = await updatePassword(newPassword);
+      if (error) {
+        setPasswordError(error.message);
+        return;
+      }
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordSaved(true);
+      setTimeout(() => setPasswordSaved(false), 3000);
+    } finally {
+      setPasswordLoading(false);
+    }
   }
 
   async function loadData() {
@@ -371,6 +407,52 @@ export default function DashboardPage() {
             {settingsLoading ? "Saving..." : "Save Settings"}
           </button>
           {settingsSaved && <span className="ml-3 text-xs text-green-600">Saved!</span>}
+        </div>
+
+        <div className="bg-white rounded-xl border p-6">
+          <h2 className="font-semibold flex items-center gap-2 mb-1"><Settings className="w-5 h-5" /> Security</h2>
+          <p className="text-xs text-gray-400 mb-4">Update your password for this account.</p>
+          <form onSubmit={handlePasswordUpdate} className="space-y-4 max-w-md">
+            {passwordError && (
+              <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+                {passwordError}
+              </div>
+            )}
+            {passwordSaved && (
+              <div className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
+                Password updated successfully.
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                minLength={10}
+                required
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                minLength={10}
+                required
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={passwordLoading}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+            >
+              {passwordLoading ? "Updating..." : "Change Password"}
+            </button>
+          </form>
         </div>
 
         {/* Recent Checks */}
