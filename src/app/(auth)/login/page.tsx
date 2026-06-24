@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [infoMessage, setInfoMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendMessage, setResendMessage] = useState("");
@@ -34,10 +35,15 @@ export default function LoginPage() {
     const params = new URLSearchParams(window.location.search);
     const message = params.get("message");
     const errorCode = params.get("error");
+    const status = params.get("status");
     const reason = params.get("reason");
 
     if (message) {
-      setError(message);
+      if (status === "info") {
+        setInfoMessage(message);
+      } else {
+        setError(message);
+      }
       return;
     }
 
@@ -55,6 +61,7 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setInfoMessage("");
     setResendMessage("");
     setShowResendVerification(false);
     const { data, error } = await signIn(email, password);
@@ -93,6 +100,7 @@ export default function LoginPage() {
         </div>
         <form onSubmit={handleLogin} className="bg-white rounded-xl border p-6 space-y-4">
           {error && <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
+          {infoMessage && <div className="p-3 bg-blue-50 text-blue-700 rounded-lg text-sm">{infoMessage}</div>}
           {resendMessage && <div className="p-3 bg-blue-50 text-blue-700 rounded-lg text-sm">{resendMessage}</div>}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>

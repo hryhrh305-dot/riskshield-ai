@@ -19,13 +19,19 @@ export async function GET(request: Request) {
 
     if (error) {
       const loginUrl = new URL("/login", origin);
-      loginUrl.searchParams.set("error", "verification_failed");
-      loginUrl.searchParams.set(
-        "message",
-        type === "recovery"
-          ? "Password reset link is invalid or expired. Please request a new one."
-          : "Email verification failed or the link has expired. Please request a new email and try again."
-      );
+      if (type === "recovery") {
+        loginUrl.searchParams.set("error", "verification_failed");
+        loginUrl.searchParams.set(
+          "message",
+          "Password reset link is invalid or expired. Please request a new one."
+        );
+      } else {
+        loginUrl.searchParams.set("status", "info");
+        loginUrl.searchParams.set(
+          "message",
+          "This email confirmation link may already have been used. If your account is already confirmed, please sign in. Otherwise, request a new verification email."
+        );
+      }
       return NextResponse.redirect(loginUrl);
     }
   }
