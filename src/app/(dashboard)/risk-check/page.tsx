@@ -134,6 +134,40 @@ export default function RiskCheckPage() {
 
   const emailDetails = result?.details?.email as Record<string, any> | null | undefined;
   const ipDetails = result?.details?.ip as Record<string, any> | null | undefined;
+  const basicEmailChecks = emailDetails ? [
+    {
+      label: "Email format",
+      value: "Valid",
+      tone: "text-green-600",
+      helper: "The submitted address passed format validation.",
+    },
+    {
+      label: "Disposable email",
+      value: emailDetails.isDisposable ? "Detected" : "Not detected",
+      tone: emailDetails.isDisposable ? "text-red-600" : "text-green-600",
+      helper: emailDetails.isDisposable
+        ? "This address comes from a temporary email provider."
+        : "No temporary email provider signal was found.",
+    },
+    {
+      label: "Role-based address",
+      value: emailDetails.isRoleBased ? "Detected" : "Not detected",
+      tone: emailDetails.isRoleBased ? "text-yellow-600" : "text-green-600",
+      helper: emailDetails.isRoleBased
+        ? "This looks like a shared inbox such as info@, sales@, or support@."
+        : "No shared-inbox pattern was detected.",
+    },
+    {
+      label: "Mail server (MX)",
+      value: !emailDetails.mxChecked ? "Not checked" : emailDetails.hasMX ? "Present" : "Missing",
+      tone: !emailDetails.mxChecked ? "text-gray-500" : emailDetails.hasMX ? "text-green-600" : "text-red-600",
+      helper: !emailDetails.mxChecked
+        ? "Mail-server verification was not available for this check."
+        : emailDetails.hasMX
+          ? "The domain has a mail server configured."
+          : "No mail server was found for this domain.",
+    },
+  ] : [];
   const hasLeadQualityModule = !!(result && (result.domain_age || result.company_health || ipDetails));
   const hasAdvancedEmailDeliverability = !!(
     emailDetails && (
@@ -296,6 +330,21 @@ export default function RiskCheckPage() {
                       ) : "N/A"}
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {basicEmailChecks.length > 0 && result.type === "email" && (
+              <div className="mb-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Basic Checks</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {basicEmailChecks.map((item) => (
+                    <div key={item.label}>
+                      <div className="text-xs text-gray-400 mb-0.5">{item.label}</div>
+                      <div className={`font-semibold text-sm ${item.tone}`}>{item.value}</div>
+                      <div className="text-xs text-gray-400 mt-0.5">{item.helper}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
