@@ -71,6 +71,45 @@ export default function BulkCheckPage() {
     return value == null ? "" : String(value);
   }
 
+  function renderCell(result: BulkResult, column: ExportColumn) {
+    const value = readExportValue(result, column.key);
+    const decision = result.risk_level || result.decision || "";
+
+    if (column.key === "email") {
+      return <span className="font-mono text-gray-700 break-all">{String(value)}</span>;
+    }
+
+    if (column.key === "risk_score") {
+      return <span className={`font-bold ${scoreColor(Number(result.risk_score || 0))}`}>{String(value)}</span>;
+    }
+
+    if (column.key === "risk_level") {
+      return <span className={`px-2 py-0.5 rounded text-xs font-medium ${decisionBadge(decision)}`}>{String(value)}</span>;
+    }
+
+    if (column.key === "disposable" || column.key === "role_based" || column.key === "catch_all") {
+      const normalized = String(value).toLowerCase();
+      const truthy = normalized === "yes" || normalized === "true";
+      return truthy
+        ? <XCircle className="w-4 h-4 text-red-500" />
+        : <CheckCircle className="w-4 h-4 text-green-500" />;
+    }
+
+    if (column.key === "mx_status") {
+      if (value === "Not checked") return <span className="text-gray-300">-</span>;
+      return value === "Present"
+        ? <CheckCircle className="w-4 h-4 text-green-500" />
+        : <XCircle className="w-4 h-4 text-red-500" />;
+    }
+
+    const textColor =
+      column.key === "impact" ? "text-amber-700" :
+      column.key === "reasons" ? "text-gray-500" :
+      "text-gray-700";
+
+    return <span className={`${textColor} whitespace-pre-wrap break-words`}>{String(value || "-")}</span>;
+  }
+
   async function handleFile(file: File) {
     setLoading(true);
     setError("");
@@ -301,31 +340,22 @@ sales@domain.com`}
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500">Email</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 w-16">Risk</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 w-16">Health</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 w-24">Decision</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500">Reasons</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 w-24">Disposable</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 w-16">MX</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500">Impact</th>
+                    {exportColumns.map((column) => (
+                      <th key={column.key} className="text-left px-4 py-3 font-medium text-gray-500 min-w-[120px]">
+                        {column.label}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {results.map((result, index) => {
-                    const decision = result.risk_level || result.decision || "";
                     return (
                       <tr key={index} className="border-t border-gray-100 hover:bg-gray-50">
-                        <td className="px-4 py-2.5 font-mono text-gray-700">{result.email}</td>
-                        <td className={`px-4 py-2.5 font-bold ${scoreColor(result.risk_score)}`}>{result.risk_score}</td>
-                        <td className="px-4 py-2.5 font-bold text-blue-700">{result.health_score ?? "-"}</td>
-                        <td className="px-4 py-2.5">
-                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${decisionBadge(decision)}`}>{decision}</span>
-                        </td>
-                        <td className="px-4 py-2.5 text-gray-500 text-xs">{(result.reasons || []).join(", ") || "-"}</td>
-                        <td className="px-4 py-2.5">{result.disposable ? <XCircle className="w-4 h-4 text-red-500" /> : <CheckCircle className="w-4 h-4 text-green-500" />}</td>
-                        <td className="px-4 py-2.5">{result.mxChecked ? (result.hasMX ? <CheckCircle className="w-4 h-4 text-green-500" /> : <XCircle className="w-4 h-4 text-red-500" />) : <span className="text-gray-300">-</span>}</td>
-                        <td className="px-4 py-2.5 text-xs text-amber-700 max-w-[260px]">{result.impact?.slice(0, 2).join(" | ") || "-"}</td>
+                        {exportColumns.map((column) => (
+                          <td key={column.key} className="px-4 py-2.5 text-xs align-top">
+                            {renderCell(result, column)}
+                          </td>
+                        ))}
                       </tr>
                     );
                   })}
