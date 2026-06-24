@@ -200,7 +200,7 @@ export default function BulkCheckPage() {
             return level === "REVIEW" || level === "BLOCK";
           });
 
-    const header = exportColumns.map((column) => column.key).join(",");
+    const header = exportColumns.map((column) => `"${column.label.replace(/"/g, "\"\"")}"`).join(",");
     const rows = filtered.map((result) => exportColumns.map((column) => {
       const value = String(readExportValue(result, column.key)).replace(/"/g, "\"\"");
       return `"${value}"`;
