@@ -2,17 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 const NEXT_PUBLIC_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co";
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ";
 
-const supabase = SUPABASE_SERVICE_ROLE_KEY
-  ? createClient(NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+let supabaseAdmin:
+  | ReturnType<typeof createClient>
+  | null = null;
+
+function getSupabaseAdmin() {
+  if (!supabaseAdmin) {
+    supabaseAdmin = createClient(NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
         detectSessionInUrl: false,
       },
-    })
-  : null;
+    });
+  }
+
+  return supabaseAdmin;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,13 +31,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email is required." }, { status: 400 });
     }
 
-    if (!supabase) {
-      return NextResponse.json({ error: "Server auth is not configured." }, { status: 500 });
-    }
-
     let page = 1;
     while (true) {
-      const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 200 });
+      const { data, error } = await getSupabaseAdmin().auth.admin.listUsers({ page, perPage: 200 });
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }

@@ -13,6 +13,14 @@ interface Profile { id: string; email: string; plan: string; subscription_status
 interface ApiKeyRow { id: string; key: string; name: string; status: string; created_at: string; last_used_at: string | null; }
 interface CheckRecord { id: string; check_type: string; input_value: string; risk_score: number; created_at: string; }
 const defaultSettings = { block_disposable: true, block_high_risk: true, review_catch_all: true, review_new_domain: true };
+const mobileNavItems = [
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/risk-check", label: "Risk Check" },
+  { href: "/bulk-check", label: "Bulk Scan" },
+  { href: "/pre-send", label: "Pre-send" },
+  { href: "/blacklist", label: "Blacklist" },
+  { href: "/pricing", label: "Pricing" },
+];
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -235,6 +243,21 @@ export default function DashboardPage() {
             <button onClick={() => signOut()} className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-gray-100" title="Sign Out">
               <LogOut className="w-4 h-4" />
             </button>
+          </div>
+        </div>
+        <div className="border-t border-gray-100 md:hidden">
+          <div className="max-w-6xl mx-auto px-4 py-3 overflow-x-auto">
+            <div className="flex items-center gap-2 min-w-max">
+              {mobileNavItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="whitespace-nowrap rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
       </header>

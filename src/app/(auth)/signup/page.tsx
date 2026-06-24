@@ -46,7 +46,13 @@ export default function SignUpPage() {
     });
     const checkData = await checkRes.json().catch(() => null);
 
-    if (checkRes.ok && checkData?.exists) {
+    if (!checkRes.ok) {
+      setError(checkData?.error || "We could not verify this email right now. Please try again in a moment.");
+      setLoading(false);
+      return;
+    }
+
+    if (checkData?.exists) {
       if (checkData.confirmed) {
         setError("This email is already registered. Please sign in instead.");
       } else {
@@ -60,7 +66,13 @@ export default function SignUpPage() {
 
     const { data, error } = await signUp(email, password);
     if (error) {
-      if (error.message?.includes("already") || error.message?.includes("exists")) {
+      const normalizedMessage = error.message?.toLowerCase() || "";
+      if (
+        normalizedMessage.includes("already") ||
+        normalizedMessage.includes("exists") ||
+        normalizedMessage.includes("registered") ||
+        normalizedMessage.includes("user already")
+      ) {
         setError("This email is already registered. Please sign in instead.");
       } else {
         setError(error.message);
