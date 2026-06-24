@@ -243,7 +243,7 @@ const comparisonSections: ComparisonSection[] = [
         label: "SPF / DMARC / DKIM checks",
         values: {
           free: unavailable(),
-          starter: included(),
+          starter: limited("Scored internally"),
           growth: included(),
           scale: included(),
           business: included(),
@@ -253,7 +253,7 @@ const comparisonSections: ComparisonSection[] = [
         label: "Domain age and new-domain risk",
         values: {
           free: unavailable(),
-          starter: included(),
+          starter: unavailable(),
           growth: included(),
           scale: included(),
           business: included(),
@@ -272,8 +272,8 @@ const comparisonSections: ComparisonSection[] = [
       {
         label: "Detailed risk factors",
         values: {
-          free: limited("Summary"),
-          starter: included(),
+          free: limited("Basic signals only"),
+          starter: unavailable(),
           growth: included(),
           scale: included(),
           business: included(),
@@ -282,8 +282,8 @@ const comparisonSections: ComparisonSection[] = [
       {
         label: "Recommended actions and remediation",
         values: {
-          free: limited("Summary"),
-          starter: included(),
+          free: unavailable(),
+          starter: limited("Recommendation only"),
           growth: included(),
           scale: included(),
           business: included(),
@@ -292,8 +292,8 @@ const comparisonSections: ComparisonSection[] = [
       {
         label: "Company health score",
         values: {
-          free: limited("Summary"),
-          starter: included(),
+          free: unavailable(),
+          starter: unavailable(),
           growth: included(),
           scale: included(),
           business: included(),
