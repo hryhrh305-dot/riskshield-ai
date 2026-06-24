@@ -112,7 +112,14 @@ export default function SignUpPage() {
         </div>
         <form onSubmit={handleSignUp} className="bg-white rounded-xl border p-6 space-y-4">
           {error && <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
-          {successMessage && <div className="p-3 bg-green-50 text-green-700 rounded-lg text-sm">{successMessage}</div>}
+          {successMessage && (
+            <div className="space-y-2 rounded-lg bg-green-50 p-3 text-sm">
+              <div className="text-green-700">{successMessage}</div>
+              <div className="text-red-600 font-medium">
+                If you cannot find the verification email, please check your spam folder. It may have been filtered by mistake.
+              </div>
+            </div>
+          )}
           {resendMessage && <div className="p-3 bg-blue-50 text-blue-700 rounded-lg text-sm">{resendMessage}</div>}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
