@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { getPlanLimits, type PlanKey } from "@/lib/plans";
 import { generateApiKey } from "@/lib/api-auth";
-import { signOut, updatePassword } from "@/lib/auth";
+import { signOut } from "@/lib/auth";
 import Link from "next/link";
 import { LogOut, Shield, Key, Copy, Trash2, Activity, AlertTriangle, Search, Upload, Globe, Mail, Settings, Download } from "lucide-react";
 
@@ -30,11 +30,6 @@ export default function DashboardPage() {
   const [settings, setSettings] = useState<{ block_disposable: boolean; block_high_risk: boolean; review_catch_all: boolean; review_new_domain: boolean } | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordLoading, setPasswordLoading] = useState(false);
-  const [passwordError, setPasswordError] = useState("");
-  const [passwordSaved, setPasswordSaved] = useState(false);
   const [feedbackSubject, setFeedbackSubject] = useState("");
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [feedbackLoading, setFeedbackLoading] = useState(false);
@@ -87,37 +82,6 @@ export default function DashboardPage() {
       setFeedbackSentToday(data.sentToday ?? 0);
       setFeedbackDailyLimit(data.dailyLimit ?? 3);
     } catch {}
-  }
-
-  async function handlePasswordUpdate(e: React.FormEvent) {
-    e.preventDefault();
-    setPasswordError("");
-    setPasswordSaved(false);
-
-    if (newPassword.length < 10) {
-      setPasswordError("Password must be at least 10 characters.");
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setPasswordError("Passwords do not match.");
-      return;
-    }
-
-    setPasswordLoading(true);
-    try {
-      const { error } = await updatePassword(newPassword);
-      if (error) {
-        setPasswordError(error.message);
-        return;
-      }
-      setNewPassword("");
-      setConfirmPassword("");
-      setPasswordSaved(true);
-      setTimeout(() => setPasswordSaved(false), 3000);
-    } finally {
-      setPasswordLoading(false);
-    }
   }
 
   async function handleFeedbackSubmit(e: React.FormEvent) {
@@ -464,50 +428,22 @@ export default function DashboardPage() {
           {settingsSaved && <span className="ml-3 text-xs text-green-600">Saved!</span>}
         </div>
 
+        {/* Recent Checks */}
         <div className="bg-white rounded-xl border p-6">
-          <h2 className="font-semibold flex items-center gap-2 mb-1"><Settings className="w-5 h-5" /> Security</h2>
-          <p className="text-xs text-gray-400 mb-4">Update your password for this account.</p>
-          <form onSubmit={handlePasswordUpdate} className="space-y-4 max-w-md">
-            {passwordError && (
-              <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-                {passwordError}
+          <h2 className="font-semibold flex items-center gap-2 mb-4"><Activity className="w-5 h-5" /> Recent Checks</h2>
+          {checks.length === 0 && <p className="text-sm text-gray-400">No checks yet. Run email or IP risk checks from the Risk Check page or via API.</p>}
+          {checks.map((c) => (
+            <div key={c.id} className="flex items-center justify-between text-sm py-2 border-b border-gray-100 last:border-0">
+              <div className="flex items-center gap-3">
+                <span className="text-xs bg-gray-100 px-2 py-0.5 rounded font-mono uppercase">{c.check_type}</span>
+                <span className="text-gray-700 truncate max-w-[200px]">{c.input_value}</span>
               </div>
-            )}
-            {passwordSaved && (
-              <div className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
-                Password updated successfully.
+              <div className="flex items-center gap-3">
+                <span className={c.risk_score >= 60 ? "text-red-600" : c.risk_score >= 30 ? "text-yellow-600" : "text-green-600"}>Risk: {c.risk_score}</span>
+                <span className="text-gray-400 text-xs">{new Date(c.created_at).toLocaleString()}</span>
               </div>
-            )}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                minLength={10}
-                required
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                minLength={10}
-                required
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={passwordLoading}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-            >
-              {passwordLoading ? "Updating..." : "Change Password"}
-            </button>
-          </form>
+          ))}
         </div>
 
         <div className="bg-white rounded-xl border p-6">
@@ -564,24 +500,6 @@ export default function DashboardPage() {
               {feedbackLoading ? "Sending..." : feedbackRemaining <= 0 ? "Daily limit reached" : "Send Feedback"}
             </button>
           </form>
-        </div>
-
-        {/* Recent Checks */}
-        <div className="bg-white rounded-xl border p-6">
-          <h2 className="font-semibold flex items-center gap-2 mb-4"><Activity className="w-5 h-5" /> Recent Checks</h2>
-          {checks.length === 0 && <p className="text-sm text-gray-400">No checks yet. Run email or IP risk checks from the Risk Check page or via API.</p>}
-          {checks.map((c) => (
-            <div key={c.id} className="flex items-center justify-between text-sm py-2 border-b border-gray-100 last:border-0">
-              <div className="flex items-center gap-3">
-                <span className="text-xs bg-gray-100 px-2 py-0.5 rounded font-mono uppercase">{c.check_type}</span>
-                <span className="text-gray-700 truncate max-w-[200px]">{c.input_value}</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className={c.risk_score >= 60 ? "text-red-600" : c.risk_score >= 30 ? "text-yellow-600" : "text-green-600"}>Risk: {c.risk_score}</span>
-                <span className="text-gray-400 text-xs">{new Date(c.created_at).toLocaleString()}</span>
-              </div>
-            </div>
-          ))}
         </div>
       </div>
     </div>
