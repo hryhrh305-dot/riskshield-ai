@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 const DAILY_FEEDBACK_LIMIT = 3;
@@ -12,29 +11,6 @@ function getProjectRef() {
   } catch {
     return null;
   }
-}
-
-let _supabaseAdmin: ReturnType<typeof createClient> | null = null;
-
-function getSupabaseAdmin() {
-  if (_supabaseAdmin) return _supabaseAdmin;
-
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !key) {
-    throw new Error("Supabase environment variables are missing.");
-  }
-
-  _supabaseAdmin = createClient(url, key, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  });
-
-  return _supabaseAdmin;
 }
 
 async function getUserFromRequest(request: NextRequest) {
@@ -59,7 +35,8 @@ function getUtcDayStartIso() {
 }
 
 async function getTodayFeedbackCount(userId: string) {
-  const { count, error } = await getSupabaseAdmin()
+  const supabase = await createServerSupabaseClient();
+  const { count, error } = await supabase
     .from("feedback_messages")
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId)
@@ -128,14 +105,14 @@ export async function POST(request: NextRequest) {
           },
           { status: 429 },
         );
-      }
+    }
     } catch (quotaError) {
       quotaLookupFailed = true;
       console.warn("[feedback][POST][quota]", quotaError);
     }
 
-    const admin = getSupabaseAdmin();
-    const { error } = await admin.from("feedback_messages").insert({
+    const supabase = await createServerSupabaseClient();
+    const { error } = await supabase.from("feedback_messages").insert({
       user_id: user.id,
       email: user.email,
       subject,
