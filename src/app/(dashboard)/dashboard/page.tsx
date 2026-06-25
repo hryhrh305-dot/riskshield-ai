@@ -7,7 +7,7 @@ import { getPlanLimits, type PlanKey } from "@/lib/plans";
 import { generateApiKey } from "@/lib/api-auth";
 import { signOut } from "@/lib/auth";
 import Link from "next/link";
-import { LogOut, Shield, Key, Copy, Trash2, Activity, AlertTriangle, Search, Upload, Globe, Mail, Settings, Download, Inbox } from "lucide-react";
+import { LogOut, Shield, Key, Copy, Trash2, Activity, AlertTriangle, Search, Upload, Globe, Mail, Settings, Download, Inbox, CreditCard } from "lucide-react";
 
 interface Profile { id: string; email: string; plan: string; subscription_status: string; credits_remaining: number; total_checks: number; }
 interface ApiKeyRow { id: string; key: string; name: string; status: string; created_at: string; last_used_at: string | null; }
@@ -46,6 +46,8 @@ export default function DashboardPage() {
   const [feedbackSentToday, setFeedbackSentToday] = useState(0);
   const [feedbackDailyLimit, setFeedbackDailyLimit] = useState(3);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [billingPortalLoading, setBillingPortalLoading] = useState(false);
+  const [billingPortalError, setBillingPortalError] = useState("");
 
   useEffect(() => { loadData(); loadSettings(); loadFeedbackQuota(); loadAdminStatus(); }, []);
   useEffect(() => {
@@ -140,6 +142,28 @@ export default function DashboardPage() {
       setTimeout(() => setFeedbackSaved(false), 3000);
     } finally {
       setFeedbackLoading(false);
+    }
+  }
+
+  async function openBillingPortal() {
+    setBillingPortalLoading(true);
+    setBillingPortalError("");
+
+    try {
+      const res = await fetch("/api/payment/customer-portal", {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.portalUrl) {
+        setBillingPortalError(data?.error || "Failed to open billing portal.");
+        return;
+      }
+
+      window.location.href = data.portalUrl;
+    } finally {
+      setBillingPortalLoading(false);
     }
   }
 
@@ -343,6 +367,20 @@ export default function DashboardPage() {
                 Upgrade to unlock deep checks and API access
               </Link>
             )}
+            {profile.plan !== "free" && (
+              <button
+                type="button"
+                onClick={openBillingPortal}
+                disabled={billingPortalLoading}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                <CreditCard className="h-4 w-4" />
+                {billingPortalLoading ? "Opening..." : "Manage billing"}
+              </button>
+            )}
+            {billingPortalError && (
+              <div className="mt-2 text-xs text-red-600">{billingPortalError}</div>
+            )}
           </div>
 
           {/* Card 4: API Keys */}
@@ -487,7 +525,8 @@ export default function DashboardPage() {
         <div className="bg-white rounded-xl border p-6">
           <h2 className="font-semibold flex items-center gap-2 mb-1"><Mail className="w-5 h-5" /> Send Feedback</h2>
           <p className="text-xs text-gray-400 mb-4">
-            Send product feedback directly inside RiskShield AI. Daily limit: {feedbackSentToday}/{feedbackDailyLimit}.
+            Send product feedback directly inside RiskShield AI. Daily limit: {feedbackSentToday}/{feedbackDailyLimit}. Support:{" "}
+            <a href="mailto:support@574269.xyz" className="text-blue-600 hover:underline">support@574269.xyz</a>.
           </p>
           <form onSubmit={handleFeedbackSubmit} className="space-y-4 max-w-2xl">
             {feedbackError && (

@@ -114,6 +114,16 @@ export default function GoogleSheetsGuidePage() {
           </div>
         </section>
       </main>
+
+      <footer className="border-t bg-white px-6 py-6 text-sm text-gray-500">
+        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3">
+          <a href="mailto:support@574269.xyz" className="hover:text-gray-900">support@574269.xyz</a>
+          <div className="flex items-center gap-4">
+            <Link href="/privacy" className="hover:text-gray-900">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-gray-900">Terms of Service</Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

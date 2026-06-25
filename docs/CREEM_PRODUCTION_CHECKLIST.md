@@ -42,6 +42,19 @@ CREEM_SCALE_PRODUCT_ID=production Scale product id
 NEXT_PUBLIC_APP_URL=https://www.574269.xyz
 ```
 
+## 2.1 Account review 必查页面
+
+Creem 账号审核前，公开网站需要能清楚看到：
+
+- Privacy Policy: `https://www.574269.xyz/privacy`
+- Terms of Service: `https://www.574269.xyz/terms`
+- Product and feature descriptions: homepage, Pricing page, Docs page
+- Public support email: `support@574269.xyz`
+- Billing management entry inside dashboard: paid users should see `Manage billing`
+
+注意：`support@574269.xyz` 必须真实可收件。Creem 审核文档要求公开网站和用户 dashboard 都能看到支持邮箱。
+Creem 还要求用户能从产品里取消订阅。当前实现通过 `/api/payment/customer-portal` 生成 Creem Customer Portal 链接，让付费用户在 dashboard 中管理账单和取消订阅。
+
 ### 建议标记为 Sensitive
 
 ```text
@@ -163,4 +176,3 @@ https://www.574269.xyz/api/payment/webhook
 - 不要把 test product_id 混到 production
 - 不要把 API key 暴露到浏览器
 - 不要顺手改风控引擎
-

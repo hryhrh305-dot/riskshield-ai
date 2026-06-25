@@ -780,6 +780,17 @@ export default function PricingPage() {
           Credits are usage units for RiskShield AI checks. Cached duplicate results may be returned without repeating the underlying check. Starter, Growth, and Scale subscriptions are activated automatically after the Creem webhook is processed.
         </section>
       </main>
+
+      <footer className="border-t bg-white px-4 py-6 text-sm text-gray-500 sm:px-6">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p>&copy; {new Date().getFullYear()} RiskShield AI</p>
+          <div className="flex flex-wrap items-center gap-4">
+            <Link href="/privacy" className="hover:text-gray-900">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-gray-900">Terms of Service</Link>
+            <a href="mailto:support@574269.xyz" className="hover:text-gray-900">support@574269.xyz</a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

@@ -193,8 +193,15 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="border-t px-4 py-8 text-center text-sm text-gray-400 sm:px-6">
-        <p>&copy; {new Date().getFullYear()} RiskShield AI. AI-Powered Customer Risk Intelligence.</p>
+      <footer className="border-t bg-white px-4 py-8 text-sm text-gray-500 sm:px-6">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
+          <p>&copy; {new Date().getFullYear()} RiskShield AI. AI-Powered Customer Risk Intelligence.</p>
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <Link href="/privacy" className="hover:text-gray-900">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-gray-900">Terms of Service</Link>
+            <a href="mailto:support@574269.xyz" className="hover:text-gray-900">support@574269.xyz</a>
+          </div>
+        </div>
       </footer>
     </div>
   );
