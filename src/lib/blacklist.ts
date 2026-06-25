@@ -58,7 +58,7 @@ export async function addToBlacklist(params: { type: "ip" | "email" | "domain"; 
   } else {
     await getSupabaseAdmin().from("blacklist").insert({
       type: params.type, value: params.value,
-      reason: params.reason || "Auto-detected by RiskShield",
+      reason: params.reason || "Auto-detected by RiskShield AI",
       risk_score: params.risk_score || 0, hit_count: 1, status: "active",
     });
   }

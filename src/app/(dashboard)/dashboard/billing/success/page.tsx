@@ -170,7 +170,7 @@ export default function BillingSuccessPage() {
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4 sm:px-6">
           <Link href="/dashboard" className="flex items-center gap-3">
             <Shield className="h-6 w-6 text-blue-600" />
-            <span className="text-lg font-bold text-gray-900">RiskShield</span>
+            <span className="text-lg font-bold text-gray-900">RiskShield AI</span>
           </Link>
           <Link href="/pricing" className="text-sm text-gray-600 hover:text-gray-900">
             Pricing

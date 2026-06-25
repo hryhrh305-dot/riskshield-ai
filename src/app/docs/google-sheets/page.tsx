@@ -7,7 +7,7 @@ export default function GoogleSheetsGuidePage() {
       <header className="bg-white border-b px-6 py-4 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3">
           <Shield className="w-6 h-6 text-blue-600" />
-          <span className="font-bold text-lg">RiskShield</span>
+          <span className="font-bold text-lg">RiskShield AI</span>
         </Link>
         <div className="flex items-center gap-4 text-sm">
           <Link href="/docs" className="text-gray-600 hover:text-gray-900">API Docs</Link>
@@ -36,7 +36,7 @@ export default function GoogleSheetsGuidePage() {
             </Link>
           </div>
           <p className="text-sm text-gray-600">
-            Before you start, make sure you already have a RiskShield account and a valid API key from your dashboard.
+            Before you start, make sure you already have a RiskShield AI account and a valid API key from your dashboard.
           </p>
         </section>
 
@@ -58,7 +58,7 @@ export default function GoogleSheetsGuidePage() {
         <section className="bg-white rounded-xl border p-6">
           <h2 className="text-lg font-semibold mb-4">Connect Your API Key</h2>
           <ol className="list-decimal list-inside space-y-3 text-sm text-gray-600">
-            <li>Open your RiskShield <Link href="/dashboard" className="text-blue-600 hover:underline">Dashboard</Link>.</li>
+            <li>Open your RiskShield AI <Link href="/dashboard" className="text-blue-600 hover:underline">Dashboard</Link>.</li>
             <li>Find your API key and copy it.</li>
             <li>Return to Google Sheets.</li>
             <li>Click <strong>Risk Scanner</strong> &gt; <strong>Settings</strong>.</li>

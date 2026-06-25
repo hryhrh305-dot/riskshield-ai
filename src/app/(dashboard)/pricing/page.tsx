@@ -624,7 +624,7 @@ export default function PricingPage() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
           <Link href="/" className="flex items-center gap-3">
             <Shield className="h-6 w-6 text-blue-600" />
-            <span className="text-lg font-bold">RiskShield</span>
+            <span className="text-lg font-bold">RiskShield AI</span>
           </Link>
           <Link href="/dashboard" className="text-sm text-gray-600 hover:text-gray-900">Dashboard</Link>
         </div>
@@ -777,7 +777,7 @@ export default function PricingPage() {
         </section>
 
         <section className="mt-6 rounded-xl border border-blue-100 bg-blue-50 px-5 py-4 text-sm text-blue-900">
-          Credits are usage units for RiskShield checks. Cached duplicate results may be returned without repeating the underlying check. Starter, Growth, and Scale subscriptions are activated automatically after the Creem webhook is processed.
+          Credits are usage units for RiskShield AI checks. Cached duplicate results may be returned without repeating the underlying check. Starter, Growth, and Scale subscriptions are activated automatically after the Creem webhook is processed.
         </section>
       </main>
     </div>

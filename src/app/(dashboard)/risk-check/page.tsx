@@ -199,7 +199,7 @@ export default function RiskCheckPage() {
       <div className="max-w-4xl mx-auto px-6 py-8">
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-4 py-1.5 rounded-full text-sm font-medium mb-4">
-            <Shield className="w-4 h-4" /> RiskShield Web Tool
+            <Shield className="w-4 h-4" /> RiskShield AI Web Tool
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Risk Check</h1>
           <p className="text-gray-500 max-w-lg mx-auto">

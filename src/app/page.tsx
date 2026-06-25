@@ -50,7 +50,7 @@ export default function Home() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
           <Link href="/" className="flex shrink-0 items-center gap-2" onClick={() => setMenuOpen(false)}>
             <Shield className="h-7 w-7 text-blue-600" />
-            <span className="text-lg font-bold tracking-tight sm:text-xl">RiskShield</span>
+            <span className="text-lg font-bold tracking-tight sm:text-xl">RiskShield AI</span>
           </Link>
 
           <div className="hidden items-center gap-4 md:flex">
@@ -165,7 +165,7 @@ export default function Home() {
       </section>
 
       <section className="mx-auto max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
-        <h2 className="mb-2 text-center text-2xl font-bold">Why RiskShield</h2>
+        <h2 className="mb-2 text-center text-2xl font-bold">Why RiskShield AI</h2>
         <p className="mb-8 text-center text-sm text-gray-500">Not another email validator. A decision layer for your data pipeline.</p>
         <div className="grid gap-6 md:grid-cols-3">
           {differentiators.map((d, i) => (
@@ -194,7 +194,7 @@ export default function Home() {
       </section>
 
       <footer className="border-t px-4 py-8 text-center text-sm text-gray-400 sm:px-6">
-        <p>&copy; {new Date().getFullYear()} RiskShield. AI-Powered Customer Risk Intelligence.</p>
+        <p>&copy; {new Date().getFullYear()} RiskShield AI. AI-Powered Customer Risk Intelligence.</p>
       </footer>
     </div>
   );

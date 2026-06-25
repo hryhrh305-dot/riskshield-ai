@@ -67,7 +67,7 @@ export default function BlacklistPage() {
           <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
             <div className="flex items-center gap-6">
               <Link href="/dashboard" className="flex items-center gap-2 font-bold text-lg">
-                <Shield className="w-6 h-6 text-blue-600" /> RiskShield
+                <Shield className="w-6 h-6 text-blue-600" /> RiskShield AI
               </Link>
               <nav className="hidden md:flex items-center gap-1">
                 <Link href="/dashboard" className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Dashboard</Link>

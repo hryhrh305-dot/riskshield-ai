@@ -194,7 +194,7 @@ export default function BulkCheckPage() {
       }
       const ws = XLSXLib.utils.aoa_to_sheet(data);
       const wb = XLSXLib.utils.book_new();
-      XLSXLib.utils.book_append_sheet(wb, ws, "RiskShield Results");
+      XLSXLib.utils.book_append_sheet(wb, ws, "RiskShield AI Results");
       XLSXLib.writeFile(wb, "riskshield-results.xlsx");
     } catch (e) {
       console.error("XLSX failed:", e);

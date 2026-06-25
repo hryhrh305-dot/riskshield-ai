@@ -240,7 +240,7 @@ export default function DashboardPage() {
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <Link href="/dashboard" className="flex items-center gap-2 font-bold text-lg">
-              <Shield className="w-6 h-6 text-blue-600" /> RiskShield
+              <Shield className="w-6 h-6 text-blue-600" /> RiskShield AI
             </Link>
             <nav className="hidden md:flex items-center gap-1">
               <Link href="/dashboard" className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Dashboard</Link>
@@ -407,7 +407,7 @@ export default function DashboardPage() {
                 <span className="text-2xl">📊</span>
                 <h2 className="font-semibold text-lg">Google Sheets Add-on</h2>
               </div>
-              <p className="text-sm text-gray-600 mb-3">Scan emails in bulk directly from Google Sheets. Download the script, paste it into Apps Script, then connect it with your RiskShield API key.</p>
+              <p className="text-sm text-gray-600 mb-3">Scan emails in bulk directly from Google Sheets. Download the script, paste it into Apps Script, then connect it with your RiskShield AI API key.</p>
               <ol className="text-sm text-gray-600 space-y-1.5 list-decimal list-inside mb-4">
                 <li>Click <strong>Download Code.gs</strong> below.</li>
                 <li>Open your Google Sheet, then click <strong>Extensions</strong> &gt; <strong>Apps Script</strong>.</li>
@@ -487,7 +487,7 @@ export default function DashboardPage() {
         <div className="bg-white rounded-xl border p-6">
           <h2 className="font-semibold flex items-center gap-2 mb-1"><Mail className="w-5 h-5" /> Send Feedback</h2>
           <p className="text-xs text-gray-400 mb-4">
-            Send product feedback directly inside RiskShield. Daily limit: {feedbackSentToday}/{feedbackDailyLimit}.
+            Send product feedback directly inside RiskShield AI. Daily limit: {feedbackSentToday}/{feedbackDailyLimit}.
           </p>
           <form onSubmit={handleFeedbackSubmit} className="space-y-4 max-w-2xl">
             {feedbackError && (
@@ -497,7 +497,7 @@ export default function DashboardPage() {
             )}
             {feedbackSaved && (
               <div className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
-                Feedback sent successfully. Thanks for helping us improve RiskShield.
+                Feedback sent successfully. Thanks for helping us improve RiskShield AI.
               </div>
             )}
             <div>

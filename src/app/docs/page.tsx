@@ -7,7 +7,7 @@ export default function DocsPage() {
       <header className="bg-white border-b px-6 py-4 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3">
           <Shield className="w-6 h-6 text-blue-600" />
-          <span className="font-bold text-lg">RiskShield</span>
+          <span className="font-bold text-lg">RiskShield AI</span>
         </Link>
         <div className="flex items-center gap-4 text-sm">
           <Link href="/pricing" className="text-gray-600 hover:text-gray-900">Pricing</Link>
