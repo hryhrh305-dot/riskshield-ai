@@ -7,11 +7,26 @@ export const CREEM_SELF_SERVE_PLANS = ["starter", "growth", "scale"] as const sa
 
 type ProductEnvMap = Record<CreemPlanKey, string | undefined>;
 
+function isExplicitProduction(env: NodeJS.ProcessEnv): boolean {
+  const mode = (env.CREEM_ENV || "").toLowerCase();
+  return mode === "production" || mode === "live";
+}
+
 export function isCreemSelfServePlan(plan: string): plan is CreemPlanKey {
   return CREEM_SELF_SERVE_PLANS.includes(plan as CreemPlanKey);
 }
 
 export function getCreemProductEnvMap(env: NodeJS.ProcessEnv = process.env): ProductEnvMap {
+  const strictProduction = isExplicitProduction(env);
+
+  if (strictProduction) {
+    return {
+      starter: env.CREEM_STARTER_PRODUCT_ID,
+      growth: env.CREEM_GROWTH_PRODUCT_ID,
+      scale: env.CREEM_SCALE_PRODUCT_ID,
+    };
+  }
+
   return {
     starter:
       env.CREEM_STARTER_PRODUCT_ID ||
