@@ -14,18 +14,29 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [confirmationUrl, setConfirmationUrl] = useState("");
+  const [recoveryTokenHash, setRecoveryTokenHash] = useState("");
+  const [verifyingRecovery, setVerifyingRecovery] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const incomingConfirmationUrl = urlParams.get("confirmation_url");
+    const incomingTokenHash = urlParams.get("token_hash");
+    const incomingType = urlParams.get("type");
     const supabase = createClient();
     const presetError = urlParams.get("message");
     const hasRecoveryHash =
       window.location.hash.includes("access_token=") ||
       window.location.hash.includes("refresh_token=") ||
       window.location.hash.includes("type=recovery");
+
+    if (incomingTokenHash && incomingType === "recovery") {
+      setRecoveryTokenHash(incomingTokenHash);
+      setCheckingSession(false);
+      window.history.replaceState(null, "", "/reset-password");
+      return;
+    }
 
     if (incomingConfirmationUrl && !hasRecoveryHash) {
       const rebuiltConfirmationUrl = rebuildConfirmationUrl(incomingConfirmationUrl, urlParams);
@@ -76,6 +87,29 @@ export default function ResetPasswordPage() {
     window.location.href = confirmationUrl;
   }
 
+  async function handleVerifyRecoveryToken() {
+    if (!recoveryTokenHash) return;
+    setVerifyingRecovery(true);
+    setError("");
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.verifyOtp({
+      type: "recovery",
+      token_hash: recoveryTokenHash,
+    });
+
+    if (error) {
+      setError("Password reset link is invalid or expired. Please request a new one.");
+      setRecoveryTokenHash("");
+      setVerifyingRecovery(false);
+      return;
+    }
+
+    setRecoveryTokenHash("");
+    setCheckingSession(false);
+    setVerifyingRecovery(false);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -115,7 +149,22 @@ export default function ResetPasswordPage() {
           <p className="text-sm text-gray-500 mt-1">Set a new password for your RiskShield AI account.</p>
         </div>
 
-        {confirmationUrl ? (
+        {recoveryTokenHash ? (
+          <div className="bg-white rounded-xl border p-6 space-y-4">
+            {error && <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
+            <div className="rounded-lg bg-blue-50 p-3 text-sm text-blue-700">
+              Click the button below to verify your reset link and choose a new password.
+            </div>
+            <button
+              type="button"
+              onClick={handleVerifyRecoveryToken}
+              disabled={verifyingRecovery}
+              className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+            >
+              {verifyingRecovery ? "Verifying..." : "Continue to Reset Password"}
+            </button>
+          </div>
+        ) : confirmationUrl ? (
           <div className="bg-white rounded-xl border p-6 space-y-4">
             <div className="rounded-lg bg-blue-50 p-3 text-sm text-blue-700">
               To protect your reset link from email security scanners, please click the button below to continue securely to your password reset form.
