@@ -82,7 +82,16 @@ export default function ForgotPasswordPage() {
 
         <form onSubmit={handleSubmit} className="bg-white rounded-xl border p-6 space-y-4">
           {error && <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
-          {success && <div className="p-3 bg-green-50 text-green-700 rounded-lg text-sm">{success}</div>}
+          {success && (
+            <div className="space-y-2 rounded-lg bg-green-50 p-3 text-sm">
+              <div className="text-green-700">{success}</div>
+              {cooldown > 0 && (
+                <div className="font-medium text-red-600">
+                  For security, you can request another reset email in {cooldown}s.
+                </div>
+              )}
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <input
@@ -100,6 +109,11 @@ export default function ForgotPasswordPage() {
           >
             {loading ? "Sending..." : cooldown > 0 ? `Send again in ${cooldown}s` : "Send Reset Link"}
           </button>
+          {cooldown > 0 && (
+            <p className="text-center text-sm font-medium text-gray-500">
+              Please wait {cooldown}s before requesting another reset email.
+            </p>
+          )}
         </form>
 
         <p className="text-center text-sm text-gray-500 mt-4">

@@ -21,7 +21,8 @@ export default function ResetPasswordPage() {
     const urlParams = new URLSearchParams(window.location.search);
     const incomingConfirmationUrl = urlParams.get("confirmation_url");
     if (incomingConfirmationUrl) {
-      setConfirmationUrl(incomingConfirmationUrl);
+      const rebuiltConfirmationUrl = rebuildConfirmationUrl(incomingConfirmationUrl, urlParams);
+      setConfirmationUrl(rebuiltConfirmationUrl);
       setCheckingSession(false);
       return;
     }
@@ -50,6 +51,21 @@ export default function ResetPasswordPage() {
 
     checkRecoverySession();
   }, []);
+
+  function rebuildConfirmationUrl(rawUrl: string, params: URLSearchParams) {
+    try {
+      const url = new URL(rawUrl);
+      for (const [key, value] of params.entries()) {
+        if (key === "confirmation_url" || key === "error" || key === "message") continue;
+        if (!url.searchParams.has(key)) {
+          url.searchParams.set(key, value);
+        }
+      }
+      return url.toString();
+    } catch {
+      return rawUrl;
+    }
+  }
 
   function handleContinueFromEmail() {
     if (!confirmationUrl) return;
