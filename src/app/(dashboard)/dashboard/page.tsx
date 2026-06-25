@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { getPlanLimits, type PlanKey } from "@/lib/plans";
 import { generateApiKey } from "@/lib/api-auth";
+import { findCreemProductById, hasActiveSubscriptionAccess } from "@/lib/creem";
 import { signOut } from "@/lib/auth";
 import Link from "next/link";
 import { LogOut, Shield, Key, Copy, Trash2, Activity, AlertTriangle, Search, Upload, Globe, Mail, Settings, Download, Inbox, CreditCard } from "lucide-react";
@@ -12,6 +13,16 @@ import { LogOut, Shield, Key, Copy, Trash2, Activity, AlertTriangle, Search, Upl
 interface Profile { id: string; email: string; plan: string; subscription_status: string; credits_remaining: number; total_checks: number; }
 interface ApiKeyRow { id: string; key: string; name: string; status: string; created_at: string; last_used_at: string | null; }
 interface CheckRecord { id: string; check_type: string; input_value: string; risk_score: number; created_at: string; }
+interface SubscriptionRow {
+  id: string;
+  plan: string;
+  status: string;
+  current_period_start?: string | null;
+  current_period_end?: string | null;
+  cancelled_at?: string | null;
+  provider_product_id?: string | null;
+  created_at?: string | null;
+}
 const defaultSettings = { block_disposable: true, block_high_risk: true, review_catch_all: true, review_new_domain: true };
 const mobileNavItems = [
   { href: "/dashboard", label: "Dashboard" },
@@ -48,6 +59,7 @@ export default function DashboardPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [billingPortalLoading, setBillingPortalLoading] = useState(false);
   const [billingPortalError, setBillingPortalError] = useState("");
+  const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
 
   useEffect(() => { loadData(); loadSettings(); loadFeedbackQuota(); loadAdminStatus(); }, []);
   useEffect(() => {
@@ -189,12 +201,14 @@ export default function DashboardPage() {
         { count: blockedC },
         { data: keys },
         { data: recentChecks },
+        { data: subscriptionRow },
       ] = await Promise.all([
         supabase.from("scan_history").select("*", { count: "exact", head: true }).eq("user_id", user.id).gte("created_at", todayStr),
         supabase.from("scan_history").select("*", { count: "exact", head: true }).eq("user_id", user.id).eq("success", true).gte("risk_score", 40).lte("risk_score", 69).gte("created_at", startOfMonth),
         supabase.from("scan_history").select("*", { count: "exact", head: true }).eq("user_id", user.id).gte("risk_score", 70).gte("created_at", startOfMonth),
         supabase.from("api_keys").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
         supabase.from("scan_history").select("id, scan_type, target, risk_score, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
+        supabase.from("subscriptions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
       ]);
 
       setDailyUsed(todayC ?? 0);
@@ -202,6 +216,7 @@ export default function DashboardPage() {
       setRiskyCount(riskyC ?? 0);
       setBlockedCount(blockedC ?? 0);
       if (keys) setApiKeys(keys.filter((key: ApiKeyRow) => key.status === "active"));
+      setSubscription((subscriptionRow as SubscriptionRow | null) || null);
       if (recentChecks) {
         setChecks(recentChecks.map((r: any) => ({
           id: r.id,
@@ -257,6 +272,28 @@ export default function DashboardPage() {
   const monthlyPercent = creditsPercent;
   const usageStatus = monthlyPercent <= 20 ? "critical" : monthlyPercent <= 50 ? "warning" : "healthy";
   const activeApiKeys = apiKeys.filter((key) => key.status === "active");
+  const productMatch = findCreemProductById(subscription?.provider_product_id || null);
+  const billingCycleLabel = productMatch?.billingInterval === "yearly" ? "Yearly" : productMatch?.billingInterval === "monthly" ? "Monthly" : null;
+  const subscriptionEndsAt = subscription?.current_period_end || null;
+  const isCancelingAtPeriodEnd =
+    subscription?.status === "active" &&
+    !!subscription?.cancelled_at &&
+    !!subscriptionEndsAt &&
+    new Date(subscriptionEndsAt) > new Date();
+  const billingStatusLabel =
+    isCancelingAtPeriodEnd
+      ? "Canceling at period end"
+      : subscription?.status
+        ? subscription.status.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase())
+        : profile.subscription_status.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+  const billingDateLabel =
+    subscriptionEndsAt
+      ? isCancelingAtPeriodEnd
+        ? `Ends on ${new Date(subscriptionEndsAt).toLocaleDateString()}`
+        : hasActiveSubscriptionAccess(subscription?.status, subscriptionEndsAt)
+          ? `Renews on ${new Date(subscriptionEndsAt).toLocaleDateString()}`
+          : `Ended on ${new Date(subscriptionEndsAt).toLocaleDateString()}`
+      : null;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -362,21 +399,33 @@ export default function DashboardPage() {
             <div className="flex items-center gap-2 text-purple-600 mb-2"><Activity className="w-5 h-5" /><span className="font-semibold text-sm">Plan</span></div>
             <div className="text-2xl font-bold capitalize">{profile.plan}</div>
             <div className="text-xs text-gray-400 mt-1">{profile.subscription_status}</div>
+            {billingCycleLabel && (
+              <div className="mt-3 space-y-1 text-xs text-gray-500">
+                <div>Billing cycle: {billingCycleLabel}</div>
+                <div>Status: {billingStatusLabel}</div>
+                {billingDateLabel && <div>{billingDateLabel}</div>}
+              </div>
+            )}
             {profile.plan === "free" && (
               <Link href="/pricing" className="mt-2 inline-block text-sm text-blue-600 font-medium hover:underline">
                 Upgrade to unlock deep checks and API access
               </Link>
             )}
             {profile.plan !== "free" && (
-              <button
-                type="button"
-                onClick={openBillingPortal}
-                disabled={billingPortalLoading}
-                className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-              >
-                <CreditCard className="h-4 w-4" />
-                {billingPortalLoading ? "Opening..." : "Manage billing"}
-              </button>
+              <div className="mt-3 space-y-2">
+                <button
+                  type="button"
+                  onClick={openBillingPortal}
+                  disabled={billingPortalLoading}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  <CreditCard className="h-4 w-4" />
+                  {billingPortalLoading ? "Opening..." : "Manage subscription"}
+                </button>
+                <div className="text-xs text-gray-500">
+                  Open Creem Customer Portal to manage billing, payment method, and cancellation.
+                </div>
+              </div>
             )}
             {billingPortalError && (
               <div className="mt-2 text-xs text-red-600">{billingPortalError}</div>

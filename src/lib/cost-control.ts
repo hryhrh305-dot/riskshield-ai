@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { getPlanLimits, hasApiAccess, plans } from "@/lib/plans";
+import { hasActiveSubscriptionAccess } from "@/lib/creem";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ");
@@ -94,13 +95,14 @@ export async function costControlCheck(params: {
     return { allowed: false, errorCode: "SUBSCRIPTION_INACTIVE", errorMessage: "User not found", costUnits, monthlyRemaining: 0, dailyRemaining: 0, perMinuteRemaining: 0, ipRemaining: 0 };
   }
 
-  // Check if subscription expired
-  if (profile.subscription_status === "cancelled" && profile.subscription_end && new Date(profile.subscription_end) < new Date()) {
-    // Use free tier limits
+  if (profile.subscription_status === "cancelled" && !hasActiveSubscriptionAccess("cancelled", profile.subscription_end)) {
     profile.plan = "free";
   }
-  if (profile.subscription_status === "past_due") {
-    return { allowed: false, errorCode: "SUBSCRIPTION_INACTIVE", errorMessage: "Subscription past due. Please update payment method.", costUnits, monthlyRemaining: 0, dailyRemaining: 0, perMinuteRemaining: 0, ipRemaining: 0, userId: keyData.user_id, apiKeyId: keyData.id, plan: profile.plan };
+  if (profile.subscription_status === "past_due" || profile.subscription_status === "paused") {
+    const errorMessage = profile.subscription_status === "paused"
+      ? "Subscription is paused. Resume billing to restore access."
+      : "Subscription past due. Please update payment method.";
+    return { allowed: false, errorCode: "SUBSCRIPTION_INACTIVE", errorMessage, costUnits, monthlyRemaining: 0, dailyRemaining: 0, perMinuteRemaining: 0, ipRemaining: 0, userId: keyData.user_id, apiKeyId: keyData.id, plan: profile.plan };
   }
 
   const planKey = profile.plan || "free";

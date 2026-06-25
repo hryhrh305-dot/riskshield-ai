@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Check, Clock3, Minus, Shield } from "lucide-react";
 import { plans, type PlanKey } from "@/lib/plans";
+import { getCreemAnnualOffer, getCreemSubscriptionCopy } from "@/lib/creem";
 import { createClient } from "@/lib/supabase";
 
 type Availability = "included" | "limited" | "unavailable" | "soon" | "custom";
@@ -62,24 +63,6 @@ const planHighlights: Record<PlanKey, string[]> = {
 };
 
 const selfServePaidPlans: PlanKey[] = ["starter", "growth", "scale"];
-
-const yearlyPricing = {
-  starter: {
-    priceLabel: "$499",
-    savings: "Save $89/year",
-    promo: "2 months free",
-  },
-  growth: {
-    priceLabel: "$2,499",
-    savings: "Save $489/year",
-    promo: "2 months free",
-  },
-  scale: {
-    priceLabel: "$14,999",
-    savings: "Save $2,989/year",
-    promo: "2 months free",
-  },
-} as const satisfies Partial<Record<PlanKey, { priceLabel: string; savings: string; promo: string }>>;
 
 const comparisonSections: ComparisonSection[] = [
   {
@@ -701,15 +684,12 @@ export default function PricingPage() {
           {planEntries.map(([key, plan]) => {
             const isPopular = key === "growth";
             const isPaidSelfServe = selfServePaidPlans.includes(key);
-            const annualOffer = yearlyPricing[key as keyof typeof yearlyPricing];
+            const annualOffer = getCreemAnnualOffer(key);
             const showYearly = billingInterval === "yearly" && !!annualOffer;
             const checkoutLoadingKey = isPaidSelfServe ? `${key}:${billingInterval}` : null;
-            const displayedPrice = showYearly ? annualOffer.priceLabel : plan.priceLabel;
-            const displayedPeriod = showYearly ? "/year" : "/month";
-            const subscriptionLabel = showYearly ? "Annual subscription" : "Monthly subscription";
-            const renewalLabel = showYearly
-              ? "Auto-renews yearly until canceled"
-              : "Auto-renews monthly until canceled";
+            const subscriptionCopy = getCreemSubscriptionCopy(billingInterval);
+            const displayedPrice = showYearly ? annualOffer.monthlyEquivalentLabel : plan.priceLabel;
+            const displayedPeriod = "/month";
 
             return (
               <article
@@ -746,20 +726,32 @@ export default function PricingPage() {
                       <span className={`rounded-full px-2.5 py-1 ${
                         isPopular ? "bg-white/20" : "bg-emerald-50"
                       }`}>
-                        {annualOffer.savings}
+                        {annualOffer.discountPercentLabel}
                       </span>
                       <span className={`rounded-full px-2.5 py-1 ${
                         isPopular ? "bg-white/20" : "bg-blue-50 text-blue-700"
                       }`}>
-                        {annualOffer.promo}
+                        {annualOffer.savingsAmountLabel}
                       </span>
+                      {annualOffer.promoLabel && (
+                        <span className={`rounded-full px-2.5 py-1 ${
+                          isPopular ? "bg-white/20" : "bg-purple-50 text-purple-700"
+                        }`}>
+                          {annualOffer.promoLabel}
+                        </span>
+                      )}
                     </div>
                   )}
                   {isPaidSelfServe && (
                     <div className={`mt-3 space-y-1 text-xs ${isPopular ? "text-blue-100" : "text-gray-500"}`}>
-                      <p>{subscriptionLabel}</p>
-                      <p>{renewalLabel}</p>
+                      <p>{subscriptionCopy.subscriptionLabel}</p>
+                      <p>{subscriptionCopy.renewalLabel}</p>
                       <p>Cancel anytime</p>
+                      {showYearly ? (
+                        <p>{annualOffer.yearlyPriceLabel}/year billed yearly</p>
+                      ) : (
+                        <p>{subscriptionCopy.cadenceLabel}</p>
+                      )}
                     </div>
                   )}
                 </div>

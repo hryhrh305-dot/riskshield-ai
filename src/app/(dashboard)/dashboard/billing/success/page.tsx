@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CheckCircle2, Clock3, Shield } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { getPlanRank, isPlanAtLeast, type PlanKey } from "@/lib/plans";
+import { findCreemProductById, hasActiveSubscriptionAccess } from "@/lib/creem";
 
 type BillingState = "loading" | "active" | "syncing" | "error";
 
@@ -17,6 +18,13 @@ type ProfileRow = {
 type PaymentRow = {
   status: string;
   plan: string | null;
+};
+
+type SubscriptionRow = {
+  status: string;
+  current_period_end: string | null;
+  cancelled_at: string | null;
+  provider_product_id: string | null;
 };
 
 const BANNER_COPY: Record<
@@ -58,6 +66,7 @@ export default function BillingSuccessPage() {
   const [state, setState] = useState<BillingState>("loading");
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [payment, setPayment] = useState<PaymentRow | null>(null);
+  const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -91,7 +100,7 @@ export default function BillingSuccessPage() {
           } catch {}
         }
 
-        const [{ data: profileRow }, { data: paymentRow }] = await Promise.all([
+        const [{ data: profileRow }, { data: paymentRow }, { data: subscriptionRow }] = await Promise.all([
           supabase
             .from("profiles")
             .select("plan, subscription_status, credits_remaining")
@@ -105,12 +114,20 @@ export default function BillingSuccessPage() {
             .order("created_at", { ascending: false })
             .limit(1)
             .maybeSingle(),
+          supabase
+            .from("subscriptions")
+            .select("status, current_period_end, cancelled_at, provider_product_id, created_at")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
         ]);
 
         if (!mounted) return;
 
         setProfile(profileRow || null);
         setPayment(paymentRow || null);
+        setSubscription(subscriptionRow || null);
 
         const currentPlan = profileRow?.plan || "free";
         const currentStatus = profileRow?.subscription_status || "inactive";
@@ -118,7 +135,7 @@ export default function BillingSuccessPage() {
         const currentRank = getPlanRank(currentPlan);
         const purchasedRank = purchasedPlan ? getPlanRank(purchasedPlan) : 0;
         const alreadyHasEqualOrHigherAccess = isPlanAtLeast(currentPlan, purchasedPlan || "starter");
-        const isActive = currentStatus === "active";
+        const isActive = hasActiveSubscriptionAccess(currentStatus, subscriptionRow?.current_period_end || null);
 
         if (isActive && paymentRow?.status === "completed" && alreadyHasEqualOrHigherAccess) {
           setState("active");
@@ -163,6 +180,12 @@ export default function BillingSuccessPage() {
   const banner = BANNER_COPY[state];
   const isHigherTierAlreadyActive =
     profile && payment?.plan && getPlanRank(profile.plan) > getPlanRank(payment.plan);
+  const billingInterval = findCreemProductById(subscription?.provider_product_id || null)?.billingInterval || null;
+  const isCancelingAtPeriodEnd =
+    subscription?.status === "active" &&
+    !!subscription?.cancelled_at &&
+    !!subscription?.current_period_end &&
+    new Date(subscription.current_period_end) > new Date();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -216,6 +239,21 @@ export default function BillingSuccessPage() {
                       {(profile.credits_remaining ?? 0).toLocaleString()}
                     </div>
                   </div>
+                </div>
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-700">
+                  {billingInterval && (
+                    <p>
+                      Billing cycle: <span className="font-medium capitalize">{billingInterval}</span>
+                    </p>
+                  )}
+                  {subscription?.current_period_end && (
+                    <p className="mt-1">
+                      {isCancelingAtPeriodEnd ? "Access ends on" : "Renews on"}{" "}
+                      <span className="font-medium">
+                        {new Date(subscription.current_period_end).toLocaleDateString()}
+                      </span>
+                    </p>
+                  )}
                 </div>
               </div>
             )}

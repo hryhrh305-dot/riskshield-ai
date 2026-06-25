@@ -5,11 +5,13 @@ import crypto from "node:crypto";
 import {
   findCreemProductById,
   findPlanByCreemProductId,
+  getCreemAnnualOffer,
   getCreemApiBaseUrl,
   getCreemCheckoutUrls,
   getCreemEnvDebugInfo,
   getCreemPriceForPlan,
   getCreemProductIdForPlan,
+  hasActiveSubscriptionAccess,
   isCreemSelfServePlan,
   normalizeCreemBillingInterval,
   verifyCreemRedirectSignature,
@@ -93,6 +95,20 @@ test("yearly product env names are supported without changing plan entitlements"
   assert.equal(normalizeCreemBillingInterval("invalid"), "monthly");
 });
 
+test("annual offer metadata is derived from the configured monthly and yearly prices", () => {
+  const starterOffer = getCreemAnnualOffer("starter");
+  assert.equal(starterOffer?.yearlyPrice, 499);
+  assert.equal(starterOffer?.monthlyEquivalentLabel, "$41.58");
+  assert.equal(starterOffer?.savingsAmount, 89);
+  assert.equal(starterOffer?.discountPercent, 15);
+  assert.equal(starterOffer?.promoLabel, null);
+
+  const growthOffer = getCreemAnnualOffer("growth");
+  assert.equal(growthOffer?.yearlyPriceLabel, "$2,499");
+  assert.equal(growthOffer?.monthlyEquivalentLabel, "$208.25");
+  assert.equal(growthOffer?.discountPercentLabel, "Save 16%");
+});
+
 test("creem test keys use test api host", () => {
   assert.equal(getCreemApiBaseUrl("creem_test_123"), "https://test-api.creem.io/v1");
   assert.equal(getCreemApiBaseUrl("creem_live_123"), "https://api.creem.io/v1");
@@ -150,6 +166,16 @@ test("webhook signature verification matches HMAC-SHA256 payload signing", () =>
 
   assert.equal(verifyCreemWebhookSignature(payload, signature, secret), true);
   assert.equal(verifyCreemWebhookSignature(payload, "bad-signature", secret), false);
+});
+
+test("cancelled subscriptions keep access until the paid period actually ends", () => {
+  const futureEnd = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const pastEnd = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  assert.equal(hasActiveSubscriptionAccess("active", futureEnd), true);
+  assert.equal(hasActiveSubscriptionAccess("cancelled", futureEnd), true);
+  assert.equal(hasActiveSubscriptionAccess("cancelled", pastEnd), false);
+  assert.equal(hasActiveSubscriptionAccess("past_due", futureEnd), false);
 });
 
 test("creem env debug info returns booleans only", () => {

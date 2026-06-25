@@ -534,7 +534,7 @@ export async function POST(req: NextRequest) {
           userId,
           plan: plan || "free",
           subscriptionId,
-          status: "cancelled",
+          status: "active",
           customerId,
           productId,
           currentPeriodStart: event?.object?.current_period_start_date || null,
@@ -542,10 +542,11 @@ export async function POST(req: NextRequest) {
           cancelledAt: event?.object?.canceled_at || new Date().toISOString(),
         });
 
-        await updateProfileSubscriptionState({
+        await upsertProfileForPaidSubscription({
           userId,
-          status: "cancelled",
-          subscriptionEnd: event?.object?.current_period_end_date || event?.object?.canceled_at || null,
+          plan: plan || "free",
+          currentPeriodStart: event?.object?.current_period_start_date || null,
+          currentPeriodEnd: event?.object?.current_period_end_date || event?.object?.canceled_at || null,
           customerId,
         });
         break;

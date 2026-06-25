@@ -3,6 +3,13 @@ import { plans, type PlanKey } from "./plans.ts";
 
 type CreemPlanKey = Extract<PlanKey, "starter" | "growth" | "scale">;
 export type CreemBillingInterval = "monthly" | "yearly";
+export type InternalSubscriptionStatus =
+  | "inactive"
+  | "active"
+  | "cancelled"
+  | "expired"
+  | "past_due"
+  | "paused";
 
 export const CREEM_SELF_SERVE_PLANS = ["starter", "growth", "scale"] as const satisfies readonly CreemPlanKey[];
 export const CREEM_BILLING_INTERVALS = ["monthly", "yearly"] as const satisfies readonly CreemBillingInterval[];
@@ -14,6 +21,18 @@ const YEARLY_PRICES: Record<CreemPlanKey, number> = {
   starter: 499,
   growth: 2499,
   scale: 14999,
+};
+
+type AnnualPlanOffer = {
+  yearlyPrice: number;
+  yearlyPriceLabel: string;
+  monthlyEquivalent: number;
+  monthlyEquivalentLabel: string;
+  savingsAmount: number;
+  savingsAmountLabel: string;
+  discountPercent: number;
+  discountPercentLabel: string;
+  promoLabel: string | null;
 };
 
 function isExplicitProduction(env: NodeJS.ProcessEnv): boolean {
@@ -226,6 +245,72 @@ export function getCreemPriceForPlan(
 ): number {
   if (!isCreemSelfServePlan(plan)) return plans[plan as PlanKey]?.price ?? 0;
   return billingInterval === "yearly" ? YEARLY_PRICES[plan] : plans[plan].price;
+}
+
+function formatUsd(
+  value: number,
+  options: { minimumFractionDigits?: number; maximumFractionDigits?: number } = {},
+): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: options.minimumFractionDigits ?? 0,
+    maximumFractionDigits: options.maximumFractionDigits ?? 0,
+  }).format(value);
+}
+
+export function getCreemAnnualOffer(plan: string): AnnualPlanOffer | null {
+  if (!isCreemSelfServePlan(plan)) return null;
+
+  const monthlyPrice = getCreemPriceForPlan(plan, "monthly");
+  const yearlyPrice = getCreemPriceForPlan(plan, "yearly");
+  const monthlyTotal = monthlyPrice * 12;
+  const savingsAmount = Math.max(0, monthlyTotal - yearlyPrice);
+  const discountPercent = monthlyTotal > 0 ? Math.round((savingsAmount / monthlyTotal) * 100) : 0;
+  const monthlyEquivalent = yearlyPrice / 12;
+  const getsTwoMonthsFree = yearlyPrice === monthlyPrice * 10;
+
+  return {
+    yearlyPrice,
+    yearlyPriceLabel: formatUsd(yearlyPrice),
+    monthlyEquivalent,
+    monthlyEquivalentLabel: formatUsd(monthlyEquivalent, {
+      minimumFractionDigits: monthlyEquivalent % 1 === 0 ? 0 : 2,
+      maximumFractionDigits: 2,
+    }),
+    savingsAmount,
+    savingsAmountLabel: `Save ${formatUsd(savingsAmount)}/year`,
+    discountPercent,
+    discountPercentLabel: `Save ${discountPercent}%`,
+    promoLabel: getsTwoMonthsFree ? "2 months free" : null,
+  };
+}
+
+export function getCreemSubscriptionCopy(billingInterval: CreemBillingInterval) {
+  if (billingInterval === "yearly") {
+    return {
+      subscriptionLabel: "Annual subscription",
+      renewalLabel: "Auto-renews yearly until canceled",
+      cadenceLabel: "Billed yearly",
+    };
+  }
+
+  return {
+    subscriptionLabel: "Monthly subscription",
+    renewalLabel: "Auto-renews monthly until canceled",
+    cadenceLabel: "Billed monthly",
+  };
+}
+
+export function hasActiveSubscriptionAccess(
+  status: InternalSubscriptionStatus | string | null | undefined,
+  subscriptionEnd: string | null | undefined,
+): boolean {
+  if (status === "active") return true;
+  if (status === "cancelled" && subscriptionEnd) {
+    return new Date(subscriptionEnd) > new Date();
+  }
+  return false;
 }
 
 export function verifyCreemWebhookSignature(payload: string, signature: string, secret: string): boolean {
