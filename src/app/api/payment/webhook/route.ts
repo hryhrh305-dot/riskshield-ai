@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getPlanRank } from "@/lib/plans";
 import {
+  type CreemWebhookEvent,
+  BILLING_REVOKE_EVENTS,
+  CREEM_HANDLED_EVENT_TYPES,
+  extractCustomerId,
+  extractEventType,
+  extractPaymentIdentifiers,
+  getBillingLookupCandidates,
+} from "@/lib/creem-webhook";
+import {
   findCreemProductById,
   findPlanByCreemProductId,
   getCreemPriceForPlan,
@@ -43,18 +52,6 @@ async function getStoredSubscription(subscriptionId: string | null | undefined) 
     .maybeSingle();
 
   return data;
-}
-
-function extractCustomerId(event: any): string | null {
-  return (
-    event?.object?.customer_id ||
-    event?.object?.customer?.id ||
-    event?.object?.customer?.customer_id ||
-    event?.object?.subscription?.customer_id ||
-    event?.object?.subscription?.customer?.id ||
-    event?.customer_id ||
-    null
-  );
 }
 
 async function updateProfileCustomerId(userId: string, customerId: string | null | undefined) {
@@ -192,11 +189,7 @@ async function updateProfileSubscriptionState(params: {
   await getSupabaseAdmin().from("profiles").update(payload).eq("id", params.userId);
 }
 
-function extractEventType(event: any): string {
-  return event?.eventType || event?.type || "";
-}
-
-function logWebhookEvent(level: "info" | "warn", label: string, eventType: string, event: any) {
+function logWebhookEvent(level: "info" | "warn", label: string, eventType: string, event: CreemWebhookEvent) {
   const logger = level === "warn" ? console.warn : console.info;
   logger(label, {
     eventType,
@@ -204,7 +197,7 @@ function logWebhookEvent(level: "info" | "warn", label: string, eventType: strin
   });
 }
 
-function extractCheckoutUserAndPlan(event: any) {
+function extractCheckoutUserAndPlan(event: CreemWebhookEvent) {
   const metadata = event?.object?.metadata || {};
   const subscriptionMetadata = event?.object?.subscription?.metadata || {};
   const productId = event?.object?.product?.id || event?.object?.order?.product || null;
@@ -227,7 +220,7 @@ function extractCheckoutUserAndPlan(event: any) {
   return { userId, plan };
 }
 
-async function resolveSubscriptionContext(event: any) {
+async function resolveSubscriptionContext(event: CreemWebhookEvent) {
   const metadata = event?.object?.metadata || {};
   const productId = event?.object?.product?.id || null;
   const subscriptionId = event?.object?.id || event?.object?.subscription?.id || null;
@@ -247,18 +240,6 @@ async function resolveSubscriptionContext(event: any) {
     null;
 
   return { userId, plan, subscriptionId, productId: productId || stored?.provider_product_id || null };
-}
-
-function extractPaymentIdentifiers(event: any) {
-  return {
-    checkoutId: event?.object?.checkout_id || event?.object?.checkout?.id || null,
-    orderId: event?.object?.order?.id || event?.object?.order_id || null,
-    transactionId:
-      event?.object?.transaction_id ||
-      event?.object?.last_transaction_id ||
-      event?.object?.payment?.id ||
-      null,
-  };
 }
 
 async function updatePaymentStatusByIdentifiers(
@@ -294,27 +275,150 @@ async function updatePaymentStatusByIdentifiers(
   return false;
 }
 
-async function findPaymentRecordByIdentifiers(identifiers: {
-  checkoutId?: string | null;
-  orderId?: string | null;
-  transactionId?: string | null;
-}) {
+type BillingSubjectMatch = {
+  userId: string;
+  source:
+    | "payment.provider_transaction_id"
+    | "payment.provider_checkout_id"
+    | "payment.provider_subscription_id"
+    | "subscription.provider_subscription_id"
+    | "profile.creem_customer_id"
+    | "subscription.provider_customer_id"
+    | "metadata.user_id"
+    | "metadata.profile_id";
+  paymentId?: string | null;
+  providerSubscriptionId?: string | null;
+  providerProductId?: string | null;
+  customerId?: string | null;
+};
+
+async function findBillingSubjectFromWebhookEvent(event: CreemWebhookEvent): Promise<BillingSubjectMatch | null> {
   const admin = getSupabaseAdmin();
-  const queryTargets = [
-    identifiers.transactionId ? { column: "provider_transaction_id", value: identifiers.transactionId } : null,
-    identifiers.checkoutId ? { column: "provider_checkout_id", value: identifiers.checkoutId } : null,
-    identifiers.orderId ? { column: "provider_transaction_id", value: identifiers.orderId } : null,
-  ].filter(Boolean) as Array<{ column: "provider_transaction_id" | "provider_checkout_id"; value: string }>;
+  const identifiers = extractPaymentIdentifiers(event);
+  const candidates = getBillingLookupCandidates(event);
 
-  for (const target of queryTargets) {
-    const { data: paymentRow } = await admin
-      .from("payments")
-      .select("id, user_id, provider_subscription_id, provider_product_id, plan")
-      .eq(target.column, target.value)
-      .maybeSingle();
+  for (const candidate of candidates) {
+    if (candidate.kind === "transaction") {
+      const { data } = await admin
+        .from("payments")
+        .select("id, user_id, provider_subscription_id, provider_product_id")
+        .eq("provider_transaction_id", candidate.value)
+        .maybeSingle();
 
-    if (paymentRow?.id) {
-      return paymentRow;
+      if (data?.user_id) {
+        return {
+          userId: data.user_id,
+          source: "payment.provider_transaction_id",
+          paymentId: data.id,
+          providerSubscriptionId: data.provider_subscription_id,
+          providerProductId: data.provider_product_id,
+          customerId: identifiers.customerId,
+        };
+      }
+    }
+
+    if (candidate.kind === "checkout") {
+      const { data } = await admin
+        .from("payments")
+        .select("id, user_id, provider_subscription_id, provider_product_id")
+        .eq("provider_checkout_id", candidate.value)
+        .maybeSingle();
+
+      if (data?.user_id) {
+        return {
+          userId: data.user_id,
+          source: "payment.provider_checkout_id",
+          paymentId: data.id,
+          providerSubscriptionId: data.provider_subscription_id,
+          providerProductId: data.provider_product_id,
+          customerId: identifiers.customerId,
+        };
+      }
+    }
+
+    if (candidate.kind === "subscription") {
+      const { data: paymentData } = await admin
+        .from("payments")
+        .select("id, user_id, provider_subscription_id, provider_product_id")
+        .eq("provider_subscription_id", candidate.value)
+        .maybeSingle();
+
+      if (paymentData?.user_id) {
+        return {
+          userId: paymentData.user_id,
+          source: "payment.provider_subscription_id",
+          paymentId: paymentData.id,
+          providerSubscriptionId: paymentData.provider_subscription_id,
+          providerProductId: paymentData.provider_product_id,
+          customerId: identifiers.customerId,
+        };
+      }
+
+      const { data: subscriptionData } = await admin
+        .from("subscriptions")
+        .select("user_id, provider_subscription_id, provider_product_id, provider_customer_id")
+        .eq("provider_subscription_id", candidate.value)
+        .maybeSingle();
+
+      if (subscriptionData?.user_id) {
+        return {
+          userId: subscriptionData.user_id,
+          source: "subscription.provider_subscription_id",
+          providerSubscriptionId: subscriptionData.provider_subscription_id,
+          providerProductId: subscriptionData.provider_product_id,
+          customerId: subscriptionData.provider_customer_id || identifiers.customerId,
+        };
+      }
+    }
+
+    if (candidate.kind === "customer") {
+      const { data: profileData } = await admin
+        .from("profiles")
+        .select("id")
+        .eq("creem_customer_id", candidate.value)
+        .maybeSingle();
+
+      if (profileData?.id) {
+        return {
+          userId: profileData.id,
+          source: "profile.creem_customer_id",
+          customerId: candidate.value,
+        };
+      }
+
+      const { data: subscriptionData } = await admin
+        .from("subscriptions")
+        .select("user_id, provider_subscription_id, provider_product_id, provider_customer_id")
+        .eq("provider_customer_id", candidate.value)
+        .maybeSingle();
+
+      if (subscriptionData?.user_id) {
+        return {
+          userId: subscriptionData.user_id,
+          source: "subscription.provider_customer_id",
+          providerSubscriptionId: subscriptionData.provider_subscription_id,
+          providerProductId: subscriptionData.provider_product_id,
+          customerId: subscriptionData.provider_customer_id,
+        };
+      }
+    }
+
+    if (candidate.kind === "user") {
+      return {
+        userId: candidate.value,
+        source: "metadata.user_id",
+        providerSubscriptionId: identifiers.subscriptionId,
+        customerId: identifiers.customerId,
+      };
+    }
+
+    if (candidate.kind === "profile") {
+      return {
+        userId: candidate.value,
+        source: "metadata.profile_id",
+        providerSubscriptionId: identifiers.subscriptionId,
+        customerId: identifiers.customerId,
+      };
     }
   }
 
@@ -411,7 +515,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
 
-    const event = JSON.parse(payload);
+    const event = JSON.parse(payload) as CreemWebhookEvent;
     const eventType = extractEventType(event);
 
     switch (eventType) {
@@ -748,23 +852,30 @@ export async function POST(req: NextRequest) {
       case "refund.created": {
         const identifiers = extractPaymentIdentifiers(event);
         const updated = await updatePaymentStatusByIdentifiers("refunded", identifiers);
-        const paymentRow = await findPaymentRecordByIdentifiers(identifiers);
-        const customerId = extractCustomerId(event);
+        const billingSubject = await findBillingSubjectFromWebhookEvent(event);
 
-        if (paymentRow?.user_id) {
+        if (billingSubject?.userId) {
           await revokePaidAccessForBillingIssue({
-            userId: paymentRow.user_id,
-            subscriptionId: paymentRow.provider_subscription_id,
-            productId: paymentRow.provider_product_id,
-            customerId,
+            userId: billingSubject.userId,
+            subscriptionId: billingSubject.providerSubscriptionId || identifiers.subscriptionId,
+            productId: billingSubject.providerProductId,
+            customerId: billingSubject.customerId,
             profileStatus: "cancelled",
             subscriptionStatus: "cancelled",
+          });
+        } else {
+          console.warn("[creem-webhook][refund.created][unmatched-subject]", {
+            eventType,
+            candidates: getBillingLookupCandidates(event),
+            metadataEmail: identifiers.metadataEmail,
           });
         }
 
         logWebhookEvent(
           "info",
-          updated ? "[creem-webhook][refund.created][applied]" : "[creem-webhook][refund.created][unmatched]",
+          updated
+            ? `[creem-webhook][refund.created][applied:${billingSubject?.source || "payment-only"}]`
+            : "[creem-webhook][refund.created][unmatched-payment]",
           eventType,
           event,
         );
@@ -774,23 +885,30 @@ export async function POST(req: NextRequest) {
       case "dispute.created": {
         const identifiers = extractPaymentIdentifiers(event);
         const updated = await updatePaymentStatusByIdentifiers("failed", identifiers);
-        const paymentRow = await findPaymentRecordByIdentifiers(identifiers);
-        const customerId = extractCustomerId(event);
+        const billingSubject = await findBillingSubjectFromWebhookEvent(event);
 
-        if (paymentRow?.user_id) {
+        if (billingSubject?.userId) {
           await revokePaidAccessForBillingIssue({
-            userId: paymentRow.user_id,
-            subscriptionId: paymentRow.provider_subscription_id,
-            productId: paymentRow.provider_product_id,
-            customerId,
+            userId: billingSubject.userId,
+            subscriptionId: billingSubject.providerSubscriptionId || identifiers.subscriptionId,
+            productId: billingSubject.providerProductId,
+            customerId: billingSubject.customerId,
             profileStatus: "paused",
             subscriptionStatus: "paused",
+          });
+        } else {
+          console.warn("[creem-webhook][dispute.created][unmatched-subject]", {
+            eventType,
+            candidates: getBillingLookupCandidates(event),
+            metadataEmail: identifiers.metadataEmail,
           });
         }
 
         logWebhookEvent(
           "warn",
-          updated ? "[creem-webhook][dispute.created][applied]" : "[creem-webhook][dispute.created][unmatched]",
+          updated
+            ? `[creem-webhook][dispute.created][applied:${billingSubject?.source || "payment-only"}]`
+            : "[creem-webhook][dispute.created][unmatched-payment]",
           eventType,
           event,
         );
@@ -829,6 +947,16 @@ export async function POST(req: NextRequest) {
       }
 
       default: {
+        if (
+          eventType &&
+          !CREEM_HANDLED_EVENT_TYPES.includes(eventType as (typeof CREEM_HANDLED_EVENT_TYPES)[number]) &&
+          !BILLING_REVOKE_EVENTS.includes(eventType as (typeof BILLING_REVOKE_EVENTS)[number])
+        ) {
+          console.info("[creem-webhook][unknown-event]", {
+            eventType,
+            candidates: getBillingLookupCandidates(event),
+          });
+        }
         logWebhookEvent("info", "[creem-webhook][ignored]", eventType || "unknown", event);
         break;
       }

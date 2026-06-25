@@ -17,6 +17,13 @@ import {
   verifyCreemRedirectSignature,
   verifyCreemWebhookSignature,
 } from "../src/lib/creem.ts";
+import {
+  BILLING_REVOKE_EVENTS,
+  BILLING_RISK_EVENTS,
+  CREEM_HANDLED_EVENT_TYPES,
+  extractPaymentIdentifiers,
+  getBillingLookupCandidates,
+} from "../src/lib/creem-webhook.ts";
 import { getPlanRank, isPlanAtLeast } from "../src/lib/plans.ts";
 
 const env = {
@@ -166,6 +173,70 @@ test("webhook signature verification matches HMAC-SHA256 payload signing", () =>
 
   assert.equal(verifyCreemWebhookSignature(payload, signature, secret), true);
   assert.equal(verifyCreemWebhookSignature(payload, "bad-signature", secret), false);
+});
+
+test("billing revoke events are explicitly allow-listed", () => {
+  assert.deepEqual([...BILLING_REVOKE_EVENTS], ["refund.created", "dispute.created"]);
+  assert.deepEqual([...BILLING_RISK_EVENTS], ["refund.created", "dispute.created"]);
+  assert.equal(CREEM_HANDLED_EVENT_TYPES.includes("subscription.canceled"), true);
+  assert.equal(CREEM_HANDLED_EVENT_TYPES.includes("subscription.expired"), true);
+});
+
+test("billing lookup candidates prefer transaction then checkout then subscription then metadata ids", () => {
+  const event = {
+    eventType: "refund.created",
+    object: {
+      transaction_id: "txn_123",
+      checkout_id: "chk_456",
+      subscription: {
+        id: "sub_789",
+        customer_id: "cust_abc",
+        metadata: {
+          userId: "user_sub_meta",
+        },
+      },
+      metadata: {
+        user_id: "user_obj_meta",
+        profileId: "profile_obj_meta",
+        email: "owner@example.com",
+      },
+    },
+  };
+
+  assert.deepEqual(getBillingLookupCandidates(event), [
+    { kind: "transaction", value: "txn_123" },
+    { kind: "checkout", value: "chk_456" },
+    { kind: "subscription", value: "sub_789" },
+    { kind: "customer", value: "cust_abc" },
+    { kind: "user", value: "user_obj_meta" },
+    { kind: "profile", value: "profile_obj_meta" },
+  ]);
+});
+
+test("payment identifier extraction keeps metadata fallbacks available for safe revoke matching", () => {
+  const identifiers = extractPaymentIdentifiers({
+    type: "dispute.created",
+    object: {
+      order: { id: "ord_123" },
+      payment: { id: "pay_456" },
+      metadata: {
+        userId: "user_1",
+        profile_id: "profile_1",
+        user_email: "riskshield@example.com",
+      },
+    },
+  });
+
+  assert.deepEqual(identifiers, {
+    transactionId: "pay_456",
+    checkoutId: null,
+    orderId: "ord_123",
+    subscriptionId: null,
+    customerId: null,
+    metadataUserId: "user_1",
+    metadataProfileId: "profile_1",
+    metadataEmail: "riskshield@example.com",
+  });
 });
 
 test("cancelled subscriptions keep access until the paid period actually ends", () => {
