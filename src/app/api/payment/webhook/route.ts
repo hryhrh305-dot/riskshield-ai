@@ -294,6 +294,107 @@ async function updatePaymentStatusByIdentifiers(
   return false;
 }
 
+async function findPaymentRecordByIdentifiers(identifiers: {
+  checkoutId?: string | null;
+  orderId?: string | null;
+  transactionId?: string | null;
+}) {
+  const admin = getSupabaseAdmin();
+  const queryTargets = [
+    identifiers.transactionId ? { column: "provider_transaction_id", value: identifiers.transactionId } : null,
+    identifiers.checkoutId ? { column: "provider_checkout_id", value: identifiers.checkoutId } : null,
+    identifiers.orderId ? { column: "provider_transaction_id", value: identifiers.orderId } : null,
+  ].filter(Boolean) as Array<{ column: "provider_transaction_id" | "provider_checkout_id"; value: string }>;
+
+  for (const target of queryTargets) {
+    const { data: paymentRow } = await admin
+      .from("payments")
+      .select("id, user_id, provider_subscription_id, provider_product_id, plan")
+      .eq(target.column, target.value)
+      .maybeSingle();
+
+    if (paymentRow?.id) {
+      return paymentRow;
+    }
+  }
+
+  return null;
+}
+
+async function updateMatchedSubscriptionState(params: {
+  userId: string;
+  subscriptionId?: string | null;
+  subscriptionStatus: "cancelled" | "paused";
+  productId?: string | null;
+}) {
+  const admin = getSupabaseAdmin();
+  const nowIso = new Date().toISOString();
+
+  if (params.subscriptionId) {
+    await admin
+      .from("subscriptions")
+      .update({
+        status: params.subscriptionStatus,
+        current_period_end: nowIso,
+        cancelled_at: nowIso,
+      })
+      .eq("user_id", params.userId)
+      .eq("provider_subscription_id", params.subscriptionId);
+    return;
+  }
+
+  const { data: latestSubscription } = await admin
+    .from("subscriptions")
+    .select("id")
+    .eq("user_id", params.userId)
+    .eq("provider_product_id", params.productId || "")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!latestSubscription?.id) return;
+
+  await admin
+    .from("subscriptions")
+    .update({
+      status: params.subscriptionStatus,
+      current_period_end: nowIso,
+      cancelled_at: nowIso,
+    })
+    .eq("id", latestSubscription.id);
+}
+
+async function revokePaidAccessForBillingIssue(params: {
+  userId: string;
+  subscriptionId?: string | null;
+  productId?: string | null;
+  customerId?: string | null;
+  profileStatus: "cancelled" | "paused";
+  subscriptionStatus: "cancelled" | "paused";
+}) {
+  const freeCredits = getCreditsForPlan("free");
+  const nowIso = new Date().toISOString();
+
+  await updateMatchedSubscriptionState({
+    userId: params.userId,
+    subscriptionId: params.subscriptionId,
+    subscriptionStatus: params.subscriptionStatus,
+    productId: params.productId,
+  });
+
+  await getSupabaseAdmin()
+    .from("profiles")
+    .update({
+      plan: "free",
+      subscription_status: params.profileStatus,
+      subscription_end: nowIso,
+      credits_remaining: freeCredits,
+      ...(params.customerId ? { creem_customer_id: params.customerId } : {}),
+      updated_at: nowIso,
+    })
+    .eq("id", params.userId);
+}
+
 export async function POST(req: NextRequest) {
   try {
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !CREEM_WEBHOOK_SECRET) {
@@ -647,6 +748,20 @@ export async function POST(req: NextRequest) {
       case "refund.created": {
         const identifiers = extractPaymentIdentifiers(event);
         const updated = await updatePaymentStatusByIdentifiers("refunded", identifiers);
+        const paymentRow = await findPaymentRecordByIdentifiers(identifiers);
+        const customerId = extractCustomerId(event);
+
+        if (paymentRow?.user_id) {
+          await revokePaidAccessForBillingIssue({
+            userId: paymentRow.user_id,
+            subscriptionId: paymentRow.provider_subscription_id,
+            productId: paymentRow.provider_product_id,
+            customerId,
+            profileStatus: "cancelled",
+            subscriptionStatus: "cancelled",
+          });
+        }
+
         logWebhookEvent(
           "info",
           updated ? "[creem-webhook][refund.created][applied]" : "[creem-webhook][refund.created][unmatched]",
@@ -659,6 +774,20 @@ export async function POST(req: NextRequest) {
       case "dispute.created": {
         const identifiers = extractPaymentIdentifiers(event);
         const updated = await updatePaymentStatusByIdentifiers("failed", identifiers);
+        const paymentRow = await findPaymentRecordByIdentifiers(identifiers);
+        const customerId = extractCustomerId(event);
+
+        if (paymentRow?.user_id) {
+          await revokePaidAccessForBillingIssue({
+            userId: paymentRow.user_id,
+            subscriptionId: paymentRow.provider_subscription_id,
+            productId: paymentRow.provider_product_id,
+            customerId,
+            profileStatus: "paused",
+            subscriptionStatus: "paused",
+          });
+        }
+
         logWebhookEvent(
           "warn",
           updated ? "[creem-webhook][dispute.created][applied]" : "[creem-webhook][dispute.created][unmatched]",
