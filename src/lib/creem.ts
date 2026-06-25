@@ -78,7 +78,17 @@ export function findPlanByCreemProductId(
   return null;
 }
 
-export function getCreemApiBaseUrl(apiKey: string | null | undefined): string {
+export function getCreemApiBaseUrl(apiKey: string | null | undefined, env: NodeJS.ProcessEnv = process.env): string {
+  const explicitMode = (env.CREEM_ENV || "").toLowerCase();
+
+  if (explicitMode === "production" || explicitMode === "live") {
+    return "https://api.creem.io/v1";
+  }
+
+  if (explicitMode === "test" || explicitMode === "sandbox") {
+    return "https://test-api.creem.io/v1";
+  }
+
   return apiKey?.startsWith("creem_test_")
     ? "https://test-api.creem.io/v1"
     : "https://api.creem.io/v1";
