@@ -20,15 +20,19 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const incomingConfirmationUrl = urlParams.get("confirmation_url");
-    if (incomingConfirmationUrl) {
+    const supabase = createClient();
+    const presetError = urlParams.get("message");
+    const hasRecoveryHash =
+      window.location.hash.includes("access_token=") ||
+      window.location.hash.includes("refresh_token=") ||
+      window.location.hash.includes("type=recovery");
+
+    if (incomingConfirmationUrl && !hasRecoveryHash) {
       const rebuiltConfirmationUrl = rebuildConfirmationUrl(incomingConfirmationUrl, urlParams);
       setConfirmationUrl(rebuiltConfirmationUrl);
       setCheckingSession(false);
       return;
     }
-
-    const supabase = createClient();
-    const presetError = urlParams.get("message");
 
     async function checkRecoverySession() {
       for (let attempt = 0; attempt < 8; attempt += 1) {
