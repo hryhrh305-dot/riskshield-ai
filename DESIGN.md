@@ -1,6 +1,6 @@
 ---
 version: alpha
-name: xAI-Inspired-design-analysis
+name: RiskShield AI xAI Design System
 description: An inspired interpretation of xAI's design language — Elon Musk's frontier-AI company whose web surface is a strict near-black canvas broken only by white pill outlines, occasional warm sunset / dusk gradient accents, a custom geometric sans (Universal Sans) for display, and an uppercase tracked monospace caption face; the whole system reads as engineered-cosmic, unmarketed.
 
 colors:
@@ -438,6 +438,13 @@ The brand uses no shadows. Hairline borders carry all elevation cues.
 - 1 px solid `{colors.hairline}`
 
 ## Do's and don'ts
+
+## Reference Library
+
+- `docs/design-references/xai.DESIGN.md` is the primary visual baseline.
+- `docs/design-references/sentry.DESIGN.md` is the reference for dense security dashboards and alert surfaces.
+- `docs/design-references/vercel.DESIGN.md` is the reference for developer-product clarity and docs-like pages.
+- `docs/design-references/stripe.DESIGN.md` is the reference for pricing, billing, and quota presentation.
 
 ### Do
 

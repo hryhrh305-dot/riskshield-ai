@@ -19,10 +19,12 @@
 - Reason
   - Establish a long-term UI memory system for RiskShield AI
   - Align the product more closely with an xAI-inspired monochrome futuristic direction
+  - Save raw design reference files under `docs/design-references/` and index them for later UI work
 
 - Design Source
   - xAI-inspired `DESIGN.md` reference from VoltAgent `awesome-design-md`
   - RiskShield AI enterprise risk dashboard positioning
+  - Raw xAI, Sentry, Vercel, and Stripe reference docs stored in `docs/design-references/`
 
 - Whether DESIGN.md was followed
   - Yes

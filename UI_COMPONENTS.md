@@ -2,6 +2,7 @@
 
 This file records the reusable UI pattern system for RiskShield AI.
 Every future UI task must read this file before adding or modifying visual components.
+The current visual direction is xAI-first, with Sentry, Vercel, and Stripe used as secondary references for security, developer, and billing surfaces.
 
 ## 1. PageShell
 
