@@ -121,7 +121,12 @@ export default function DashboardPage() {
 
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setFeedbackError(data?.error || "Failed to send feedback.");
+        setFeedbackError(
+          data?.error ||
+          data?.details ||
+          data?.hint ||
+          "Failed to send feedback.",
+        );
         if (typeof data?.sentToday === "number") setFeedbackSentToday(data.sentToday);
         if (typeof data?.dailyLimit === "number") setFeedbackDailyLimit(data.dailyLimit);
         return;

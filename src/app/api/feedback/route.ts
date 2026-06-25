@@ -114,20 +114,28 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const sentToday = await getTodayFeedbackCount(user.id);
-    if (sentToday >= DAILY_FEEDBACK_LIMIT) {
-      return NextResponse.json(
-        {
-          error: `Daily feedback limit reached (${DAILY_FEEDBACK_LIMIT}/day). Please try again tomorrow.`,
-          sentToday,
-          dailyLimit: DAILY_FEEDBACK_LIMIT,
-          remainingToday: 0,
-        },
-        { status: 429 },
-      );
+    let sentToday = 0;
+    let quotaLookupFailed = false;
+    try {
+      sentToday = await getTodayFeedbackCount(user.id);
+      if (sentToday >= DAILY_FEEDBACK_LIMIT) {
+        return NextResponse.json(
+          {
+            error: `Daily feedback limit reached (${DAILY_FEEDBACK_LIMIT}/day). Please try again tomorrow.`,
+            sentToday,
+            dailyLimit: DAILY_FEEDBACK_LIMIT,
+            remainingToday: 0,
+          },
+          { status: 429 },
+        );
+      }
+    } catch (quotaError) {
+      quotaLookupFailed = true;
+      console.warn("[feedback][POST][quota]", quotaError);
     }
 
-    const { error } = await getSupabaseAdmin().from("feedback_messages").insert({
+    const admin = getSupabaseAdmin();
+    const { error } = await admin.from("feedback_messages").insert({
       user_id: user.id,
       email: user.email,
       subject,
@@ -135,7 +143,22 @@ export async function POST(request: NextRequest) {
     });
 
     if (error) {
-      throw error;
+      console.error("[feedback][POST][insert]", {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      return NextResponse.json(
+        {
+          error: error.message || "Failed to send feedback.",
+          code: error.code ?? null,
+          details: error.details ?? null,
+          hint: error.hint ?? null,
+          quotaLookupFailed,
+        },
+        { status: 500 },
+      );
     }
 
     const nextSentToday = sentToday + 1;
@@ -146,9 +169,20 @@ export async function POST(request: NextRequest) {
       dailyLimit: DAILY_FEEDBACK_LIMIT,
       remainingToday: Math.max(0, DAILY_FEEDBACK_LIMIT - nextSentToday),
       message: "Feedback sent successfully.",
+      quotaLookupFailed,
     });
   } catch (error) {
-    console.error("[feedback][POST]", error);
-    return NextResponse.json({ error: "Failed to send feedback." }, { status: 500 });
+    const err = error as { message?: string; code?: string; details?: string; hint?: string };
+    console.error("[feedback][POST]", err);
+    return NextResponse.json(
+      {
+        error: err?.message || "Failed to send feedback.",
+        code: err?.code || null,
+        details: err?.details || null,
+        hint: err?.hint || null,
+        quotaLookupFailed: false,
+      },
+      { status: 500 },
+    );
   }
 }
