@@ -6,6 +6,7 @@ import { Shield } from "lucide-react";
 import { requestPasswordReset } from "@/lib/auth";
 
 export default function ForgotPasswordPage() {
+  const cooldownStorageKey = "riskshield_reset_cooldown_until";
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -14,6 +15,16 @@ export default function ForgotPasswordPage() {
   const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
+    const storedUntil = window.localStorage.getItem(cooldownStorageKey);
+    if (storedUntil) {
+      const remaining = Math.max(0, Math.ceil((Number(storedUntil) - Date.now()) / 1000));
+      if (remaining > 0) {
+        startCooldown(remaining);
+      } else {
+        window.localStorage.removeItem(cooldownStorageKey);
+      }
+    }
+
     return () => {
       if (timerRef.current) {
         window.clearInterval(timerRef.current);
@@ -21,8 +32,8 @@ export default function ForgotPasswordPage() {
     };
   }, []);
 
-  function startCooldown() {
-    setCooldown(60);
+  function startCooldown(seconds = 60) {
+    setCooldown(seconds);
     if (timerRef.current) {
       window.clearInterval(timerRef.current);
     }
@@ -33,6 +44,7 @@ export default function ForgotPasswordPage() {
             window.clearInterval(timerRef.current);
             timerRef.current = null;
           }
+          window.localStorage.removeItem(cooldownStorageKey);
           return 0;
         }
         return current - 1;
@@ -52,6 +64,7 @@ export default function ForgotPasswordPage() {
       setError(error.message);
     } else {
       setSuccess(`Password reset email sent to ${email}. Please open the email and follow the link to set a new password.`);
+      window.localStorage.setItem(cooldownStorageKey, String(Date.now() + 60_000));
       startCooldown();
     }
 

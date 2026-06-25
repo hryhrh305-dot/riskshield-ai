@@ -13,12 +13,21 @@ export default function ResetPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
+  const [confirmationUrl, setConfirmationUrl] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const incomingConfirmationUrl = urlParams.get("confirmation_url");
+    if (incomingConfirmationUrl) {
+      setConfirmationUrl(incomingConfirmationUrl);
+      setCheckingSession(false);
+      return;
+    }
+
     const supabase = createClient();
-    const presetError = new URLSearchParams(window.location.search).get("message");
+    const presetError = urlParams.get("message");
 
     async function checkRecoverySession() {
       for (let attempt = 0; attempt < 8; attempt += 1) {
@@ -41,6 +50,11 @@ export default function ResetPasswordPage() {
 
     checkRecoverySession();
   }, []);
+
+  function handleContinueFromEmail() {
+    if (!confirmationUrl) return;
+    window.location.href = confirmationUrl;
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -81,6 +95,20 @@ export default function ResetPasswordPage() {
           <p className="text-sm text-gray-500 mt-1">Set a new password for your RiskShield AI account.</p>
         </div>
 
+        {confirmationUrl ? (
+          <div className="bg-white rounded-xl border p-6 space-y-4">
+            <div className="rounded-lg bg-blue-50 p-3 text-sm text-blue-700">
+              To protect your reset link from email security scanners, please click the button below to continue securely to your password reset form.
+            </div>
+            <button
+              type="button"
+              onClick={handleContinueFromEmail}
+              className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
+            >
+              Continue to Reset Password
+            </button>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="bg-white rounded-xl border p-6 space-y-4">
           {error && <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
           {success && <div className="p-3 bg-green-50 text-green-700 rounded-lg text-sm">{success}</div>}
@@ -117,6 +145,7 @@ export default function ResetPasswordPage() {
             {checkingSession ? "Checking link..." : loading ? "Updating..." : "Update Password"}
           </button>
         </form>
+        )}
 
         <p className="text-center text-sm text-gray-500 mt-4">
           Back to <Link href="/login" className="text-blue-600 hover:underline">Sign In</Link>
