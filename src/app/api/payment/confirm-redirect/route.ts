@@ -4,8 +4,8 @@ import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
 import { findPlanByCreemProductId, getCreditsForPlan, verifyCreemRedirectSignature } from "@/lib/creem";
 import { getPlanRank } from "@/lib/plans";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co";
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ";
 const CREEM_API_KEY = process.env.CREEM_API_KEY || "";
 
 let supabaseAdmin: ReturnType<typeof createClient> | null = null;
