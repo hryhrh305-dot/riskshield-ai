@@ -45,27 +45,57 @@ export function getCreemProductEnvMap(env: NodeJS.ProcessEnv = process.env): Pro
 }
 
 export function getCreemEnvDebugInfo(env: NodeJS.ProcessEnv = process.env) {
+  const explicitProduction = isExplicitProduction(env);
+  const hasProductionStarterProduct = Boolean(env.CREEM_STARTER_PRODUCT_ID);
+  const hasProductionGrowthProduct = Boolean(env.CREEM_GROWTH_PRODUCT_ID);
+  const hasProductionScaleProduct = Boolean(env.CREEM_SCALE_PRODUCT_ID);
+  const hasStarterProduct = explicitProduction
+    ? Boolean(env.CREEM_STARTER_PRODUCT_ID)
+    : Boolean(
+        env.CREEM_STARTER_PRODUCT_ID ||
+          env.CREEM_PRODUCT_STARTER_MONTHLY ||
+          env.CREEM_PRODUCT_ID_STARTER ||
+          env.CREEM_PRODUCT_ID,
+      );
+  const hasGrowthProduct = explicitProduction
+    ? Boolean(env.CREEM_GROWTH_PRODUCT_ID)
+    : Boolean(
+        env.CREEM_GROWTH_PRODUCT_ID ||
+          env.CREEM_PRODUCT_GROWTH_MONTHLY ||
+          env.CREEM_PRODUCT_ID_GROWTH,
+      );
+  const hasScaleProduct = explicitProduction
+    ? Boolean(env.CREEM_SCALE_PRODUCT_ID)
+    : Boolean(
+        env.CREEM_SCALE_PRODUCT_ID ||
+          env.CREEM_PRODUCT_SCALE_MONTHLY ||
+          env.CREEM_PRODUCT_ID_SCALE,
+      );
+  const usesLiveApiHost = getCreemApiBaseUrl(env.CREEM_API_KEY, env) === "https://api.creem.io/v1";
+
   return {
     hasCreemApiKey: Boolean(env.CREEM_API_KEY),
-    hasStarterProduct: Boolean(
-      env.CREEM_STARTER_PRODUCT_ID ||
-        env.CREEM_PRODUCT_STARTER_MONTHLY ||
-        env.CREEM_PRODUCT_ID_STARTER ||
-        env.CREEM_PRODUCT_ID,
-    ),
-    hasGrowthProduct: Boolean(
-      env.CREEM_GROWTH_PRODUCT_ID ||
-        env.CREEM_PRODUCT_GROWTH_MONTHLY ||
-        env.CREEM_PRODUCT_ID_GROWTH,
-    ),
-    hasScaleProduct: Boolean(
-      env.CREEM_SCALE_PRODUCT_ID ||
-        env.CREEM_PRODUCT_SCALE_MONTHLY ||
-        env.CREEM_PRODUCT_ID_SCALE,
-    ),
+    hasWebhookSecret: Boolean(env.CREEM_WEBHOOK_SECRET),
+    hasProductionStarterProduct,
+    hasProductionGrowthProduct,
+    hasProductionScaleProduct,
+    hasStarterProduct,
+    hasGrowthProduct,
+    hasScaleProduct,
     hasLegacyStarterProduct: Boolean(env.CREEM_PRODUCT_ID),
     hasLegacyGrowthProduct: Boolean(env.CREEM_PRODUCT_ID_GROWTH),
     hasLegacyScaleProduct: Boolean(env.CREEM_PRODUCT_ID_SCALE),
+    isExplicitProduction: explicitProduction,
+    usesLiveApiHost,
+    isProductionConfigComplete:
+      explicitProduction &&
+      Boolean(
+        env.CREEM_API_KEY &&
+          env.CREEM_WEBHOOK_SECRET &&
+          hasProductionStarterProduct &&
+          hasProductionGrowthProduct &&
+          hasProductionScaleProduct,
+      ),
     vercelEnv: env.VERCEL_ENV || null,
     nodeEnv: env.NODE_ENV || null,
   };

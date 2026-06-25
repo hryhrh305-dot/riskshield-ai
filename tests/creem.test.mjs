@@ -73,6 +73,17 @@ test("creem test keys use test api host", () => {
   assert.equal(getCreemApiBaseUrl("creem_live_123"), "https://api.creem.io/v1");
 });
 
+test("explicit creem env overrides api key prefix", () => {
+  assert.equal(
+    getCreemApiBaseUrl("creem_test_123", { CREEM_ENV: "production" }),
+    "https://api.creem.io/v1",
+  );
+  assert.equal(
+    getCreemApiBaseUrl("creem_live_123", { CREEM_ENV: "test" }),
+    "https://test-api.creem.io/v1",
+  );
+});
+
 test("checkout urls use the production riskshield paths", () => {
   const urls = getCreemCheckoutUrls(env);
 
@@ -118,10 +129,43 @@ test("webhook signature verification matches HMAC-SHA256 payload signing", () =>
 
 test("creem env debug info returns booleans only", () => {
   const debug = getCreemEnvDebugInfo({
-    CREEM_API_KEY: "secret",
+    CREEM_API_KEY: "creem_test_123",
     CREEM_PRODUCT_STARTER_MONTHLY: "starter-product",
     CREEM_PRODUCT_GROWTH_MONTHLY: "growth-product",
     CREEM_PRODUCT_SCALE_MONTHLY: "scale-product",
+    NEXT_PUBLIC_APP_URL: "https://www.574269.xyz",
+    VERCEL_ENV: "preview",
+    NODE_ENV: "test",
+  });
+
+  assert.deepEqual(debug, {
+    hasCreemApiKey: true,
+    hasWebhookSecret: false,
+    hasProductionStarterProduct: false,
+    hasProductionGrowthProduct: false,
+    hasProductionScaleProduct: false,
+    hasStarterProduct: true,
+    hasGrowthProduct: true,
+    hasScaleProduct: true,
+    hasLegacyStarterProduct: false,
+    hasLegacyGrowthProduct: false,
+    hasLegacyScaleProduct: false,
+    isExplicitProduction: false,
+    usesLiveApiHost: false,
+    isProductionConfigComplete: false,
+    vercelEnv: "preview",
+    nodeEnv: "test",
+  });
+});
+
+test("creem env debug info reports production readiness", () => {
+  const debug = getCreemEnvDebugInfo({
+    CREEM_ENV: "production",
+    CREEM_API_KEY: "creem_live_123",
+    CREEM_WEBHOOK_SECRET: "whsec_live_123",
+    CREEM_STARTER_PRODUCT_ID: "prod_starter_live",
+    CREEM_GROWTH_PRODUCT_ID: "prod_growth_live",
+    CREEM_SCALE_PRODUCT_ID: "prod_scale_live",
     NEXT_PUBLIC_APP_URL: "https://www.574269.xyz",
     VERCEL_ENV: "production",
     NODE_ENV: "production",
@@ -129,12 +173,19 @@ test("creem env debug info returns booleans only", () => {
 
   assert.deepEqual(debug, {
     hasCreemApiKey: true,
+    hasWebhookSecret: true,
+    hasProductionStarterProduct: true,
+    hasProductionGrowthProduct: true,
+    hasProductionScaleProduct: true,
     hasStarterProduct: true,
     hasGrowthProduct: true,
     hasScaleProduct: true,
     hasLegacyStarterProduct: false,
     hasLegacyGrowthProduct: false,
     hasLegacyScaleProduct: false,
+    isExplicitProduction: true,
+    usesLiveApiHost: true,
+    isProductionConfigComplete: true,
     vercelEnv: "production",
     nodeEnv: "production",
   });

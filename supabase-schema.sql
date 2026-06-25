@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   subscription_status TEXT DEFAULT 'inactive' CHECK (subscription_status IN ('inactive', 'active', 'cancelled', 'expired')),
   subscription_start TIMESTAMPTZ,
   subscription_end TIMESTAMPTZ,
+  creem_customer_id TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

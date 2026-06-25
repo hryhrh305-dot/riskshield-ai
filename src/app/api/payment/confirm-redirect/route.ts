@@ -75,6 +75,7 @@ export async function POST(request: NextRequest) {
     const params = new URLSearchParams(rawQuery);
     const checkoutId = params.get("checkout_id");
     const orderId = params.get("order_id");
+    const customerId = params.get("customer_id");
     const productId = params.get("product_id");
 
     if (!checkoutId || !productId) {
@@ -121,6 +122,7 @@ export async function POST(request: NextRequest) {
         subscription_status: "active",
         subscription_start: new Date().toISOString(),
         credits_remaining: shouldUpgrade ? credits : currentProfile?.credits_remaining ?? credits,
+        ...(customerId ? { creem_customer_id: customerId } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq("id", user.id);

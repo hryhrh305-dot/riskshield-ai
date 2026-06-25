@@ -20,27 +20,48 @@ export async function POST() {
       return NextResponse.json({ error: "Creem is not configured." }, { status: 500 });
     }
 
+    const supabase = await createServerSupabaseClient();
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Please sign in first." }, { status: 401 });
     }
 
-    const apiBaseUrl = getCreemApiBaseUrl(creemApiKey);
-    const customerResponse = await fetch(`${apiBaseUrl}/customers?email=${encodeURIComponent(user.email || "")}`, {
-      method: "GET",
-      headers: {
-        "x-api-key": creemApiKey,
-      },
-    });
+    const { data: profileRow } = await supabase
+      .from("profiles")
+      .select("creem_customer_id")
+      .eq("id", user.id)
+      .maybeSingle();
 
-    const customerData = await customerResponse.json().catch(() => null);
-    if (!customerResponse.ok || !customerData?.id) {
-      return NextResponse.json(
-        {
-          error: customerData?.message || customerData?.error || "No Creem customer was found for this account.",
+    const apiBaseUrl = getCreemApiBaseUrl(creemApiKey);
+    let customerId = profileRow?.creem_customer_id || null;
+
+    if (!customerId) {
+      const customerResponse = await fetch(`${apiBaseUrl}/customers?email=${encodeURIComponent(user.email || "")}`, {
+        method: "GET",
+        headers: {
+          "x-api-key": creemApiKey,
         },
-        { status: customerResponse.status || 404 },
-      );
+      });
+
+      const customerData = await customerResponse.json().catch(() => null);
+      if (!customerResponse.ok || !customerData?.id) {
+        return NextResponse.json(
+          {
+            error: customerData?.message || customerData?.error || "No Creem customer was found for this account.",
+          },
+          { status: customerResponse.status || 404 },
+        );
+      }
+
+      customerId = customerData.id;
+
+      await supabase
+        .from("profiles")
+        .update({
+          creem_customer_id: customerId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", user.id);
     }
 
     const portalResponse = await fetch(`${apiBaseUrl}/customers/billing`, {
@@ -50,7 +71,7 @@ export async function POST() {
         "x-api-key": creemApiKey,
       },
       body: JSON.stringify({
-        customer_id: customerData.id,
+        customer_id: customerId,
       }),
     });
 

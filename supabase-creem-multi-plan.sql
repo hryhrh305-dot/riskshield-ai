@@ -10,3 +10,6 @@ ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_subscription_status_chec
 ALTER TABLE profiles
   ADD CONSTRAINT profiles_subscription_status_check
   CHECK (subscription_status IN ('inactive', 'active', 'cancelled', 'expired', 'past_due'));
+
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS creem_customer_id TEXT;

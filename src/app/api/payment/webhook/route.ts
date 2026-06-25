@@ -43,6 +43,30 @@ async function getStoredSubscription(subscriptionId: string | null | undefined) 
   return data;
 }
 
+function extractCustomerId(event: any): string | null {
+  return (
+    event?.object?.customer_id ||
+    event?.object?.customer?.id ||
+    event?.object?.customer?.customer_id ||
+    event?.object?.subscription?.customer_id ||
+    event?.object?.subscription?.customer?.id ||
+    event?.customer_id ||
+    null
+  );
+}
+
+async function updateProfileCustomerId(userId: string, customerId: string | null | undefined) {
+  if (!customerId) return;
+
+  await getSupabaseAdmin()
+    .from("profiles")
+    .update({
+      creem_customer_id: customerId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", userId);
+}
+
 async function upsertSubscriptionRecord(params: {
   userId: string;
   plan: string;
@@ -95,28 +119,33 @@ async function upsertProfileForPaidSubscription(params: {
   plan: string;
   currentPeriodStart?: string | null;
   currentPeriodEnd?: string | null;
+  customerId?: string | null;
 }) {
   const credits = getCreditsForPlan(params.plan);
   const { data: currentProfile } = await getSupabaseAdmin()
     .from("profiles")
-    .select("plan, credits_remaining")
+    .select("plan, credits_remaining, creem_customer_id")
     .eq("id", params.userId)
     .maybeSingle();
 
   const currentPlan = currentProfile?.plan || "free";
   const shouldUpgrade = getPlanRank(params.plan) >= getPlanRank(currentPlan);
+  const customerId = params.customerId || currentProfile?.creem_customer_id || null;
 
-  await getSupabaseAdmin()
-    .from("profiles")
-    .update({
-      plan: shouldUpgrade ? params.plan : currentPlan,
-      subscription_status: "active",
-      subscription_start: asIso(params.currentPeriodStart) || new Date().toISOString(),
-      subscription_end: asIso(params.currentPeriodEnd),
-      credits_remaining: shouldUpgrade ? credits : currentProfile?.credits_remaining ?? credits,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", params.userId);
+  const payload: Record<string, unknown> = {
+    plan: shouldUpgrade ? params.plan : currentPlan,
+    subscription_status: "active",
+    subscription_start: asIso(params.currentPeriodStart) || new Date().toISOString(),
+    subscription_end: asIso(params.currentPeriodEnd),
+    credits_remaining: shouldUpgrade ? credits : currentProfile?.credits_remaining ?? credits,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (customerId) {
+    payload.creem_customer_id = customerId;
+  }
+
+  await getSupabaseAdmin().from("profiles").update(payload).eq("id", params.userId);
 }
 
 async function updateProfileSubscriptionState(params: {
@@ -124,6 +153,7 @@ async function updateProfileSubscriptionState(params: {
   status: "active" | "cancelled" | "expired" | "past_due";
   plan?: string;
   subscriptionEnd?: string | null;
+  customerId?: string | null;
 }) {
   const payload: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
@@ -137,6 +167,7 @@ async function updateProfileSubscriptionState(params: {
   }
 
   if (params.plan) payload.plan = params.plan;
+  if (params.customerId) payload.creem_customer_id = params.customerId;
 
   await getSupabaseAdmin().from("profiles").update(payload).eq("id", params.userId);
 }
@@ -270,9 +301,14 @@ export async function POST(req: NextRequest) {
         const orderId = event?.object?.order?.id || null;
         const currentPeriodStart = event?.object?.subscription?.created_at || null;
         const currentPeriodEnd = event?.object?.subscription?.current_period_end_date || null;
+        const customerId = extractCustomerId(event);
 
         if (checkoutId) {
           await markCheckoutPaymentCompleted(checkoutId, orderId);
+        }
+
+        if (userId && customerId) {
+          await updateProfileCustomerId(userId, customerId);
         }
 
         if (userId && plan && subscriptionId) {
@@ -291,7 +327,12 @@ export async function POST(req: NextRequest) {
 
       case "subscription.active": {
         const { userId, plan, subscriptionId } = await resolveSubscriptionContext(event);
+        const customerId = extractCustomerId(event);
         if (userId && plan && subscriptionId) {
+          if (customerId) {
+            await updateProfileCustomerId(userId, customerId);
+          }
+
           await upsertSubscriptionRecord({
             userId,
             plan,
@@ -307,7 +348,12 @@ export async function POST(req: NextRequest) {
 
       case "subscription.paid": {
         const { userId, plan, subscriptionId } = await resolveSubscriptionContext(event);
+        const customerId = extractCustomerId(event);
         if (!userId || !plan || !subscriptionId) break;
+
+        if (customerId) {
+          await updateProfileCustomerId(userId, customerId);
+        }
 
         await upsertSubscriptionRecord({
           userId,
@@ -324,6 +370,7 @@ export async function POST(req: NextRequest) {
           plan,
           currentPeriodStart: event?.object?.current_period_start_date || null,
           currentPeriodEnd: event?.object?.current_period_end_date || null,
+          customerId,
         });
 
         const transactionId = event?.object?.last_transaction_id || null;
@@ -351,9 +398,14 @@ export async function POST(req: NextRequest) {
 
       case "subscription.update": {
         const { userId, plan, subscriptionId } = await resolveSubscriptionContext(event);
+        const customerId = extractCustomerId(event);
         if (!userId || !subscriptionId) break;
 
         const subscriptionStatus = (event?.object?.status || "active") as "active" | "cancelled" | "expired" | "past_due";
+
+        if (customerId) {
+          await updateProfileCustomerId(userId, customerId);
+        }
 
         await upsertSubscriptionRecord({
           userId,
@@ -371,6 +423,7 @@ export async function POST(req: NextRequest) {
             plan: plan || "free",
             currentPeriodStart: event?.object?.current_period_start_date || null,
             currentPeriodEnd: event?.object?.current_period_end_date || null,
+            customerId,
           });
         } else {
           await updateProfileSubscriptionState({
@@ -378,6 +431,7 @@ export async function POST(req: NextRequest) {
             status: subscriptionStatus,
             plan: plan || undefined,
             subscriptionEnd: event?.object?.current_period_end_date || event?.object?.canceled_at || null,
+            customerId,
           });
         }
         break;
@@ -386,7 +440,12 @@ export async function POST(req: NextRequest) {
       case "subscription.canceled":
       case "subscription.scheduled_cancel": {
         const { userId, plan, subscriptionId } = await resolveSubscriptionContext(event);
+        const customerId = extractCustomerId(event);
         if (!userId || !subscriptionId) break;
+
+        if (customerId) {
+          await updateProfileCustomerId(userId, customerId);
+        }
 
         await upsertSubscriptionRecord({
           userId,
@@ -402,13 +461,19 @@ export async function POST(req: NextRequest) {
           userId,
           status: "cancelled",
           subscriptionEnd: event?.object?.current_period_end_date || event?.object?.canceled_at || null,
+          customerId,
         });
         break;
       }
 
       case "subscription.unpaid": {
         const { userId, plan, subscriptionId } = await resolveSubscriptionContext(event);
+        const customerId = extractCustomerId(event);
         if (!userId || !subscriptionId) break;
+
+        if (customerId) {
+          await updateProfileCustomerId(userId, customerId);
+        }
 
         await upsertSubscriptionRecord({
           userId,
@@ -425,13 +490,19 @@ export async function POST(req: NextRequest) {
           status: "past_due",
           plan: plan || undefined,
           subscriptionEnd: event?.object?.current_period_end_date || null,
+          customerId,
         });
         break;
       }
 
       case "subscription.past_due": {
         const { userId, plan, subscriptionId } = await resolveSubscriptionContext(event);
+        const customerId = extractCustomerId(event);
         if (!userId || !subscriptionId) break;
+
+        if (customerId) {
+          await updateProfileCustomerId(userId, customerId);
+        }
 
         await upsertSubscriptionRecord({
           userId,
@@ -447,6 +518,7 @@ export async function POST(req: NextRequest) {
           userId,
           status: "past_due",
           subscriptionEnd: event?.object?.current_period_end_date || null,
+          customerId,
         });
         break;
       }
@@ -477,7 +549,12 @@ export async function POST(req: NextRequest) {
 
       case "subscription.expired": {
         const { userId, subscriptionId } = await resolveSubscriptionContext(event);
+        const customerId = extractCustomerId(event);
         if (!userId || !subscriptionId) break;
+
+        if (customerId) {
+          await updateProfileCustomerId(userId, customerId);
+        }
 
         await upsertSubscriptionRecord({
           userId,
@@ -494,6 +571,7 @@ export async function POST(req: NextRequest) {
           status: "expired",
           plan: "free",
           subscriptionEnd: null,
+          customerId,
         });
         break;
       }
