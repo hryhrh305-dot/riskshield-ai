@@ -2,10 +2,19 @@ import crypto from "crypto";
 import { plans, type PlanKey } from "./plans.ts";
 
 type CreemPlanKey = Extract<PlanKey, "starter" | "growth" | "scale">;
+export type CreemBillingInterval = "monthly" | "yearly";
 
 export const CREEM_SELF_SERVE_PLANS = ["starter", "growth", "scale"] as const satisfies readonly CreemPlanKey[];
+export const CREEM_BILLING_INTERVALS = ["monthly", "yearly"] as const satisfies readonly CreemBillingInterval[];
 
 type ProductEnvMap = Record<CreemPlanKey, string | undefined>;
+type ProductEnvMapByInterval = Record<CreemBillingInterval, ProductEnvMap>;
+
+const YEARLY_PRICES: Record<CreemPlanKey, number> = {
+  starter: 499,
+  growth: 2499,
+  scale: 14999,
+};
 
 function isExplicitProduction(env: NodeJS.ProcessEnv): boolean {
   const mode = (env.CREEM_ENV || "").toLowerCase();
@@ -16,14 +25,37 @@ export function isCreemSelfServePlan(plan: string): plan is CreemPlanKey {
   return CREEM_SELF_SERVE_PLANS.includes(plan as CreemPlanKey);
 }
 
-export function getCreemProductEnvMap(env: NodeJS.ProcessEnv = process.env): ProductEnvMap {
+export function normalizeCreemBillingInterval(interval: string | null | undefined): CreemBillingInterval {
+  return interval === "yearly" ? "yearly" : "monthly";
+}
+
+export function getCreemProductEnvMap(
+  env: NodeJS.ProcessEnv = process.env,
+  billingInterval: CreemBillingInterval = "monthly",
+): ProductEnvMap {
   const strictProduction = isExplicitProduction(env);
 
-  if (strictProduction) {
+  if (strictProduction && billingInterval === "monthly") {
     return {
       starter: env.CREEM_STARTER_PRODUCT_ID,
       growth: env.CREEM_GROWTH_PRODUCT_ID,
       scale: env.CREEM_SCALE_PRODUCT_ID,
+    };
+  }
+
+  if (strictProduction && billingInterval === "yearly") {
+    return {
+      starter: env.CREEM_STARTER_YEARLY_PRODUCT_ID,
+      growth: env.CREEM_GROWTH_YEARLY_PRODUCT_ID,
+      scale: env.CREEM_SCALE_YEARLY_PRODUCT_ID,
+    };
+  }
+
+  if (billingInterval === "yearly") {
+    return {
+      starter: env.CREEM_STARTER_YEARLY_PRODUCT_ID,
+      growth: env.CREEM_GROWTH_YEARLY_PRODUCT_ID,
+      scale: env.CREEM_SCALE_YEARLY_PRODUCT_ID,
     };
   }
 
@@ -44,11 +76,21 @@ export function getCreemProductEnvMap(env: NodeJS.ProcessEnv = process.env): Pro
   };
 }
 
+export function getCreemProductEnvMaps(env: NodeJS.ProcessEnv = process.env): ProductEnvMapByInterval {
+  return {
+    monthly: getCreemProductEnvMap(env, "monthly"),
+    yearly: getCreemProductEnvMap(env, "yearly"),
+  };
+}
+
 export function getCreemEnvDebugInfo(env: NodeJS.ProcessEnv = process.env) {
   const explicitProduction = isExplicitProduction(env);
   const hasProductionStarterProduct = Boolean(env.CREEM_STARTER_PRODUCT_ID);
   const hasProductionGrowthProduct = Boolean(env.CREEM_GROWTH_PRODUCT_ID);
   const hasProductionScaleProduct = Boolean(env.CREEM_SCALE_PRODUCT_ID);
+  const hasProductionStarterYearlyProduct = Boolean(env.CREEM_STARTER_YEARLY_PRODUCT_ID);
+  const hasProductionGrowthYearlyProduct = Boolean(env.CREEM_GROWTH_YEARLY_PRODUCT_ID);
+  const hasProductionScaleYearlyProduct = Boolean(env.CREEM_SCALE_YEARLY_PRODUCT_ID);
   const hasStarterProduct = explicitProduction
     ? Boolean(env.CREEM_STARTER_PRODUCT_ID)
     : Boolean(
@@ -79,9 +121,15 @@ export function getCreemEnvDebugInfo(env: NodeJS.ProcessEnv = process.env) {
     hasProductionStarterProduct,
     hasProductionGrowthProduct,
     hasProductionScaleProduct,
+    hasProductionStarterYearlyProduct,
+    hasProductionGrowthYearlyProduct,
+    hasProductionScaleYearlyProduct,
     hasStarterProduct,
     hasGrowthProduct,
     hasScaleProduct,
+    hasStarterYearlyProduct: Boolean(env.CREEM_STARTER_YEARLY_PRODUCT_ID),
+    hasGrowthYearlyProduct: Boolean(env.CREEM_GROWTH_YEARLY_PRODUCT_ID),
+    hasScaleYearlyProduct: Boolean(env.CREEM_SCALE_YEARLY_PRODUCT_ID),
     hasLegacyStarterProduct: Boolean(env.CREEM_PRODUCT_ID),
     hasLegacyGrowthProduct: Boolean(env.CREEM_PRODUCT_ID_GROWTH),
     hasLegacyScaleProduct: Boolean(env.CREEM_PRODUCT_ID_SCALE),
@@ -94,7 +142,10 @@ export function getCreemEnvDebugInfo(env: NodeJS.ProcessEnv = process.env) {
           env.CREEM_WEBHOOK_SECRET &&
           hasProductionStarterProduct &&
           hasProductionGrowthProduct &&
-          hasProductionScaleProduct,
+          hasProductionScaleProduct &&
+          hasProductionStarterYearlyProduct &&
+          hasProductionGrowthYearlyProduct &&
+          hasProductionScaleYearlyProduct,
       ),
     vercelEnv: env.VERCEL_ENV || null,
     nodeEnv: env.NODE_ENV || null,
@@ -104,23 +155,35 @@ export function getCreemEnvDebugInfo(env: NodeJS.ProcessEnv = process.env) {
 export function getCreemProductIdForPlan(
   plan: string,
   env: NodeJS.ProcessEnv = process.env,
+  billingInterval: CreemBillingInterval = "monthly",
 ): string | null {
   if (!isCreemSelfServePlan(plan)) return null;
-  return getCreemProductEnvMap(env)[plan] || null;
+  return getCreemProductEnvMap(env, billingInterval)[plan] || null;
+}
+
+export function findCreemProductById(
+  productId: string | null | undefined,
+  env: NodeJS.ProcessEnv = process.env,
+): { plan: CreemPlanKey; billingInterval: CreemBillingInterval } | null {
+  if (!productId) return null;
+
+  const productMaps = getCreemProductEnvMaps(env);
+  for (const billingInterval of CREEM_BILLING_INTERVALS) {
+    for (const plan of CREEM_SELF_SERVE_PLANS) {
+      if (productMaps[billingInterval][plan] === productId) {
+        return { plan, billingInterval };
+      }
+    }
+  }
+
+  return null;
 }
 
 export function findPlanByCreemProductId(
   productId: string | null | undefined,
   env: NodeJS.ProcessEnv = process.env,
 ): CreemPlanKey | null {
-  if (!productId) return null;
-
-  const productMap = getCreemProductEnvMap(env);
-  for (const plan of CREEM_SELF_SERVE_PLANS) {
-    if (productMap[plan] === productId) return plan;
-  }
-
-  return null;
+  return findCreemProductById(productId, env)?.plan || null;
 }
 
 export function getCreemApiBaseUrl(apiKey: string | null | undefined, env: NodeJS.ProcessEnv = process.env): string {
@@ -155,6 +218,14 @@ export function getCreemCheckoutUrls(env: NodeJS.ProcessEnv = process.env) {
 
 export function getCreditsForPlan(plan: string): number {
   return plans[plan as PlanKey]?.monthlyLimit ?? 0;
+}
+
+export function getCreemPriceForPlan(
+  plan: string,
+  billingInterval: CreemBillingInterval = "monthly",
+): number {
+  if (!isCreemSelfServePlan(plan)) return plans[plan as PlanKey]?.price ?? 0;
+  return billingInterval === "yearly" ? YEARLY_PRICES[plan] : plans[plan].price;
 }
 
 export function verifyCreemWebhookSignature(payload: string, signature: string, secret: string): boolean {

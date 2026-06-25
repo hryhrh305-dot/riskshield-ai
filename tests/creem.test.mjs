@@ -3,12 +3,15 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 
 import {
+  findCreemProductById,
   findPlanByCreemProductId,
   getCreemApiBaseUrl,
   getCreemCheckoutUrls,
   getCreemEnvDebugInfo,
+  getCreemPriceForPlan,
   getCreemProductIdForPlan,
   isCreemSelfServePlan,
+  normalizeCreemBillingInterval,
   verifyCreemRedirectSignature,
   verifyCreemWebhookSignature,
 } from "../src/lib/creem.ts";
@@ -66,6 +69,28 @@ test("monthly product env names from Vercel are supported", () => {
   assert.equal(getCreemProductIdForPlan("growth", monthlyEnv), "monthly_growth");
   assert.equal(getCreemProductIdForPlan("scale", monthlyEnv), "monthly_scale");
   assert.equal(findPlanByCreemProductId("monthly_scale", monthlyEnv), "scale");
+});
+
+test("yearly product env names are supported without changing plan entitlements", () => {
+  const yearlyEnv = {
+    CREEM_STARTER_YEARLY_PRODUCT_ID: "yearly_starter",
+    CREEM_GROWTH_YEARLY_PRODUCT_ID: "yearly_growth",
+    CREEM_SCALE_YEARLY_PRODUCT_ID: "yearly_scale",
+  };
+
+  assert.equal(getCreemProductIdForPlan("starter", yearlyEnv, "yearly"), "yearly_starter");
+  assert.equal(getCreemProductIdForPlan("growth", yearlyEnv, "yearly"), "yearly_growth");
+  assert.equal(getCreemProductIdForPlan("scale", yearlyEnv, "yearly"), "yearly_scale");
+  assert.deepEqual(findCreemProductById("yearly_growth", yearlyEnv), {
+    plan: "growth",
+    billingInterval: "yearly",
+  });
+  assert.equal(findPlanByCreemProductId("yearly_scale", yearlyEnv), "scale");
+  assert.equal(getCreemPriceForPlan("starter", "yearly"), 499);
+  assert.equal(getCreemPriceForPlan("growth", "yearly"), 2499);
+  assert.equal(getCreemPriceForPlan("scale", "yearly"), 14999);
+  assert.equal(normalizeCreemBillingInterval("yearly"), "yearly");
+  assert.equal(normalizeCreemBillingInterval("invalid"), "monthly");
 });
 
 test("creem test keys use test api host", () => {
@@ -144,9 +169,15 @@ test("creem env debug info returns booleans only", () => {
     hasProductionStarterProduct: false,
     hasProductionGrowthProduct: false,
     hasProductionScaleProduct: false,
+    hasProductionStarterYearlyProduct: false,
+    hasProductionGrowthYearlyProduct: false,
+    hasProductionScaleYearlyProduct: false,
     hasStarterProduct: true,
     hasGrowthProduct: true,
     hasScaleProduct: true,
+    hasStarterYearlyProduct: false,
+    hasGrowthYearlyProduct: false,
+    hasScaleYearlyProduct: false,
     hasLegacyStarterProduct: false,
     hasLegacyGrowthProduct: false,
     hasLegacyScaleProduct: false,
@@ -166,6 +197,9 @@ test("creem env debug info reports production readiness", () => {
     CREEM_STARTER_PRODUCT_ID: "prod_starter_live",
     CREEM_GROWTH_PRODUCT_ID: "prod_growth_live",
     CREEM_SCALE_PRODUCT_ID: "prod_scale_live",
+    CREEM_STARTER_YEARLY_PRODUCT_ID: "prod_starter_yearly_live",
+    CREEM_GROWTH_YEARLY_PRODUCT_ID: "prod_growth_yearly_live",
+    CREEM_SCALE_YEARLY_PRODUCT_ID: "prod_scale_yearly_live",
     NEXT_PUBLIC_APP_URL: "https://www.574269.xyz",
     VERCEL_ENV: "production",
     NODE_ENV: "production",
@@ -177,9 +211,15 @@ test("creem env debug info reports production readiness", () => {
     hasProductionStarterProduct: true,
     hasProductionGrowthProduct: true,
     hasProductionScaleProduct: true,
+    hasProductionStarterYearlyProduct: true,
+    hasProductionGrowthYearlyProduct: true,
+    hasProductionScaleYearlyProduct: true,
     hasStarterProduct: true,
     hasGrowthProduct: true,
     hasScaleProduct: true,
+    hasStarterYearlyProduct: true,
+    hasGrowthYearlyProduct: true,
+    hasScaleYearlyProduct: true,
     hasLegacyStarterProduct: false,
     hasLegacyGrowthProduct: false,
     hasLegacyScaleProduct: false,

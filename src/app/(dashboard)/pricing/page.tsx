@@ -7,6 +7,7 @@ import { plans, type PlanKey } from "@/lib/plans";
 import { createClient } from "@/lib/supabase";
 
 type Availability = "included" | "limited" | "unavailable" | "soon" | "custom";
+type BillingInterval = "monthly" | "yearly";
 
 type FeatureValue = {
   text: string;
@@ -59,6 +60,26 @@ const planHighlights: Record<PlanKey, string[]> = {
     "Negotiated support and terms",
   ],
 };
+
+const selfServePaidPlans: PlanKey[] = ["starter", "growth", "scale"];
+
+const yearlyPricing = {
+  starter: {
+    priceLabel: "$499",
+    savings: "Save $89/year",
+    promo: "2 months free",
+  },
+  growth: {
+    priceLabel: "$2,499",
+    savings: "Save $489/year",
+    promo: "2 months free",
+  },
+  scale: {
+    priceLabel: "$14,999",
+    savings: "Save $2,989/year",
+    promo: "2 months free",
+  },
+} as const satisfies Partial<Record<PlanKey, { priceLabel: string; savings: string; promo: string }>>;
 
 const comparisonSections: ComparisonSection[] = [
   {
@@ -558,7 +579,8 @@ function AvailabilityCell({ value }: { value: FeatureValue }) {
 export default function PricingPage() {
   const planEntries = Object.entries(plans) as [PlanKey, typeof plans[PlanKey]][];
   const [currentPlan, setCurrentPlan] = useState<PlanKey>("free");
-  const [checkoutLoading, setCheckoutLoading] = useState<PlanKey | null>(null);
+  const [billingInterval, setBillingInterval] = useState<BillingInterval>("monthly");
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState("");
 
   useEffect(() => {
@@ -591,9 +613,10 @@ export default function PricingPage() {
   }, []);
 
   async function handleCheckout(plan: PlanKey) {
-    if (!["starter", "growth", "scale"].includes(plan)) return;
+    if (!selfServePaidPlans.includes(plan)) return;
 
-    setCheckoutLoading(plan);
+    const loadingKey = `${plan}:${billingInterval}`;
+    setCheckoutLoading(loadingKey);
     setCheckoutError("");
 
     try {
@@ -603,7 +626,7 @@ export default function PricingPage() {
           "Content-Type": "application/json",
         },
         credentials: "include",
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({ plan, billingInterval }),
       });
 
       const data = await response.json();
@@ -611,7 +634,8 @@ export default function PricingPage() {
         throw new Error(data?.error || "Failed to start checkout.");
       }
 
-      window.location.href = data.checkoutUrl;
+      window.location.assign(data.checkoutUrl);
+      return;
     } catch (error) {
       setCheckoutError(error instanceof Error ? error.message : "Failed to start checkout.");
       setCheckoutLoading(null);
@@ -641,9 +665,51 @@ export default function PricingPage() {
           </p>
         </section>
 
+        <section className="mb-8 flex justify-center">
+          <div className="inline-flex rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setBillingInterval("monthly")}
+              className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                billingInterval === "monthly"
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              }`}
+            >
+              Monthly
+            </button>
+            <button
+              type="button"
+              onClick={() => setBillingInterval("yearly")}
+              className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                billingInterval === "yearly"
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              }`}
+            >
+              Yearly
+              <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${
+                billingInterval === "yearly" ? "bg-white/20 text-white" : "bg-emerald-50 text-emerald-700"
+              }`}>
+                2 months free
+              </span>
+            </button>
+          </div>
+        </section>
+
         <section className="mb-12 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
           {planEntries.map(([key, plan]) => {
             const isPopular = key === "growth";
+            const isPaidSelfServe = selfServePaidPlans.includes(key);
+            const annualOffer = yearlyPricing[key as keyof typeof yearlyPricing];
+            const showYearly = billingInterval === "yearly" && !!annualOffer;
+            const checkoutLoadingKey = isPaidSelfServe ? `${key}:${billingInterval}` : null;
+            const displayedPrice = showYearly ? annualOffer.priceLabel : plan.priceLabel;
+            const displayedPeriod = showYearly ? "/year" : "/month";
+            const subscriptionLabel = showYearly ? "Annual subscription" : "Monthly subscription";
+            const renewalLabel = showYearly
+              ? "Auto-renews yearly until canceled"
+              : "Auto-renews monthly until canceled";
 
             return (
               <article
@@ -668,11 +734,34 @@ export default function PricingPage() {
                 </div>
 
                 <div className="mt-5">
-                  <span className="text-3xl font-bold">{plan.priceLabel}</span>
-                  {!plan.contactOnly && <span className={isPopular ? "text-blue-100" : "text-gray-400"}>/month</span>}
+                  <span className="text-3xl font-bold">{displayedPrice}</span>
+                  {!plan.contactOnly && key !== "free" && <span className={isPopular ? "text-blue-100" : "text-gray-400"}>{displayedPeriod}</span>}
                   <p className={`mt-2 text-sm font-medium ${isPopular ? "text-blue-50" : "text-gray-700"}`}>
                     {plan.creditsLabel}
                   </p>
+                  {showYearly && (
+                    <div className={`mt-3 flex flex-wrap gap-2 text-xs font-semibold ${
+                      isPopular ? "text-white" : "text-emerald-700"
+                    }`}>
+                      <span className={`rounded-full px-2.5 py-1 ${
+                        isPopular ? "bg-white/20" : "bg-emerald-50"
+                      }`}>
+                        {annualOffer.savings}
+                      </span>
+                      <span className={`rounded-full px-2.5 py-1 ${
+                        isPopular ? "bg-white/20" : "bg-blue-50 text-blue-700"
+                      }`}>
+                        {annualOffer.promo}
+                      </span>
+                    </div>
+                  )}
+                  {isPaidSelfServe && (
+                    <div className={`mt-3 space-y-1 text-xs ${isPopular ? "text-blue-100" : "text-gray-500"}`}>
+                      <p>{subscriptionLabel}</p>
+                      <p>{renewalLabel}</p>
+                      <p>Cancel anytime</p>
+                    </div>
+                  )}
                 </div>
 
                 <p className={`mt-4 text-sm leading-6 ${isPopular ? "text-blue-100" : "text-gray-500"}`}>
@@ -715,7 +804,7 @@ export default function PricingPage() {
                       ? "Contact sales"
                       : key === currentPlan
                         ? "Current plan"
-                        : checkoutLoading === key
+                        : checkoutLoading === checkoutLoadingKey
                           ? "Redirecting..."
                           : key === "starter"
                             ? "Start Starter"
@@ -723,6 +812,12 @@ export default function PricingPage() {
                               ? "Start Growth"
                               : "Run at Scale"}
                 </button>
+
+                {isPaidSelfServe && (
+                  <p className={`mt-3 text-xs ${isPopular ? "text-blue-100" : "text-gray-500"}`}>
+                    Checkout starts a {billingInterval} subscription managed in the Creem Customer Portal.
+                  </p>
+                )}
               </article>
             );
           })}
@@ -777,7 +872,7 @@ export default function PricingPage() {
         </section>
 
         <section className="mt-6 rounded-xl border border-blue-100 bg-blue-50 px-5 py-4 text-sm text-blue-900">
-          Credits are usage units for RiskShield AI checks. Cached duplicate results may be returned without repeating the underlying check. Starter, Growth, and Scale subscriptions are activated automatically after the Creem webhook is processed.
+          Credits are usage units for RiskShield AI checks. Cached duplicate results may be returned without repeating the underlying check. Starter, Growth, and Scale are recurring subscriptions, activated automatically after the Creem webhook is processed.
         </section>
       </main>
 

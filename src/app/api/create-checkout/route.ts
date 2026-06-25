@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { plans, type PlanKey } from "@/lib/plans";
+import { type PlanKey } from "@/lib/plans";
 import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
 import {
   getCreemApiBaseUrl,
   getCreemCheckoutUrls,
+  getCreemPriceForPlan,
   getCreemProductIdForPlan,
   isCreemSelfServePlan,
+  normalizeCreemBillingInterval,
 } from "@/lib/creem";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co";
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ";
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 let supabaseAdmin: ReturnType<typeof createClient> | null = null;
 
@@ -56,13 +58,16 @@ export async function POST(req: NextRequest) {
     if (!creemApiKey) {
       return NextResponse.json({ error: "Creem is not configured." }, { status: 500 });
     }
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json({ error: "Supabase is not configured." }, { status: 500 });
+    }
 
     const user = await getUserFromRequest(req);
     if (!user) {
       return NextResponse.json({ error: "Please sign in first." }, { status: 401 });
     }
 
-    let body: { plan?: string };
+    let body: { plan?: string; billingInterval?: string };
     try {
       body = await req.json();
     } catch {
@@ -70,19 +75,19 @@ export async function POST(req: NextRequest) {
     }
 
     const planKey = (body.plan as PlanKey) || "starter";
+    const billingInterval = normalizeCreemBillingInterval(body.billingInterval);
     if (!isCreemSelfServePlan(planKey)) {
       return NextResponse.json({ error: "This plan is not available for self-serve checkout." }, { status: 400 });
     }
 
-    const productId = getCreemProductIdForPlan(planKey);
+    const productId = getCreemProductIdForPlan(planKey, process.env, billingInterval);
     if (!productId) {
-      return NextResponse.json({ error: `Missing Creem product mapping for ${planKey}.` }, { status: 500 });
+      return NextResponse.json({ error: `Missing Creem ${billingInterval} product mapping for ${planKey}.` }, { status: 500 });
     }
 
     const checkoutUrls = getCreemCheckoutUrls();
     const apiBaseUrl = getCreemApiBaseUrl(creemApiKey);
     const requestId = crypto.randomUUID();
-    const plan = plans[planKey];
 
     const response = await fetch(`${apiBaseUrl}/checkouts`, {
       method: "POST",
@@ -100,6 +105,7 @@ export async function POST(req: NextRequest) {
         metadata: {
           user_id: user.id,
           plan: planKey,
+          billing_interval: billingInterval,
           source: "pricing-page",
         },
       }),
@@ -119,7 +125,8 @@ export async function POST(req: NextRequest) {
       user_id: user.id,
       provider: "creem",
       provider_checkout_id: data.id,
-      amount: plan.price,
+      provider_product_id: productId,
+      amount: getCreemPriceForPlan(planKey, billingInterval),
       currency: "USD",
       status: "pending",
       plan: planKey,
