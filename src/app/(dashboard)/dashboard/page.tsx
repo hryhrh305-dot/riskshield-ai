@@ -7,7 +7,7 @@ import { getPlanLimits, type PlanKey } from "@/lib/plans";
 import { generateApiKey } from "@/lib/api-auth";
 import { signOut } from "@/lib/auth";
 import Link from "next/link";
-import { LogOut, Shield, Key, Copy, Trash2, Activity, AlertTriangle, Search, Upload, Globe, Mail, Settings, Download } from "lucide-react";
+import { LogOut, Shield, Key, Copy, Trash2, Activity, AlertTriangle, Search, Upload, Globe, Mail, Settings, Download, Inbox } from "lucide-react";
 
 interface Profile { id: string; email: string; plan: string; subscription_status: string; credits_remaining: number; total_checks: number; }
 interface ApiKeyRow { id: string; key: string; name: string; status: string; created_at: string; last_used_at: string | null; }
@@ -45,8 +45,9 @@ export default function DashboardPage() {
   const [feedbackSaved, setFeedbackSaved] = useState(false);
   const [feedbackSentToday, setFeedbackSentToday] = useState(0);
   const [feedbackDailyLimit, setFeedbackDailyLimit] = useState(3);
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  useEffect(() => { loadData(); loadSettings(); loadFeedbackQuota(); }, []);
+  useEffect(() => { loadData(); loadSettings(); loadFeedbackQuota(); loadAdminStatus(); }, []);
   useEffect(() => {
     if (authChecked && !profile) {
       router.replace("/login?reason=invalid_session&next=/dashboard");
@@ -89,6 +90,15 @@ export default function DashboardPage() {
       const data = await res.json();
       setFeedbackSentToday(data.sentToday ?? 0);
       setFeedbackDailyLimit(data.dailyLimit ?? 3);
+    } catch {}
+  }
+
+  async function loadAdminStatus() {
+    try {
+      const res = await fetch("/api/admin/me", { credentials: "include" });
+      if (!res.ok) return;
+      const data = await res.json();
+      setIsAdmin(!!data?.isAdmin);
     } catch {}
   }
 
@@ -524,6 +534,19 @@ export default function DashboardPage() {
             </button>
           </form>
         </div>
+
+        {isAdmin && (
+          <div className="bg-white rounded-xl border p-6">
+            <h2 className="font-semibold flex items-center gap-2 mb-2">
+              <Inbox className="w-5 h-5" />
+              Admin Tools
+            </h2>
+            <p className="text-sm text-gray-500 mb-3">Review user feedback submitted through the dashboard form.</p>
+            <Link href="/dashboard/admin/feedback" className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+              Open Feedback Inbox
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );
