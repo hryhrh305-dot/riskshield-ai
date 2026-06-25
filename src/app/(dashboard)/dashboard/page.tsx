@@ -8,11 +8,56 @@ import { generateApiKey } from "@/lib/api-auth";
 import { findCreemProductById, hasActiveSubscriptionAccess } from "@/lib/creem";
 import { signOut } from "@/lib/auth";
 import Link from "next/link";
-import { LogOut, Shield, Key, Copy, Trash2, Activity, AlertTriangle, Search, Upload, Globe, Mail, Settings, Download, Inbox, CreditCard } from "lucide-react";
+import {
+  LogOut,
+  Shield,
+  Key,
+  Copy,
+  Trash2,
+  Activity,
+  AlertTriangle,
+  Upload,
+  Mail,
+  Settings,
+  Download,
+  Inbox,
+  CreditCard,
+} from "lucide-react";
 
-interface Profile { id: string; email: string; plan: string; subscription_status: string; credits_remaining: number; total_checks: number; }
-interface ApiKeyRow { id: string; key: string; name: string; status: string; created_at: string; last_used_at: string | null; }
-interface CheckRecord { id: string; check_type: string; input_value: string; risk_score: number; created_at: string; }
+interface Profile {
+  id: string;
+  email: string;
+  plan: string;
+  subscription_status: string;
+  credits_remaining: number;
+  total_checks: number;
+}
+
+interface ApiKeyRow {
+  id: string;
+  key: string;
+  name: string;
+  status: string;
+  created_at: string;
+  last_used_at: string | null;
+}
+
+interface CheckRecord {
+  id: string;
+  check_type: string;
+  input_value: string;
+  risk_score: number;
+  created_at: string;
+}
+
+interface ScanHistoryRow {
+  id: string;
+  scan_type: string | null;
+  target: string | null;
+  risk_score: number | null;
+  created_at: string;
+}
+
 interface SubscriptionRow {
   id: string;
   plan: string;
@@ -23,7 +68,14 @@ interface SubscriptionRow {
   provider_product_id?: string | null;
   created_at?: string | null;
 }
-const defaultSettings = { block_disposable: true, block_high_risk: true, review_catch_all: true, review_new_domain: true };
+
+const defaultSettings = {
+  block_disposable: true,
+  block_high_risk: true,
+  review_catch_all: true,
+  review_new_domain: true,
+};
+
 const mobileNavItems = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/risk-check", label: "Risk Check" },
@@ -38,15 +90,17 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [apiKeys, setApiKeys] = useState<ApiKeyRow[]>([]);
   const [checks, setChecks] = useState<CheckRecord[]>([]);
-  const [dailyUsed, setDailyUsed] = useState(0);
   const [monthlyUsed, setMonthlyUsed] = useState(0);
   const [riskyCount, setRiskyCount] = useState(0);
   const [blockedCount, setBlockedCount] = useState(0);
   const [copied, setCopied] = useState("");
   const [authChecked, setAuthChecked] = useState(false);
-
-  // Settings state
-  const [settings, setSettings] = useState<{ block_disposable: boolean; block_high_risk: boolean; review_catch_all: boolean; review_new_domain: boolean } | null>(null);
+  const [settings, setSettings] = useState<{
+    block_disposable: boolean;
+    block_high_risk: boolean;
+    review_catch_all: boolean;
+    review_new_domain: boolean;
+  } | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [feedbackSubject, setFeedbackSubject] = useState("");
@@ -61,7 +115,13 @@ export default function DashboardPage() {
   const [billingPortalError, setBillingPortalError] = useState("");
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
 
-  useEffect(() => { loadData(); loadSettings(); loadFeedbackQuota(); loadAdminStatus(); }, []);
+  useEffect(() => {
+    loadData();
+    loadSettings();
+    loadFeedbackQuota();
+    loadAdminStatus();
+  }, []);
+
   useEffect(() => {
     if (authChecked && !profile) {
       router.replace("/login?reason=invalid_session&next=/dashboard");
@@ -94,7 +154,10 @@ export default function DashboardPage() {
         setSettingsSaved(true);
         setTimeout(() => setSettingsSaved(false), 3000);
       }
-    } catch {} finally { setSettingsLoading(false); }
+    } catch {
+    } finally {
+      setSettingsLoading(false);
+    }
   }
 
   async function loadFeedbackQuota() {
@@ -135,12 +198,7 @@ export default function DashboardPage() {
 
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setFeedbackError(
-          data?.error ||
-          data?.details ||
-          data?.hint ||
-          "Failed to send feedback.",
-        );
+        setFeedbackError(data?.error || data?.details || data?.hint || "Failed to send feedback.");
         if (typeof data?.sentToday === "number") setFeedbackSentToday(data.sentToday);
         if (typeof data?.dailyLimit === "number") setFeedbackDailyLimit(data.dailyLimit);
         return;
@@ -182,11 +240,16 @@ export default function DashboardPage() {
   async function loadData() {
     try {
       const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       const user = session?.user;
-      if (!user) { setProfile(null); setAuthChecked(true); return; }
+      if (!user) {
+        setProfile(null);
+        setAuthChecked(true);
+        return;
+      }
 
-      // Profile - single source of truth for credits
       const { data: p } = await supabase.from("profiles").select("*").eq("id", user.id).single();
       if (p) setProfile(p);
       else setProfile(null);
@@ -194,9 +257,8 @@ export default function DashboardPage() {
       const todayStr = new Date().toISOString().split("T")[0] + "T00:00:00Z";
       const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
 
-      // Parallel: usage stats + API keys + recent checks
       const [
-        { count: todayC },
+        ,
         { count: riskyC },
         { count: blockedC },
         { data: keys },
@@ -211,20 +273,22 @@ export default function DashboardPage() {
         supabase.from("subscriptions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
       ]);
 
-      setDailyUsed(todayC ?? 0);
       setMonthlyUsed(p?.total_checks ?? 0);
       setRiskyCount(riskyC ?? 0);
       setBlockedCount(blockedC ?? 0);
       if (keys) setApiKeys(keys.filter((key: ApiKeyRow) => key.status === "active"));
       setSubscription((subscriptionRow as SubscriptionRow | null) || null);
+
       if (recentChecks) {
-        setChecks(recentChecks.map((r: any) => ({
-          id: r.id,
-          check_type: r.scan_type || "check",
-          input_value: r.target || "",
-          risk_score: r.risk_score ?? 0,
-          created_at: r.created_at,
-        })));
+        setChecks(
+          (recentChecks as ScanHistoryRow[]).map((r) => ({
+            id: r.id,
+            check_type: r.scan_type || "check",
+            input_value: r.target || "",
+            risk_score: r.risk_score ?? 0,
+            created_at: r.created_at,
+          })),
+        );
       }
 
       setAuthChecked(true);
@@ -239,7 +303,9 @@ export default function DashboardPage() {
     const currentPlan = profile?.plan || "free";
     if (!getPlanLimits(currentPlan).apiAccess) return;
     const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     const user = session?.user;
     if (!user) return;
     const key = generateApiKey();
@@ -254,18 +320,15 @@ export default function DashboardPage() {
     loadData();
   }
 
-  if (!authChecked) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-500">Loading...</p></div>;
-  if (!profile) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-500">Redirecting to sign in...</p></div>;
+  if (!authChecked) return <div className="rs-app min-h-screen flex items-center justify-center"><p className="text-slate-400">Loading...</p></div>;
+  if (!profile) return <div className="rs-app min-h-screen flex items-center justify-center"><p className="text-slate-400">Redirecting to sign in...</p></div>;
 
   const planKey = profile.plan as PlanKey;
   const planInfo = getPlanLimits(planKey);
   const monthlyLimit = planInfo.monthlyLimit || 50000;
-  const dailyLimit = planInfo.dailyLimit || 2000;
   const creditsRemaining = profile.credits_remaining ?? 0;
   const apiEnabled = planInfo.apiAccess;
   const feedbackRemaining = Math.max(0, feedbackDailyLimit - feedbackSentToday);
-  const dailyRemaining = Math.max(0, dailyLimit - dailyUsed);
-  const daysLeftEstimate = dailyUsed > 0 ? Math.max(0, Math.floor(dailyRemaining / (dailyUsed / Math.max(1, new Date().getDate())))) : 999;
   const displayCreditsRemaining = Math.min(creditsRemaining, monthlyLimit);
   const monthlyRemaining = displayCreditsRemaining;
   const creditsPercent = monthlyLimit > 0 ? Math.min(100, Math.round((displayCreditsRemaining / monthlyLimit) * 100)) : 100;
@@ -273,62 +336,74 @@ export default function DashboardPage() {
   const usageStatus = monthlyPercent <= 20 ? "critical" : monthlyPercent <= 50 ? "warning" : "healthy";
   const activeApiKeys = apiKeys.filter((key) => key.status === "active");
   const productMatch = findCreemProductById(subscription?.provider_product_id || null);
-  const billingCycleLabel = productMatch?.billingInterval === "yearly" ? "Yearly" : productMatch?.billingInterval === "monthly" ? "Monthly" : null;
+  const billingCycleLabel =
+    productMatch?.billingInterval === "yearly"
+      ? "Yearly"
+      : productMatch?.billingInterval === "monthly"
+        ? "Monthly"
+        : null;
   const subscriptionEndsAt = subscription?.current_period_end || null;
   const isCancelingAtPeriodEnd =
     subscription?.status === "active" &&
     !!subscription?.cancelled_at &&
     !!subscriptionEndsAt &&
     new Date(subscriptionEndsAt) > new Date();
-  const billingStatusLabel =
-    isCancelingAtPeriodEnd
-      ? "Canceling at period end"
-      : subscription?.status
-        ? subscription.status.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase())
-        : profile.subscription_status.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
-  const billingDateLabel =
-    subscriptionEndsAt
-      ? isCancelingAtPeriodEnd
-        ? `Ends on ${new Date(subscriptionEndsAt).toLocaleDateString()}`
-        : hasActiveSubscriptionAccess(subscription?.status, subscriptionEndsAt)
-          ? `Renews on ${new Date(subscriptionEndsAt).toLocaleDateString()}`
-          : `Ended on ${new Date(subscriptionEndsAt).toLocaleDateString()}`
-      : null;
+  const billingStatusLabel = isCancelingAtPeriodEnd
+    ? "Canceling at period end"
+    : subscription?.status
+      ? subscription.status.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase())
+      : profile.subscription_status.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+  const billingDateLabel = subscriptionEndsAt
+    ? isCancelingAtPeriodEnd
+      ? `Ends on ${new Date(subscriptionEndsAt).toLocaleDateString()}`
+      : hasActiveSubscriptionAccess(subscription?.status, subscriptionEndsAt)
+        ? `Renews on ${new Date(subscriptionEndsAt).toLocaleDateString()}`
+        : `Ended on ${new Date(subscriptionEndsAt).toLocaleDateString()}`
+    : null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b sticky top-0 z-20">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+    <div className="rs-app min-h-screen">
+      <header className="sticky top-0 z-20 border-b border-white/10 bg-black/30 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <div className="flex items-center gap-6">
-            <Link href="/dashboard" className="flex items-center gap-2 font-bold text-lg">
-              <Shield className="w-6 h-6 text-blue-600" /> RiskShield AI
+            <Link href="/dashboard" className="flex items-center gap-3 text-lg font-bold text-white">
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
+                <Shield className="h-5 w-5 text-white" />
+              </span>
+              <div>
+                <div className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-300">RiskShield AI</div>
+                <div className="text-xs text-slate-500">Control center</div>
+              </div>
             </Link>
-            <nav className="hidden md:flex items-center gap-1">
-              <Link href="/dashboard" className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Dashboard</Link>
-              <Link href="/risk-check" className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Risk Check</Link>
-              <Link href="/bulk-check" className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md flex items-center gap-1">
-                <Upload className="w-3.5 h-3.5" /> Bulk Scan
+
+            <nav className="hidden items-center gap-1 md:flex">
+              <Link href="/dashboard" className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-200 transition hover:bg-white/5 hover:text-white">Dashboard</Link>
+              <Link href="/risk-check" className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white">Risk Check</Link>
+              <Link href="/bulk-check" className="flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white">
+                <Upload className="h-3.5 w-3.5" /> Bulk Scan
               </Link>
-              <Link href="/pre-send" className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Pre-send</Link>
-              <Link href="/blacklist" className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Blacklist</Link>
-              <Link href="/pricing" className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Pricing</Link>
+              <Link href="/pre-send" className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white">Pre-send</Link>
+              <Link href="/blacklist" className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white">Blacklist</Link>
+              <Link href="/pricing" className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white">Pricing</Link>
             </nav>
           </div>
+
           <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-400 hidden sm:inline">{profile.email}</span>
-            <button onClick={() => signOut()} className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-gray-100" title="Sign Out">
-              <LogOut className="w-4 h-4" />
+            <span className="hidden text-sm text-slate-400 sm:inline">{profile.email}</span>
+            <button onClick={() => signOut()} className="rounded-xl p-2 text-slate-400 transition hover:bg-white/5 hover:text-red-400" title="Sign Out">
+              <LogOut className="h-4 w-4" />
             </button>
           </div>
         </div>
-        <div className="border-t border-gray-100 md:hidden">
-          <div className="max-w-6xl mx-auto px-4 py-3 overflow-x-auto">
-            <div className="flex items-center gap-2 min-w-max">
+
+        <div className="border-t border-white/10 md:hidden">
+          <div className="mx-auto max-w-6xl overflow-x-auto px-4 py-3">
+            <div className="flex min-w-max items-center gap-2">
               {mobileNavItems.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="whitespace-nowrap rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="whitespace-nowrap rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-slate-200 transition hover:bg-white/10 hover:text-white"
                 >
                   {item.label}
                 </Link>
@@ -338,76 +413,83 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
-        {/* Alert: low credits */}
+      <div className="mx-auto max-w-6xl space-y-6 px-4 py-6">
         {monthlyPercent <= 20 && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex items-center gap-3">
-            <AlertTriangle className="w-5 h-5 text-yellow-600 shrink-0" />
+          <div className="flex items-center gap-3 rounded-[24px] border border-amber-500/20 bg-amber-500/10 p-4">
+            <AlertTriangle className="h-5 w-5 shrink-0 text-amber-300" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-yellow-800">Only {monthlyRemaining.toLocaleString()} credits left — you are approaching your monthly limit</p>
-              <p className="text-xs text-yellow-600 mt-0.5">Upgrade to increase credits, unlock deeper checks, and enable API access</p>
+              <p className="text-sm font-medium text-amber-100">Only {monthlyRemaining.toLocaleString()} credits left - you are approaching your monthly limit.</p>
+              <p className="mt-0.5 text-xs text-amber-200/80">Upgrade to increase credits, unlock deeper checks, and enable API access.</p>
             </div>
-            <Link href="/pricing" className="bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-yellow-700 shrink-0">Upgrade Plan</Link>
+            <Link href="/pricing" className="rs-button-primary shrink-0 rounded-full px-4 py-2 text-sm font-medium">Upgrade Plan</Link>
           </div>
         )}
 
-        {/* 4-Card Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1: Credits Remaining */}
-          <div className="bg-white rounded-xl border p-5">
-            <div className="flex items-center gap-2 text-blue-600 mb-2"><Shield className="w-5 h-5" /><span className="font-semibold text-sm">Credits Remaining</span></div>
-            <div className="text-2xl font-bold">{displayCreditsRemaining.toLocaleString()}<span className="text-sm font-normal text-gray-400"> / {monthlyLimit.toLocaleString()}</span></div>
-            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-              <div className="bg-blue-600 h-2 rounded-full transition-all" style={{ width: `${creditsPercent}%` }} />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rs-panel rounded-[24px] p-5">
+            <div className="mb-2 flex items-center gap-2 text-[var(--rs-primary)]">
+              <Shield className="h-5 w-5" />
+              <span className="text-sm font-semibold text-white">Credits Remaining</span>
             </div>
-            <div className="text-xs text-gray-400 mt-1.5">
-                {usageStatus === "healthy" ? (
-                  <span className="text-green-600 font-medium">Sufficient for current usage</span>
-                ) : usageStatus === "warning" ? (
-                  <span className="text-yellow-600 font-medium">Only {monthlyRemaining.toLocaleString()} checks left — you are approaching your monthly limit</span>
-                ) : (
-                  <span className="text-red-600 font-medium">⚠ Only {monthlyRemaining.toLocaleString()} checks left — upgrade to continue protecting customers</span>
-                )}
-              </div>
+            <div className="text-3xl font-semibold text-white">
+              {displayCreditsRemaining.toLocaleString()}
+              <span className="text-sm font-normal text-slate-500"> / {monthlyLimit.toLocaleString()}</span>
+            </div>
+            <div className="mt-3 h-2 w-full rounded-full bg-white/10">
+              <div className="h-2 rounded-full bg-[var(--rs-primary)] transition-all" style={{ width: `${creditsPercent}%` }} />
+            </div>
+            <div className="mt-1.5 text-xs text-slate-400">
+              {usageStatus === "healthy" ? (
+                <span className="font-medium text-emerald-300">Sufficient for current usage</span>
+              ) : usageStatus === "warning" ? (
+                <span className="font-medium text-amber-300">Only {monthlyRemaining.toLocaleString()} checks left - you are approaching your monthly limit.</span>
+              ) : (
+                <span className="font-medium text-red-300">Only {monthlyRemaining.toLocaleString()} checks left - upgrade to continue protecting customers.</span>
+              )}
+            </div>
           </div>
 
-          {/* Card 2: This Month */}
-          <div className="bg-white rounded-xl border p-5">
-            <div className="flex items-center gap-2 text-green-600 mb-2"><Activity className="w-5 h-5" /><span className="font-semibold text-sm">This Month</span></div>
+          <div className="rs-panel rounded-[24px] p-5">
+            <div className="mb-2 flex items-center gap-2 text-emerald-300">
+              <Activity className="h-5 w-5" />
+              <span className="text-sm font-semibold text-white">This Month</span>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <div className="text-2xl font-bold text-gray-700">{monthlyUsed.toLocaleString()}</div>
-                <div className="text-xs text-gray-400 mt-0.5">customers verified</div>
+                <div className="text-2xl font-semibold text-white">{monthlyUsed.toLocaleString()}</div>
+                <div className="mt-0.5 text-xs text-slate-500">customers verified</div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-yellow-600">{riskyCount.toLocaleString()}</div>
-                <div className="text-xs text-gray-400 mt-0.5">risky flagged</div>
+                <div className="text-2xl font-semibold text-amber-300">{riskyCount.toLocaleString()}</div>
+                <div className="mt-0.5 text-xs text-slate-500">risky flagged</div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-red-600">{blockedCount.toLocaleString()}</div>
-                <div className="text-xs text-gray-400 mt-0.5">blocked / prevented</div>
+                <div className="text-2xl font-semibold text-red-300">{blockedCount.toLocaleString()}</div>
+                <div className="mt-0.5 text-xs text-slate-500">blocked / prevented</div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-gray-700">{creditsPercent}%</div>
-                <div className="text-xs text-gray-400 mt-0.5">quota available</div>
+                <div className="text-2xl font-semibold text-white">{creditsPercent}%</div>
+                <div className="mt-0.5 text-xs text-slate-500">quota available</div>
               </div>
             </div>
           </div>
 
-          {/* Card 3: Plan */}
-          <div className="bg-white rounded-xl border p-5">
-            <div className="flex items-center gap-2 text-purple-600 mb-2"><Activity className="w-5 h-5" /><span className="font-semibold text-sm">Plan</span></div>
-            <div className="text-2xl font-bold capitalize">{profile.plan}</div>
-            <div className="text-xs text-gray-400 mt-1">{profile.subscription_status}</div>
+          <div className="rs-panel rounded-[24px] p-5">
+            <div className="mb-2 flex items-center gap-2 text-violet-300">
+              <Activity className="h-5 w-5" />
+              <span className="text-sm font-semibold text-white">Plan</span>
+            </div>
+            <div className="text-3xl font-semibold capitalize text-white">{profile.plan}</div>
+            <div className="mt-1 text-xs text-slate-500">{profile.subscription_status}</div>
             {billingCycleLabel && (
-              <div className="mt-3 space-y-1 text-xs text-gray-500">
+              <div className="mt-3 space-y-1 text-xs text-slate-400">
                 <div>Billing cycle: {billingCycleLabel}</div>
                 <div>Status: {billingStatusLabel}</div>
                 {billingDateLabel && <div>{billingDateLabel}</div>}
               </div>
             )}
             {profile.plan === "free" && (
-              <Link href="/pricing" className="mt-2 inline-block text-sm text-blue-600 font-medium hover:underline">
+              <Link href="/pricing" className="mt-3 inline-block text-sm font-medium text-[var(--rs-primary)] hover:text-white">
                 Upgrade to unlock deep checks and API access
               </Link>
             )}
@@ -417,85 +499,109 @@ export default function DashboardPage() {
                   type="button"
                   onClick={openBillingPortal}
                   disabled={billingPortalLoading}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-200 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
                 >
                   <CreditCard className="h-4 w-4" />
                   {billingPortalLoading ? "Opening..." : "Manage subscription"}
                 </button>
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-slate-500">
                   Open Creem Customer Portal to manage billing, payment method, and cancellation.
                 </div>
               </div>
             )}
-            {billingPortalError && (
-              <div className="mt-2 text-xs text-red-600">{billingPortalError}</div>
-            )}
+            {billingPortalError && <div className="mt-2 text-xs text-red-300">{billingPortalError}</div>}
           </div>
 
-          {/* Card 4: API Keys */}
-          <div className="bg-white rounded-xl border p-5">
-            <div className="flex items-center gap-2 text-indigo-600 mb-2"><Key className="w-5 h-5" /><span className="font-semibold text-sm">API Keys</span></div>
-            <div className="text-2xl font-bold">{activeApiKeys.length}</div>
-            <div className="text-xs text-gray-400 mt-1">active keys</div>
+          <div className="rs-panel rounded-[24px] p-5">
+            <div className="mb-2 flex items-center gap-2 text-cyan-300">
+              <Key className="h-5 w-5" />
+              <span className="text-sm font-semibold text-white">API Keys</span>
+            </div>
+            <div className="text-3xl font-semibold text-white">{activeApiKeys.length}</div>
+            <div className="mt-1 text-xs text-slate-500">active keys</div>
             {activeApiKeys.length === 0 && (
-              <button onClick={createKey} className="mt-2 text-sm text-blue-600 font-medium hover:underline">Generate your first key</button>
+              <button onClick={createKey} className="mt-2 text-sm font-medium text-[var(--rs-primary)] hover:text-white">Generate your first key</button>
             )}
           </div>
         </div>
 
-        {/* API Keys Management */}
-        <div className="bg-white rounded-xl border p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold flex items-center gap-2"><Key className="w-5 h-5" /> API Keys</h2>
+        <div className="rs-panel rounded-[28px] p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 font-semibold text-white">
+              <Key className="h-5 w-5 text-cyan-300" /> API Keys
+            </h2>
             <button
               onClick={createKey}
               disabled={!apiEnabled}
-              className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rs-button-primary rounded-full px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
             >
               Generate Key
             </button>
           </div>
+
           {!apiEnabled && (
-            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            <div className="mb-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
               API access starts on Growth. Upgrade to create and manage API keys.
             </div>
           )}
+
           {apiKeys.length === 0 && (
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-slate-400">
               {apiEnabled ? "No API keys yet. Generate one to start using the API." : "Upgrade to Growth to generate API keys."}
             </p>
           )}
+
           {activeApiKeys.map((k) => (
-            <div key={k.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3 mt-3">
+            <div key={k.id} className="mt-3 flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
               <div>
-                <div className="font-mono text-sm text-gray-800">{k.key ? k.key.slice(0, 12) + "..." + k.key.slice(-6) : "N/A"}</div>
-                <div className="text-xs text-gray-400 mt-0.5">Created {new Date(k.created_at).toLocaleDateString()}{k.last_used_at ? " 路 Last used " + new Date(k.last_used_at).toLocaleDateString() : ""}</div>
+                <div className="font-mono text-sm text-slate-100">{k.key ? k.key.slice(0, 12) + "..." + k.key.slice(-6) : "N/A"}</div>
+                <div className="mt-0.5 text-xs text-slate-500">
+                  Created {new Date(k.created_at).toLocaleDateString()}
+                  {k.last_used_at ? " - Last used " + new Date(k.last_used_at).toLocaleDateString() : ""}
+                </div>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => { if (k.key) { navigator.clipboard.writeText(k.key); setCopied(k.id); setTimeout(() => setCopied(""), 2000); } }} className="p-1.5 text-gray-400 hover:text-gray-700 rounded"><Copy className="w-4 h-4" />{copied === k.id && <span className="text-xs ml-1 text-green-600">Copied!</span>}</button>
+                <button
+                  onClick={() => {
+                    if (k.key) {
+                      navigator.clipboard.writeText(k.key);
+                      setCopied(k.id);
+                      setTimeout(() => setCopied(""), 2000);
+                    }
+                  }}
+                  className="rounded-xl p-1.5 text-slate-400 transition hover:bg-white/5 hover:text-white"
+                >
+                  <Copy className="h-4 w-4" />
+                  {copied === k.id && <span className="ml-1 text-xs text-emerald-300">Copied!</span>}
+                </button>
                 <button
                   onClick={() => {
                     const confirmed = window.confirm("Delete this API key? This action cannot be undone.");
                     if (confirmed) void revokeKey(k.id);
                   }}
-                  className="p-1.5 text-gray-400 hover:text-red-600 rounded"
+                  className="rounded-xl p-1.5 text-slate-400 transition hover:bg-white/5 hover:text-red-400"
                   title="Delete API key"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             </div>
           ))}
-        </div>{/* Google Sheets Integration */}
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200 p-6">
-          <div className="flex items-start gap-4 flex-wrap">
+        </div>
+
+        <div className="rs-panel rounded-[28px] p-6">
+          <div className="flex flex-wrap items-start gap-4">
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-2xl">📊</span>
-                <h2 className="font-semibold text-lg">Google Sheets Add-on</h2>
+              <div className="mb-2 flex items-center gap-2">
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
+                  Sheets
+                </span>
+                <h2 className="text-lg font-semibold text-white">Google Sheets Add-on</h2>
               </div>
-              <p className="text-sm text-gray-600 mb-3">Scan emails in bulk directly from Google Sheets. Download the script, paste it into Apps Script, then connect it with your RiskShield AI API key.</p>
-              <ol className="text-sm text-gray-600 space-y-1.5 list-decimal list-inside mb-4">
+              <p className="mb-3 text-sm text-slate-300">
+                Scan emails in bulk directly from Google Sheets. Download the script, paste it into Apps Script, then connect it with your RiskShield AI API key.
+              </p>
+              <ol className="mb-4 list-inside list-decimal space-y-1.5 text-sm text-slate-400">
                 <li>Click <strong>Download Code.gs</strong> below.</li>
                 <li>Open your Google Sheet, then click <strong>Extensions</strong> &gt; <strong>Apps Script</strong>.</li>
                 <li>Delete the default sample code in Apps Script.</li>
@@ -505,91 +611,102 @@ export default function DashboardPage() {
                 <li>Select the email cells, then choose <strong>Risk Scanner</strong> &gt; <strong>Scan Selected Emails</strong>.</li>
               </ol>
               <div className="flex flex-wrap items-center gap-3">
-                <a href="/api/google-sheets-addon" className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 inline-flex items-center gap-1">
-                  <Download className="w-4 h-4" /> Download Code.gs
+                <a href="/api/google-sheets-addon" className="rs-button-primary inline-flex items-center gap-1 rounded-full px-4 py-2 text-sm font-medium">
+                  <Download className="h-4 w-4" /> Download Code.gs
                 </a>
-                <a href="/docs/google-sheets" className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 inline-flex items-center gap-1">
+                <a href="/docs/google-sheets" className="rs-button-secondary inline-flex items-center gap-1 rounded-full px-4 py-2 text-sm font-medium">
                   View Setup Guide
                 </a>
               </div>
             </div>
-            <div className="bg-white rounded-lg border border-green-100 p-4 text-sm shrink-0">
-              <div className="font-semibold text-gray-700 mb-2">Quick Start</div>
-              <code className="text-xs bg-gray-100 px-2 py-1 rounded block mb-1">POST /api/v1/email/batch-check</code>
-              <code className="text-xs bg-gray-100 px-2 py-1 rounded block">up to 100 emails/batch</code>
+
+            <div className="shrink-0 rounded-2xl border border-white/10 bg-black/30 p-4 text-sm">
+              <div className="mb-2 font-semibold text-white">Quick Start</div>
+              <code className="mb-1 block rounded bg-white/5 px-2 py-1 text-xs text-slate-300">POST /api/v1/email/batch-check</code>
+              <code className="block rounded bg-white/5 px-2 py-1 text-xs text-slate-300">up to 100 emails/batch</code>
             </div>
           </div>
         </div>
 
+        <div className="rs-panel rounded-[28px] p-6">
+          <h2 className="mb-1 flex items-center gap-2 font-semibold text-white">
+            <Settings className="h-5 w-5 text-slate-300" /> Protection Settings
+          </h2>
+          <p className="mb-4 text-xs text-slate-500">Toggle which risks should force BLOCK or REVIEW. Applies to web checks and API.</p>
 
-        {/* Protection Settings */}
-        <div className="bg-white rounded-xl border p-6">
-          <h2 className="font-semibold flex items-center gap-2 mb-1"><Settings className="w-5 h-5" /> Protection Settings</h2>
-          <p className="text-xs text-gray-400 mb-4">Toggle which risks should force BLOCK or REVIEW. Applies to web checks and API.</p>
-          <div className="space-y-3 mb-4">
-            {(settings || { block_disposable: true, block_high_risk: true, review_catch_all: true, review_new_domain: true }) && [
-              { key: "block_disposable", label: "Block disposable emails", desc: "Force BLOCK on temporary/disposable email addresses" },
-              { key: "block_high_risk", label: "Block high risk score", desc: "Force BLOCK when risk score is 60 or above" },
-              { key: "review_catch_all", label: "Review catch-all domains", desc: "Force REVIEW on domains that accept all mailboxes" },
-              { key: "review_new_domain", label: "Review new domains", desc: "Force REVIEW on domains less than 90 days old" },
-            ].map(({ key, label, desc }) => (
-              <div key={key} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                <div>
-                  <div className="text-sm font-medium text-gray-700">{label}</div>
-                  <div className="text-xs text-gray-400">{desc}</div>
+          <div className="mb-4 space-y-3">
+            {(settings || defaultSettings) &&
+              [
+                { key: "block_disposable", label: "Block disposable emails", desc: "Force BLOCK on temporary/disposable email addresses" },
+                { key: "block_high_risk", label: "Block high risk score", desc: "Force BLOCK when risk score is 60 or above" },
+                { key: "review_catch_all", label: "Review catch-all domains", desc: "Force REVIEW on domains that accept all mailboxes" },
+                { key: "review_new_domain", label: "Review new domains", desc: "Force REVIEW on domains less than 90 days old" },
+              ].map(({ key, label, desc }) => (
+                <div key={key} className="flex items-center justify-between border-b border-white/10 py-2 last:border-0">
+                  <div>
+                    <div className="text-sm font-medium text-slate-100">{label}</div>
+                    <div className="text-xs text-slate-500">{desc}</div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const s = settings || defaultSettings;
+                      const typedKey = key as keyof typeof defaultSettings;
+                      setSettings({ ...s, [typedKey]: !s[typedKey] });
+                    }}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${(settings || defaultSettings)[key as keyof typeof defaultSettings] ? "bg-[var(--rs-primary)]" : "bg-white/15"}`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${(settings || defaultSettings)[key as keyof typeof defaultSettings] ? "translate-x-6" : "translate-x-1"}`} />
+                  </button>
                 </div>
-                <button
-                  onClick={() => { const s = settings || { block_disposable: true, block_high_risk: true, review_catch_all: true, review_new_domain: true }; setSettings({ ...s, [key]: !(s as any)[key] }); }}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${(settings || defaultSettings)[key] ? 'bg-blue-600' : 'bg-gray-300'}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${(settings || defaultSettings)[key] ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
-              </div>
-            ))}
+              ))}
           </div>
-          <button onClick={saveSettings} disabled={settingsLoading} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+
+          <button onClick={saveSettings} disabled={settingsLoading} className="rs-button-primary rounded-full px-4 py-2 text-sm font-medium disabled:opacity-50">
             {settingsLoading ? "Saving..." : "Save Settings"}
           </button>
-          {settingsSaved && <span className="ml-3 text-xs text-green-600">Saved!</span>}
+          {settingsSaved && <span className="ml-3 text-xs text-emerald-300">Saved!</span>}
         </div>
 
-        {/* Recent Checks */}
-        <div className="bg-white rounded-xl border p-6">
-          <h2 className="font-semibold flex items-center gap-2 mb-4"><Activity className="w-5 h-5" /> Recent Checks</h2>
-          {checks.length === 0 && <p className="text-sm text-gray-400">No checks yet. Run email or IP risk checks from the Risk Check page or via API.</p>}
+        <div className="rs-panel rounded-[28px] p-6">
+          <h2 className="mb-4 flex items-center gap-2 font-semibold text-white">
+            <Activity className="h-5 w-5 text-emerald-300" /> Recent Checks
+          </h2>
+          {checks.length === 0 && <p className="text-sm text-slate-400">No checks yet. Run email or IP risk checks from the Risk Check page or via API.</p>}
           {checks.map((c) => (
-            <div key={c.id} className="flex items-center justify-between text-sm py-2 border-b border-gray-100 last:border-0">
+            <div key={c.id} className="flex items-center justify-between border-b border-white/10 py-3 text-sm last:border-0">
               <div className="flex items-center gap-3">
-                <span className="text-xs bg-gray-100 px-2 py-0.5 rounded font-mono uppercase">{c.check_type}</span>
-                <span className="text-gray-700 truncate max-w-[200px]">{c.input_value}</span>
+                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-xs uppercase text-slate-300">{c.check_type}</span>
+                <span className="max-w-[200px] truncate text-slate-100">{c.input_value}</span>
               </div>
               <div className="flex items-center gap-3">
-                <span className={c.risk_score >= 60 ? "text-red-600" : c.risk_score >= 30 ? "text-yellow-600" : "text-green-600"}>Risk: {c.risk_score}</span>
-                <span className="text-gray-400 text-xs">{new Date(c.created_at).toLocaleString()}</span>
+                <span className={c.risk_score >= 60 ? "text-red-300" : c.risk_score >= 30 ? "text-amber-300" : "text-emerald-300"}>Risk: {c.risk_score}</span>
+                <span className="text-xs text-slate-500">{new Date(c.created_at).toLocaleString()}</span>
               </div>
             </div>
           ))}
         </div>
 
-        <div className="bg-white rounded-xl border p-6">
-          <h2 className="font-semibold flex items-center gap-2 mb-1"><Mail className="w-5 h-5" /> Send Feedback</h2>
-          <p className="text-xs text-gray-400 mb-4">
+        <div className="rs-panel rounded-[28px] p-6">
+          <h2 className="mb-1 flex items-center gap-2 font-semibold text-white">
+            <Mail className="h-5 w-5 text-slate-300" /> Send Feedback
+          </h2>
+          <p className="mb-4 text-xs text-slate-500">
             Send product feedback directly inside RiskShield AI. Daily limit: {feedbackSentToday}/{feedbackDailyLimit}. Support:{" "}
-            <a href="mailto:support@574269.xyz" className="text-blue-600 hover:underline">support@574269.xyz</a>.
+            <a href="mailto:support@574269.xyz" className="text-[var(--rs-primary)] hover:text-white">support@574269.xyz</a>.
           </p>
-          <form onSubmit={handleFeedbackSubmit} className="space-y-4 max-w-2xl">
+          <form onSubmit={handleFeedbackSubmit} className="max-w-2xl space-y-4">
             {feedbackError && (
-              <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+              <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-200">
                 {feedbackError}
               </div>
             )}
             {feedbackSaved && (
-              <div className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
+              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
                 Feedback sent successfully. Thanks for helping us improve RiskShield AI.
               </div>
             )}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+              <label className="mb-1 block text-sm font-medium text-slate-200">Subject</label>
               <input
                 type="text"
                 value={feedbackSubject}
@@ -598,11 +715,11 @@ export default function DashboardPage() {
                 maxLength={120}
                 required
                 placeholder="Bug report, feature request, UX issue..."
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[var(--rs-primary)]"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
+              <label className="mb-1 block text-sm font-medium text-slate-200">Message</label>
               <textarea
                 value={feedbackMessage}
                 onChange={(e) => setFeedbackMessage(e.target.value)}
@@ -611,9 +728,9 @@ export default function DashboardPage() {
                 required
                 rows={5}
                 placeholder="Tell us what happened, what you expected, and how we can improve."
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[var(--rs-primary)]"
               />
-              <div className="mt-1 flex items-center justify-between text-xs text-gray-400">
+              <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
                 <span>{feedbackRemaining} submissions left today</span>
                 <span>{feedbackMessage.length}/2000</span>
               </div>
@@ -621,7 +738,7 @@ export default function DashboardPage() {
             <button
               type="submit"
               disabled={feedbackLoading || feedbackRemaining <= 0}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+              className="rs-button-primary rounded-full px-4 py-2 text-sm font-medium disabled:opacity-50"
             >
               {feedbackLoading ? "Sending..." : feedbackRemaining <= 0 ? "Daily limit reached" : "Send Feedback"}
             </button>
@@ -629,13 +746,13 @@ export default function DashboardPage() {
         </div>
 
         {isAdmin && (
-          <div className="bg-white rounded-xl border p-6">
-            <h2 className="font-semibold flex items-center gap-2 mb-2">
-              <Inbox className="w-5 h-5" />
+          <div className="rs-panel rounded-[28px] p-6">
+            <h2 className="mb-2 flex items-center gap-2 font-semibold text-white">
+              <Inbox className="h-5 w-5 text-slate-300" />
               Admin Tools
             </h2>
-            <p className="text-sm text-gray-500 mb-3">Review user feedback submitted through the dashboard form.</p>
-            <Link href="/admin/feedback" className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+            <p className="mb-3 text-sm text-slate-400">Review user feedback submitted through the dashboard form.</p>
+            <Link href="/admin/feedback" className="rs-button-primary inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium">
               Open Feedback Inbox
             </Link>
           </div>
