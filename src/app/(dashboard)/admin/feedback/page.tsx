@@ -26,7 +26,7 @@ export default async function AdminFeedbackPage({ searchParams }: Props) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login?reason=invalid_session&next=/dashboard/admin/feedback");
+    redirect("/login?reason=invalid_session&next=/admin/feedback");
   }
 
   if (!isAdminEmail(user.email)) {
@@ -152,7 +152,7 @@ export default async function AdminFeedbackPage({ searchParams }: Props) {
           </div>
           <div className="flex items-center gap-2">
             <Link
-              href={`/dashboard/admin/feedback?q=${encodeURIComponent(q)}&page=${Math.max(1, page - 1)}`}
+              href={`/admin/feedback?q=${encodeURIComponent(q)}&page=${Math.max(1, page - 1)}`}
               aria-disabled={!hasPrev}
               className={`rounded-lg border px-3 py-2 text-sm font-medium ${
                 hasPrev ? "bg-white text-gray-700 hover:bg-gray-50" : "pointer-events-none border-gray-200 bg-gray-100 text-gray-400"
@@ -161,7 +161,7 @@ export default async function AdminFeedbackPage({ searchParams }: Props) {
               Previous
             </Link>
             <Link
-              href={`/dashboard/admin/feedback?q=${encodeURIComponent(q)}&page=${Math.min(totalPages, page + 1)}`}
+              href={`/admin/feedback?q=${encodeURIComponent(q)}&page=${Math.min(totalPages, page + 1)}`}
               aria-disabled={!hasNext}
               className={`rounded-lg border px-3 py-2 text-sm font-medium ${
                 hasNext ? "bg-white text-gray-700 hover:bg-gray-50" : "pointer-events-none border-gray-200 bg-gray-100 text-gray-400"

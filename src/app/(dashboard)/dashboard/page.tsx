@@ -542,7 +542,7 @@ export default function DashboardPage() {
               Admin Tools
             </h2>
             <p className="text-sm text-gray-500 mb-3">Review user feedback submitted through the dashboard form.</p>
-            <Link href="/dashboard/admin/feedback" className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+            <Link href="/admin/feedback" className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
               Open Feedback Inbox
             </Link>
           </div>
