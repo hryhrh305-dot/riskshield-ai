@@ -145,6 +145,14 @@ function extractEventType(event: any): string {
   return event?.eventType || event?.type || "";
 }
 
+function logWebhookEvent(level: "info" | "warn", label: string, eventType: string, event: any) {
+  const logger = level === "warn" ? console.warn : console.info;
+  logger(label, {
+    eventType,
+    payload: event,
+  });
+}
+
 function extractCheckoutUserAndPlan(event: any) {
   const metadata = event?.object?.metadata || {};
   const subscriptionMetadata = event?.object?.subscription?.metadata || {};
@@ -188,6 +196,51 @@ async function resolveSubscriptionContext(event: any) {
     null;
 
   return { userId, plan, subscriptionId };
+}
+
+function extractPaymentIdentifiers(event: any) {
+  return {
+    checkoutId: event?.object?.checkout_id || event?.object?.checkout?.id || null,
+    orderId: event?.object?.order?.id || event?.object?.order_id || null,
+    transactionId:
+      event?.object?.transaction_id ||
+      event?.object?.last_transaction_id ||
+      event?.object?.payment?.id ||
+      null,
+  };
+}
+
+async function updatePaymentStatusByIdentifiers(
+  status: "refunded" | "failed",
+  identifiers: { checkoutId?: string | null; orderId?: string | null; transactionId?: string | null },
+) {
+  const admin = getSupabaseAdmin();
+  const queryTargets = [
+    identifiers.transactionId ? { column: "provider_transaction_id", value: identifiers.transactionId } : null,
+    identifiers.checkoutId ? { column: "provider_checkout_id", value: identifiers.checkoutId } : null,
+    identifiers.orderId ? { column: "provider_transaction_id", value: identifiers.orderId } : null,
+  ].filter(Boolean) as Array<{ column: "provider_transaction_id" | "provider_checkout_id"; value: string }>;
+
+  for (const target of queryTargets) {
+    const { data: existing } = await admin
+      .from("payments")
+      .select("id")
+      .eq(target.column, target.value)
+      .maybeSingle();
+
+    if (existing?.id) {
+      await admin
+        .from("payments")
+        .update({
+          status,
+          provider_transaction_id: identifiers.transactionId || null,
+        })
+        .eq("id", existing.id);
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export async function POST(req: NextRequest) {
@@ -296,6 +349,40 @@ export async function POST(req: NextRequest) {
         break;
       }
 
+      case "subscription.update": {
+        const { userId, plan, subscriptionId } = await resolveSubscriptionContext(event);
+        if (!userId || !subscriptionId) break;
+
+        const subscriptionStatus = (event?.object?.status || "active") as "active" | "cancelled" | "expired" | "past_due";
+
+        await upsertSubscriptionRecord({
+          userId,
+          plan: plan || "free",
+          subscriptionId,
+          status: subscriptionStatus,
+          currentPeriodStart: event?.object?.current_period_start_date || event?.object?.created_at || null,
+          currentPeriodEnd: event?.object?.current_period_end_date || null,
+          cancelledAt: event?.object?.canceled_at || null,
+        });
+
+        if (subscriptionStatus === "active") {
+          await upsertProfileForPaidSubscription({
+            userId,
+            plan: plan || "free",
+            currentPeriodStart: event?.object?.current_period_start_date || null,
+            currentPeriodEnd: event?.object?.current_period_end_date || null,
+          });
+        } else {
+          await updateProfileSubscriptionState({
+            userId,
+            status: subscriptionStatus,
+            plan: plan || undefined,
+            subscriptionEnd: event?.object?.current_period_end_date || event?.object?.canceled_at || null,
+          });
+        }
+        break;
+      }
+
       case "subscription.canceled":
       case "subscription.scheduled_cancel": {
         const { userId, plan, subscriptionId } = await resolveSubscriptionContext(event);
@@ -315,6 +402,29 @@ export async function POST(req: NextRequest) {
           userId,
           status: "cancelled",
           subscriptionEnd: event?.object?.current_period_end_date || event?.object?.canceled_at || null,
+        });
+        break;
+      }
+
+      case "subscription.unpaid": {
+        const { userId, plan, subscriptionId } = await resolveSubscriptionContext(event);
+        if (!userId || !subscriptionId) break;
+
+        await upsertSubscriptionRecord({
+          userId,
+          plan: plan || "free",
+          subscriptionId,
+          status: "past_due",
+          currentPeriodStart: event?.object?.current_period_start_date || null,
+          currentPeriodEnd: event?.object?.current_period_end_date || null,
+          cancelledAt: event?.object?.canceled_at || null,
+        });
+
+        await updateProfileSubscriptionState({
+          userId,
+          status: "past_due",
+          plan: plan || undefined,
+          subscriptionEnd: event?.object?.current_period_end_date || null,
         });
         break;
       }
@@ -341,6 +451,30 @@ export async function POST(req: NextRequest) {
         break;
       }
 
+      case "refund.created": {
+        const identifiers = extractPaymentIdentifiers(event);
+        const updated = await updatePaymentStatusByIdentifiers("refunded", identifiers);
+        logWebhookEvent(
+          "info",
+          updated ? "[creem-webhook][refund.created][applied]" : "[creem-webhook][refund.created][unmatched]",
+          eventType,
+          event,
+        );
+        break;
+      }
+
+      case "dispute.created": {
+        const identifiers = extractPaymentIdentifiers(event);
+        const updated = await updatePaymentStatusByIdentifiers("failed", identifiers);
+        logWebhookEvent(
+          "warn",
+          updated ? "[creem-webhook][dispute.created][applied]" : "[creem-webhook][dispute.created][unmatched]",
+          eventType,
+          event,
+        );
+        break;
+      }
+
       case "subscription.expired": {
         const { userId, subscriptionId } = await resolveSubscriptionContext(event);
         if (!userId || !subscriptionId) break;
@@ -361,6 +495,11 @@ export async function POST(req: NextRequest) {
           plan: "free",
           subscriptionEnd: null,
         });
+        break;
+      }
+
+      default: {
+        logWebhookEvent("info", "[creem-webhook][ignored]", eventType || "unknown", event);
         break;
       }
     }
