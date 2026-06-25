@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 const DAILY_FEEDBACK_LIMIT = 3;
 
@@ -39,17 +39,11 @@ function getSupabaseAdmin() {
 
 async function getUserFromRequest(request: NextRequest) {
   try {
-    const projectRef = getProjectRef();
-    if (!projectRef) return null;
-
-    const cookieHeader = request.headers.get("cookie") || "";
-    const accessToken = readAccessTokenFromCookieHeader(cookieHeader, projectRef);
-    if (!accessToken) return null;
-
+    const supabase = await createServerSupabaseClient();
     const {
       data: { user },
       error,
-    } = await getSupabaseAdmin().auth.getUser(accessToken);
+    } = await supabase.auth.getUser();
 
     if (error || !user) return null;
     return user;
