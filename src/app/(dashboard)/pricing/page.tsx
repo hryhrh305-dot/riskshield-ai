@@ -31,31 +31,31 @@ const custom = (text = "Custom"): FeatureValue => ({ text, availability: "custom
 
 const planHighlights: Record<PlanKey, string[]> = {
   free: [
-    "50 monthly credits",
-    "Individual risk checks",
+    "50 contacts audited / month",
+    "Single-contact risk preview",
     "Risk score and decision",
-    "Recent check history",
+    "Recent audit history",
   ],
   starter: [
-    "1,000 monthly credits",
-    "Deep email verification",
-    "Bulk list screening",
-    "CSV and XLSX exports",
+    "500 contacts audited / month",
+    "Send / Review / Suppress decisions",
+    "List audit reports",
+    "Basic CSV exports",
   ],
   growth: [
-    "5,000 monthly credits",
-    "Email and IP intelligence",
-    "API and Google Sheets",
-    "Pre-send protection",
+    "2,500 contacts audited / month",
+    "Agency-ready reports",
+    "Campaign Readiness Score",
+    "List Acceptance Decision",
   ],
   scale: [
-    "30,000 monthly credits",
-    "Higher API throughput",
-    "Production-volume workflows",
+    "15,000 contacts audited / month",
+    "Audit export packs",
+    "Priority processing",
     "Everything in Growth",
   ],
   business: [
-    "100,000+ monthly credits",
+    "100,000+ contacts audited / month",
     "Custom API capacity",
     "Enterprise onboarding",
     "Negotiated support and terms",
@@ -66,20 +66,20 @@ const selfServePaidPlans: PlanKey[] = ["starter", "growth", "scale"];
 
 const comparisonSections: ComparisonSection[] = [
   {
-    title: "Usage and workflow",
+    title: "Audit workflow",
     rows: [
       {
-        label: "Monthly credits",
+        label: "Contacts audited",
         values: {
           free: included("50"),
-          starter: included("1,000"),
-          growth: included("5,000"),
-          scale: included("30,000"),
+          starter: included("500"),
+          growth: included("2,500"),
+          scale: included("15,000"),
           business: custom("100,000+"),
         },
       },
       {
-        label: "Daily usage allowance",
+        label: "Audit runs per day",
         values: {
           free: included("5/day"),
           starter: included("300/day"),
@@ -89,7 +89,7 @@ const comparisonSections: ComparisonSection[] = [
         },
       },
       {
-        label: "Individual checks",
+        label: "Single-contact preview",
         values: {
           free: included(),
           starter: included(),
@@ -99,7 +99,7 @@ const comparisonSections: ComparisonSection[] = [
         },
       },
       {
-        label: "Bulk list screening",
+        label: "List audit workflow",
         values: {
           free: unavailable(),
           starter: included(),
@@ -112,9 +112,9 @@ const comparisonSections: ComparisonSection[] = [
         label: "Maximum planned batch size",
         values: {
           free: included("1"),
-          starter: included("1,000"),
-          growth: included("5,000"),
-          scale: included("30,000"),
+          starter: included("500"),
+          growth: included("2,500"),
+          scale: included("15,000"),
           business: custom(),
         },
       },
@@ -139,7 +139,7 @@ const comparisonSections: ComparisonSection[] = [
         },
       },
       {
-        label: "Recent check history",
+        label: "Recent audit history",
         values: {
           free: included(),
           starter: included(),
@@ -149,7 +149,7 @@ const comparisonSections: ComparisonSection[] = [
         },
       },
       {
-        label: "Extended history retention",
+        label: "Extended audit history retention",
         values: {
           free: unavailable(),
           starter: unavailable(),
@@ -161,7 +161,7 @@ const comparisonSections: ComparisonSection[] = [
     ],
   },
   {
-    title: "Email risk intelligence",
+    title: "Decision signals",
     rows: [
       {
         label: "Email syntax and format",
@@ -306,7 +306,7 @@ const comparisonSections: ComparisonSection[] = [
     ],
   },
   {
-    title: "IP and combined risk",
+    title: "Sender and IP intelligence",
     rows: [
       {
         label: "IP geolocation and network context",
@@ -384,7 +384,7 @@ const comparisonSections: ComparisonSection[] = [
         },
       },
       {
-        label: "Pre-send API protection",
+        label: "Pre-send workflow",
         values: {
           free: unavailable(),
           starter: unavailable(),
@@ -644,14 +644,14 @@ export default function PricingPage() {
 
       <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
         <section className="mx-auto mb-10 max-w-4xl text-center">
-          <p className="mb-3 text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Simple plans, clear capabilities</p>
+          <p className="mb-3 text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Simple plans, clear audit capacity</p>
           <h1 className="text-4xl font-semibold tracking-[-0.05em] text-white sm:text-5xl">
-            Choose the level of risk intelligence your workflow needs.
+            Choose the list audit capacity your agency workflow needs.
           </h1>
           <p className="mt-4 text-base leading-7 text-slate-300">
-            Start with individual email checks, add deep list verification, then move to API-driven email and IP protection as your workflow grows.
+            Start with single-contact previews, add client-ready list audit reports, then move to API-driven workflow automation as your team grows.
           </p>
-          <p className="mt-4 text-sm text-slate-500">Less than the cost of one wasted campaign.</p>
+          <p className="mt-4 text-sm text-slate-500">Less than the cost of one wasted campaign launch.</p>
         </section>
 
         <section className="mb-8 flex justify-center">
@@ -813,7 +813,7 @@ export default function PricingPage() {
 
                 {isPaidSelfServe && (
                   <p className={`mt-3 text-xs ${isPopular ? "text-slate-200" : "text-slate-500"}`}>
-                    Checkout starts a {billingInterval} subscription managed in the Creem Customer Portal.
+                    Monthly subscription. Auto-renews until canceled in the Creem Customer Portal.
                   </p>
                 )}
               </article>
@@ -829,7 +829,7 @@ export default function PricingPage() {
 
         <section className="overflow-hidden rounded-[28px] border border-white/10 bg-black/20 shadow-[0_18px_50px_rgba(2,6,23,0.24)]">
           <div className="border-b border-white/10 bg-white/[0.03] px-5 py-5 sm:px-6">
-            <h2 className="text-xl font-semibold text-white">Detailed plan comparison</h2>
+            <h2 className="text-xl font-semibold text-white">Detailed audit plan comparison</h2>
             <p className="mt-1 text-sm text-slate-400">
               Features marked &quot;Coming soon&quot; are roadmap items and are not presented as currently available.
             </p>

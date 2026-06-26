@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { costControlCheck } from "@/lib/cost-control";
 import { checkBlacklist, autoBlacklistIfHighRisk } from "@/lib/blacklist";
 import { disposableDomainsSet } from "@/lib/disposable-domains";
+import { buildContactAuditDecision, buildListAuditSummary } from "@/lib/list-audit";
 const disposableDomains = disposableDomainsSet;
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
@@ -20,6 +21,23 @@ function getSupabaseAdmin() {
 
 const batchCache = new Map<string, { result: Record<string, unknown>; ts: number }>();
 const BATCH_CACHE_TTL = 300000;
+
+function attachAuditFields(displayRecord: Record<string, unknown>, sourceRecord: Record<string, unknown>) {
+  const auditDecision = buildContactAuditDecision(sourceRecord);
+  return {
+    record: {
+      ...displayRecord,
+      audit_queue: auditDecision.queue,
+      reason_codes: auditDecision.reasonCodes,
+      primary_reason: auditDecision.primaryReason,
+      recommended_action: auditDecision.recommendedAction,
+      business_impact: auditDecision.businessImpact,
+      confidence: auditDecision.confidence,
+      evidence: auditDecision.evidence,
+    },
+    auditDecision,
+  };
+}
 
 function quickEmailCheck(email: string): { score: number; reasons: string[] } {
   let score = 0;
@@ -52,6 +70,7 @@ export async function POST(req: NextRequest) {
   if (!emails.length) return NextResponse.json({ success: false, error: "emails array is required" }, { status: 400 });
 
   const results: Array<{ email: string; decision: string; score: number; reasons: string[]; blacklisted: boolean }> = [];
+  const auditDecisions: Array<ReturnType<typeof buildContactAuditDecision>> = [];
   let blockedCount = 0;
 
   for (const rawEmail of emails) {
@@ -61,15 +80,20 @@ export async function POST(req: NextRequest) {
     const cacheKey = email + (targetIP || "");
     const cached = batchCache.get(cacheKey);
     if (cached && Date.now() - cached.ts < BATCH_CACHE_TTL) {
-      results.push(cached.result as typeof results[0]);
-      if ((cached.result as Record<string, unknown>).decision === "BLOCK") blockedCount++;
+      const cachedResult = cached.result as Record<string, unknown>;
+      const { record, auditDecision } = attachAuditFields(cachedResult, cachedResult);
+      results.push(record as typeof results[0]);
+      auditDecisions.push(auditDecision);
+      if ((cachedResult as Record<string, unknown>).decision === "BLOCK") blockedCount++;
       continue;
     }
 
     const blHit = await checkBlacklist("email", email);
     if (blHit) {
       const r = { email, decision: "BLOCK", score: Number(blHit.risk_score) || 90, reasons: ["Blacklisted: " + (blHit.reason || "known risk")], blacklisted: true };
-      results.push(r); blockedCount++;
+      const { record, auditDecision } = attachAuditFields(r, r);
+      results.push(record as typeof results[0]); blockedCount++;
+      auditDecisions.push(auditDecision);
       batchCache.set(cacheKey, { result: r as unknown as Record<string, unknown>, ts: Date.now() });
       continue;
     }
@@ -77,7 +101,9 @@ export async function POST(req: NextRequest) {
     const local = quickEmailCheck(email);
     if (local.score >= 60) {
       const r = { email, decision: "BLOCK", score: local.score, reasons: local.reasons, blacklisted: false };
-      results.push(r); blockedCount++;
+      const { record, auditDecision } = attachAuditFields(r, r);
+      results.push(record as typeof results[0]); blockedCount++;
+      auditDecisions.push(auditDecision);
       batchCache.set(cacheKey, { result: r as unknown as Record<string, unknown>, ts: Date.now() });
       if (local.score >= 85) autoBlacklistIfHighRisk({ type: "email", value: email, risk_score: local.score, reasons: local.reasons }).catch(() => {});
       continue;
@@ -85,13 +111,16 @@ export async function POST(req: NextRequest) {
 
     const decision = local.score >= 30 ? "REVIEW" : "ALLOW";
     const r = { email, decision, score: local.score, reasons: local.reasons, blacklisted: false };
-    results.push(r);
+    const { record, auditDecision } = attachAuditFields(r, r);
+    results.push(record as typeof results[0]);
+    auditDecisions.push(auditDecision);
     batchCache.set(cacheKey, { result: r as unknown as Record<string, unknown>, ts: Date.now() });
   }
 
   const total = results.length;
   const allowed = total - blockedCount;
   const campaignRisk = blockedCount > total * 0.3 ? "HIGH" : blockedCount > total * 0.1 ? "MEDIUM" : "LOW";
+  const auditSummary = buildListAuditSummary(auditDecisions);
 
   getSupabaseAdmin().from("risk_logs").insert({
     user_id: cc.userId,
@@ -108,6 +137,7 @@ export async function POST(req: NextRequest) {
     request_id: crypto.randomUUID(),
     timestamp: new Date().toISOString(),
     summary: { total, allowed, blocked: blockedCount },
+    audit_summary: auditSummary,
     campaign_risk: campaignRisk,
     campaign_id: body.campaign_id || null,
     results,

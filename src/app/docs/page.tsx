@@ -111,7 +111,7 @@ export default function DocsPage() {
           </section>
 
           <section className="rs-card rounded-[28px] p-6">
-            <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-white"><Code className="h-5 w-5 text-slate-300" /> Pre-send Protection</h2>
+            <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-white"><Code className="h-5 w-5 text-slate-300" /> Pre-send List Audit</h2>
             <div className="mb-3 flex items-center gap-3">
               <span className="rs-method rs-method-post">POST</span>
               <code className="rs-code rounded-full px-3 py-1 text-sm">/api/v1/pre-send/check</code>

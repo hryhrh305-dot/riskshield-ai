@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { calculateRiskScore, checkDomainAge, getAIExplanation, getCachedResult, getDNSHealthScore, makeResultCacheKey, setCachedResult, calculateCompanyHealth, cleanEmails } from "@/lib/risk-engine";
 import * as XLSX from "xlsx";
 import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
+import { buildContactAuditDecision, buildListAuditSummary } from "@/lib/list-audit";
 import {
   getBatchExportColumnsForPlan,
   getResultCacheScope,
@@ -94,6 +95,23 @@ function parseFileBuffer(buffer: Buffer, filename: string): { emails: string[]; 
   return { emails, rows };
 }
 
+function attachAuditFields(displayRecord: Record<string, unknown>, sourceRecord: Record<string, unknown>) {
+  const auditDecision = buildContactAuditDecision(sourceRecord);
+  return {
+    record: {
+      ...displayRecord,
+      audit_queue: auditDecision.queue,
+      reason_codes: auditDecision.reasonCodes,
+      primary_reason: auditDecision.primaryReason,
+      recommended_action: auditDecision.recommendedAction,
+      business_impact: auditDecision.businessImpact,
+      confidence: auditDecision.confidence,
+      evidence: auditDecision.evidence,
+    },
+    auditDecision,
+  };
+}
+
 export async function POST(request: NextRequest) {
   const user = await getUserFromRequest(request);
   if (!user) {
@@ -152,6 +170,7 @@ export async function POST(request: NextRequest) {
 
   // Process in batches
   const results: Array<Record<string, unknown>> = [];
+  const auditDecisions: Array<ReturnType<typeof buildContactAuditDecision>> = [];
 
   let cleanCount = 0, riskyCount = 0, blockedCount = 0;
   const BATCH_SIZE = 10;
@@ -173,7 +192,10 @@ export async function POST(request: NextRequest) {
       const cacheKey = makeResultCacheKey(email, null) + ":" + getResultCacheScope(plan);
       const cached = getCachedResult(cacheKey);
       if (cached) {
-        return sanitizeBatchResultForPlan({ ...cached, cached: true }, plan);
+        const sanitized = sanitizeBatchResultForPlan({ ...cached, cached: true }, plan);
+        const { record, auditDecision } = attachAuditFields(sanitized, cached);
+        auditDecisions.push(auditDecision);
+        return record;
       }
 
       const riskResult = await calculateRiskScore({ email, shouldCheckMX: true, domainAgeDays: useDeepDetection ? domainAgeDays : null });
@@ -225,7 +247,10 @@ export async function POST(request: NextRequest) {
         cached: false,
       };
       setCachedResult(cacheKey, rawResult);
-      return sanitizeBatchResultForPlan(rawResult, plan);
+      const sanitized = sanitizeBatchResultForPlan(rawResult, plan);
+      const { record, auditDecision } = attachAuditFields(sanitized, rawResult);
+      auditDecisions.push(auditDecision);
+      return record;
     }));
 
     for (const r of batchResults) {
@@ -247,6 +272,7 @@ export async function POST(request: NextRequest) {
   }
 
   const total = results.length;
+  const auditSummary = buildListAuditSummary(auditDecisions);
 
   // Check if XLSX download requested
   const url = request.nextUrl;
@@ -289,6 +315,7 @@ export async function POST(request: NextRequest) {
       blocked_pct: Math.round((blockedCount / total) * 100),
       estimated_waste_pct: Math.round((blockedCount / total) * 100),
     },
+    audit_summary: auditSummary,
     results,
   });
 }

@@ -19,41 +19,41 @@ import { createClient } from "@/lib/supabase";
 const features = [
   {
     icon: Shield,
-    title: "Deep email trust signals",
-    desc: "Score inbox quality with disposable detection, mailbox response, DNS posture, and suspicious address patterns.",
+    title: "Pre-send list audit",
+    desc: "Turn lead lists into Send, Review, and Suppress decisions before a campaign goes live.",
   },
   {
     icon: Globe,
-    title: "Risky domains and IPs",
-    desc: "Combine domain age, company context, geolocation, hosting signals, and proxy detection before a bad lead enters your funnel.",
+    title: "Campaign readiness score",
+    desc: "See how ready a list is to launch with top risk reasons and estimated waste prevented.",
   },
   {
     icon: Zap,
-    title: "Bulk screening that stays usable",
-    desc: "Upload CSV, TXT, or XLSX lists, review decisions fast, and export clean routing-ready results without leaving your workflow.",
+    title: "Client-ready report packs",
+    desc: "Upload CSV, TXT, or XLSX lists, review decisions fast, and export delivery-ready audit packs.",
   },
 ];
 
 const differentiators = [
   {
-    title: "More than bounce checking",
-    desc: "RiskShield AI reads email quality as part of a wider customer trust decision, not just as a binary deliverable or invalid test.",
+    title: "More than email validation",
+    desc: "RiskShield AI frames list quality as a send decision, not just a binary valid or invalid check.",
   },
   {
-    title: "Built for operators and developers",
-    desc: "Use the dashboard for fast reviews, then move the same checks into forms, onboarding, or campaign workflows through API access.",
+    title: "Built for outbound operators",
+    desc: "Use the dashboard for quick audits, then hand the same list intelligence to campaigns and client delivery workflows.",
   },
   {
     title: "Designed for cost discipline",
-    desc: "The product prioritizes practical signals, cache-friendly flows, and paid depth only where higher-confidence decisions need it.",
+    desc: "The product prioritizes practical signals, cache-friendly flows, and paid depth only where stronger decisions need it.",
   },
 ];
 
 const trustPoints = [
-  "Disposable email detection",
-  "Invalid inbox and MX validation",
-  "Suspicious domain and DNS checks",
-  "Email plus IP risk review",
+  "Send / Review / Suppress decisions",
+  "Campaign readiness scoring",
+  "Client-ready audit export",
+  "Waste prevented estimates",
 ];
 
 const livePreview = {
@@ -62,8 +62,8 @@ const livePreview = {
   decision: "REVIEW",
   reason: "New domain, weak DNS posture, and shared-inbox pattern detected.",
   summary:
-    "The address is technically reachable, but the supporting domain signals suggest extra review before sales outreach or access approval.",
-  action: "Route to manual review before activation",
+    "The address is technically reachable, but the supporting domain signals suggest extra review before launch.",
+  action: "Route to manual review before sending",
 };
 
 export default function Home() {
@@ -95,8 +95,7 @@ export default function Home() {
     window.location.href = "/";
   }
 
-  const ctaHref = user ? "/risk-check" : "/signup";
-  const ctaLabel = user ? "Open Risk Check" : "Start Free Scan";
+  const ctaHref = user ? "/bulk-check" : "/signup";
 
   return (
     <div className="rs-shell overflow-x-hidden">
@@ -108,7 +107,7 @@ export default function Home() {
             </span>
             <div>
               <div className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">RiskShield AI</div>
-              <div className="text-xs text-slate-500">Email and IP Risk Intelligence</div>
+              <div className="text-xs text-slate-500">Outbound List Intelligence</div>
             </div>
           </Link>
 
@@ -196,29 +195,29 @@ export default function Home() {
           <div className="rs-fade-up">
             <div className="rs-fade-up mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
               <Sparkles className="h-3.5 w-3.5 text-white" />
-              AI Email Risk Intelligence Platform
+              Outbound list intelligence platform
             </div>
 
             <h1 className="rs-title-settle max-w-4xl text-4xl font-semibold leading-[1.02] tracking-[-0.05em] text-white sm:text-5xl lg:text-6xl">
-              Stop risky emails before they cost you money.
+              Turn lead lists into Send, Review, and Suppress decisions before launch.
             </h1>
 
             <p className="rs-fade-up rs-fade-up-delay-1 mt-6 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">
-              RiskShield AI detects disposable emails, fake signups, invalid inboxes, risky domains, and deliverability issues before they damage your funnel.
+              RiskShield AI helps outbound agencies and RevOps teams audit lead lists, protect sender reputation, and generate client-ready campaign risk reports before sending.
             </p>
 
             <div className="rs-fade-up rs-fade-up-delay-2 mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <Link href={ctaHref} className="rs-button-primary rs-link-arrow inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold">
-                {ctaLabel}
+                Run a List Audit
                 <ArrowRight className="h-4 w-4" />
               </Link>
-              <Link href="/risk-check" className="rs-button-secondary rs-link-arrow inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold">
-                View Live Demo
+              <Link href="/bulk-check" className="rs-button-secondary rs-link-arrow inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold">
+                View Example Report
                 <Code className="h-4 w-4" />
               </Link>
             </div>
 
-            <p className="rs-fade-up rs-fade-up-delay-3 mt-3 text-sm text-slate-400">No credit card required. Free checks included.</p>
+            <p className="rs-fade-up rs-fade-up-delay-3 mt-3 text-sm text-slate-400">No credit card required. Free contact preview included.</p>
 
             <div className="rs-stagger mt-10 grid gap-3 sm:grid-cols-2">
               {trustPoints.map((point) => (
@@ -310,15 +309,15 @@ export default function Home() {
 
         <section className="mx-auto max-w-6xl px-4 pb-20 sm:px-6">
           <div className="rs-panel-strong rounded-[32px] px-6 py-10 text-center sm:px-10">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Start with real checks</p>
-            <h2 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-white">Run your first scan before the next risky signup lands.</h2>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Start with real list audits</p>
+            <h2 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-white">Run your first list audit before the next campaign goes live.</h2>
             <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
-              Free checks for quick evaluation, deeper plans for bulk cleanup, API workflows, and operational protection when your funnel grows.
+              Free previews for quick evaluation, deeper plans for bulk audit exports, API workflows, and operational protection when your funnel grows.
             </p>
 
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
               <Link href={ctaHref} className="rs-button-primary inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold">
-                {ctaLabel}
+                Run a List Audit
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link href="/pricing" className="rs-button-secondary inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold">
@@ -331,7 +330,7 @@ export default function Home() {
 
       <footer className="border-t border-white/10 bg-black/30 px-4 py-8 text-sm text-slate-400 sm:px-6">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <p>&copy; {new Date().getFullYear()} RiskShield AI. Email and IP Risk Intelligence.</p>
+          <p>&copy; {new Date().getFullYear()} RiskShield AI. Outbound List Intelligence.</p>
           <div className="flex flex-wrap items-center gap-4">
             <Link href="/privacy" className="transition hover:text-white">Privacy Policy</Link>
             <Link href="/terms" className="transition hover:text-white">Terms of Service</Link>

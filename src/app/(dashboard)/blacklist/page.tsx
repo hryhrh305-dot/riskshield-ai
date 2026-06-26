@@ -16,8 +16,8 @@ interface BlacklistEntry {
 
 const mobileNavItems = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/risk-check", label: "Risk Check" },
-  { href: "/bulk-check", label: "Bulk Scan" },
+  { href: "/risk-check", label: "Contact Check" },
+  { href: "/bulk-check", label: "List Audit" },
   { href: "/blacklist", label: "Blacklist" },
   { href: "/pricing", label: "Pricing" },
 ];
@@ -101,9 +101,9 @@ export default function BlacklistPage() {
 
             <nav className="hidden items-center gap-1 md:flex">
               <Link href="/dashboard" className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white">Dashboard</Link>
-              <Link href="/risk-check" className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white">Risk Check</Link>
+              <Link href="/risk-check" className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white">Contact Check</Link>
               <Link href="/bulk-check" className="flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white">
-                <Upload className="h-3.5 w-3.5" /> Bulk Scan
+                <Upload className="h-3.5 w-3.5" /> List Audit
               </Link>
               <Link href="/blacklist" className="rounded-full border border-white/10 bg-white/8 px-3 py-1.5 text-sm font-medium text-white">
                 Blacklist

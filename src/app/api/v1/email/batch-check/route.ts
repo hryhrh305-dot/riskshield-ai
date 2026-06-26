@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { calculateRiskScore, getAIExplanation, getCachedResult, setCachedResult, makeResultCacheKey, cleanEmails, checkDomainAge, getDNSHealthScore, calculateCompanyHealth } from "@/lib/risk-engine";
 import { getBatchExportColumnsForPlan, getPlanLimits, getResultCacheScope, sanitizeBatchResultForPlan, shouldUseAiExplanation, shouldUseDeepDetection, type PlanKey } from "@/lib/plans";
 import { planCostLimits } from "@/lib/cost-control";
+import { buildContactAuditDecision, buildListAuditSummary } from "@/lib/list-audit";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ");
@@ -18,6 +19,23 @@ function getSupabaseAdmin() {
 }
 
 const MAX_BATCH_SIZE = 100;
+
+function attachAuditFields(displayRecord: Record<string, unknown>, sourceRecord: Record<string, unknown>) {
+  const auditDecision = buildContactAuditDecision(sourceRecord);
+  return {
+    record: {
+      ...displayRecord,
+      audit_queue: auditDecision.queue,
+      reason_codes: auditDecision.reasonCodes,
+      primary_reason: auditDecision.primaryReason,
+      recommended_action: auditDecision.recommendedAction,
+      business_impact: auditDecision.businessImpact,
+      confidence: auditDecision.confidence,
+      evidence: auditDecision.evidence,
+    },
+    auditDecision,
+  };
+}
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "127.0.0.1";
@@ -134,6 +152,7 @@ export async function POST(req: NextRequest) {
 
   // Process emails in parallel with concurrency control (avoids 504 timeout on Vercel)
   const results: any[] = [];
+  const auditDecisions: Array<ReturnType<typeof buildContactAuditDecision>> = [];
   let creditsConsumed = 0;
   const CONCURRENCY = 25;
 
@@ -141,7 +160,10 @@ export async function POST(req: NextRequest) {
     const cacheKey = makeResultCacheKey(email, null) + ":" + getResultCacheScope(planKey);
     const cached = getCachedResult(cacheKey);
     if (cached) {
-      return sanitizeBatchResultForPlan({ ...cached, cached: true }, planKey);
+      const sanitized = sanitizeBatchResultForPlan({ ...cached, cached: true }, planKey);
+      const { record, auditDecision } = attachAuditFields(sanitized, cached);
+      auditDecisions.push(auditDecision);
+      return record;
     }
 
     const useDeepDetection = shouldUseDeepDetection(planKey);
@@ -186,7 +208,10 @@ export async function POST(req: NextRequest) {
       cached: false,
     };
     setCachedResult(cacheKey, rawResult);
-    return sanitizeBatchResultForPlan(rawResult, planKey);
+    const sanitized = sanitizeBatchResultForPlan(rawResult, planKey);
+    const { record, auditDecision } = attachAuditFields(sanitized, rawResult);
+    auditDecisions.push(auditDecision);
+    return record;
   }
 
   // Process in concurrent chunks of CONCURRENCY
@@ -235,6 +260,7 @@ export async function POST(req: NextRequest) {
   const reviewCount = results.filter((r: any) => r.risk_level === "REVIEW").length;
   const blockCount = results.filter((r: any) => r.risk_level === "BLOCK").length;
   const totalWasteCost = results.reduce((sum: number, r: any) => sum + (r.estimated_waste_cost || 0), 0);
+  const auditSummary = buildListAuditSummary(auditDecisions);
 
   return NextResponse.json({
     success: true,
@@ -256,6 +282,7 @@ export async function POST(req: NextRequest) {
       estimated_waste_cost_total: Math.round(totalWasteCost * 100) / 100,
       estimated_savings: Math.round(blockCount * 0.01 * 100) / 100,
     },
+    audit_summary: auditSummary,
     quota: {
       monthly_used: monthlyUsed + creditsConsumed,
       monthly_limit: limits.monthlyUnits,

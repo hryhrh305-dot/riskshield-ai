@@ -78,9 +78,9 @@ const defaultSettings = {
 
 const mobileNavItems = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/risk-check", label: "Risk Check" },
-  { href: "/bulk-check", label: "Bulk Scan" },
-  { href: "/pre-send", label: "Pre-send" },
+  { href: "/risk-check", label: "Contact Check" },
+  { href: "/bulk-check", label: "List Audit" },
+  { href: "/pre-send", label: "Audit History" },
   { href: "/blacklist", label: "Blacklist" },
   { href: "/pricing", label: "Pricing" },
 ];
@@ -378,11 +378,11 @@ export default function DashboardPage() {
 
             <nav className="hidden items-center gap-1 md:flex">
               <Link href="/dashboard" className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-200 transition hover:bg-white/5 hover:text-white">Dashboard</Link>
-              <Link href="/risk-check" className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white">Risk Check</Link>
+              <Link href="/risk-check" className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white">Contact Check</Link>
               <Link href="/bulk-check" className="flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white">
-                <Upload className="h-3.5 w-3.5" /> Bulk Scan
+                <Upload className="h-3.5 w-3.5" /> List Audit
               </Link>
-              <Link href="/pre-send" className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white">Pre-send</Link>
+              <Link href="/pre-send" className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white">Audit History</Link>
               <Link href="/blacklist" className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white">Blacklist</Link>
               <Link href="/pricing" className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white">Pricing</Link>
             </nav>
@@ -457,19 +457,19 @@ export default function DashboardPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <div className="text-2xl font-semibold text-white">{monthlyUsed.toLocaleString()}</div>
-                <div className="mt-0.5 text-xs text-slate-500">customers verified</div>
+                <div className="mt-0.5 text-xs text-slate-500">contacts audited</div>
               </div>
               <div>
                 <div className="text-2xl font-semibold text-amber-300">{riskyCount.toLocaleString()}</div>
-                <div className="mt-0.5 text-xs text-slate-500">risky flagged</div>
+                <div className="mt-0.5 text-xs text-slate-500">review flagged</div>
               </div>
               <div>
                 <div className="text-2xl font-semibold text-red-300">{blockedCount.toLocaleString()}</div>
-                <div className="mt-0.5 text-xs text-slate-500">blocked / prevented</div>
+                <div className="mt-0.5 text-xs text-slate-500">suppressed</div>
               </div>
               <div>
                 <div className="text-2xl font-semibold text-white">{creditsPercent}%</div>
-                <div className="mt-0.5 text-xs text-slate-500">quota available</div>
+                <div className="mt-0.5 text-xs text-slate-500">audit capacity available</div>
               </div>
             </div>
           </div>
@@ -490,7 +490,7 @@ export default function DashboardPage() {
             )}
             {profile.plan === "free" && (
               <Link href="/pricing" className="mt-3 inline-block text-sm font-medium text-[var(--rs-primary)] hover:text-white">
-                Upgrade to unlock deep checks and API access
+                Upgrade to unlock deeper list audits and API access
               </Link>
             )}
             {profile.plan !== "free" && (
@@ -600,7 +600,7 @@ export default function DashboardPage() {
                 <h2 className="text-lg font-semibold text-white">Google Sheets Add-on</h2>
               </div>
               <p className="mb-3 text-sm text-slate-300">
-                Scan emails in bulk directly from Google Sheets. Download the script, paste it into Apps Script, then connect it with your RiskShield AI API key.
+                Audit lead lists in bulk directly from Google Sheets. Download the script, paste it into Apps Script, then connect it with your RiskShield AI API key.
               </p>
               <ol className="mb-4 list-inside list-decimal space-y-1.5 text-sm text-slate-400">
                 <li>Click <strong>Download Code.gs</strong> below.</li>
@@ -670,11 +670,11 @@ export default function DashboardPage() {
 
         <div className="rs-panel rs-card-hover rounded-[28px] p-6">
           <h2 className="mb-4 flex items-center gap-2 font-semibold text-white">
-            <Activity className="h-5 w-5 text-emerald-300" /> Recent Checks
+            <Activity className="h-5 w-5 text-emerald-300" /> Recent Audits
           </h2>
           {checks.length === 0 && (
             <div className="rounded-[24px] border border-dashed border-white/10 bg-black/20 px-4 py-5 text-sm text-slate-400">
-              No checks yet. Run email or IP risk checks from the Risk Check page or via API.
+              No audits yet. Run a contact check or list audit from the dashboard or via API.
             </div>
           )}
           {checks.map((c) => (

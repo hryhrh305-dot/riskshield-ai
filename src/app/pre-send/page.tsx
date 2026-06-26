@@ -87,24 +87,24 @@ export default function PreSendPage() {
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         <section className="mb-8 text-center">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-sm font-medium text-slate-200">
-            <BarChart3 className="h-4 w-4" /> Pre-send Protection
+            <BarChart3 className="h-4 w-4" /> Audit History
           </div>
-          <h1 className="rs-title-settle text-3xl font-semibold text-white sm:text-4xl">Campaign History</h1>
+          <h1 className="rs-title-settle text-3xl font-semibold text-white sm:text-4xl">Campaign Audit History</h1>
           <p className="mx-auto mt-3 max-w-2xl text-slate-400">
-            Review historical campaign screenings before sending. Expand any run to inspect individual email decisions.
+            Review historical campaign audits before sending. Expand any run to inspect individual contact decisions.
           </p>
         </section>
 
         {loading && (
           <div className="rs-card rounded-[28px] p-10 text-center text-sm text-slate-400">
-            Loading campaign history...
+            Loading audit history...
           </div>
         )}
 
         {!loading && campaigns.length === 0 && (
           <div className="rs-card rounded-[28px] p-12 text-center">
             <BarChart3 className="mx-auto mb-3 h-10 w-10 text-slate-600" />
-            <p className="text-sm text-slate-400">No campaigns yet.</p>
+            <p className="text-sm text-slate-400">No audits yet.</p>
             <Link href="/docs" className="mt-3 inline-flex text-sm font-medium text-white hover:text-slate-300">
               View API docs
             </Link>

@@ -201,9 +201,9 @@ export default function RiskCheckPage() {
           <div className="rs-fade-up mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-sm font-medium text-slate-200">
             <Shield className="h-4 w-4" /> RiskShield AI Web Tool
           </div>
-          <h1 className="rs-title-settle text-3xl font-semibold text-white sm:text-4xl">Risk Check</h1>
+          <h1 className="rs-title-settle text-3xl font-semibold text-white sm:text-4xl">Contact Check</h1>
           <p className="rs-fade-up rs-fade-up-delay-1 mx-auto mt-3 max-w-2xl text-slate-400">
-            Check any email or IP address for fraud risk, disposable status, proxy detection, and more using the same engine as the API.
+            Check any email or IP address for quick sendability signals, disposable status, proxy detection, and more using the same engine as the API.
           </p>
         </div>
 
@@ -583,10 +583,10 @@ export default function RiskCheckPage() {
 
         <div className="rs-card rounded-[28px] p-6">
           <h2 className="mb-4 flex items-center gap-2 font-semibold text-white">
-            <History className="h-5 w-5 text-slate-400" /> Recent Checks
+            <History className="h-5 w-5 text-slate-400" /> Recent Contact Checks
           </h2>
           {history.length === 0 ? (
-            <p className="text-sm text-slate-500">Run your first check above.</p>
+            <p className="text-sm text-slate-500">Run your first contact check above.</p>
           ) : (
             <div className="space-y-2">
               {history.slice(0, 10).map((h) => (
