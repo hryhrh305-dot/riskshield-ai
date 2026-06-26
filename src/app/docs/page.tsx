@@ -1,56 +1,62 @@
-﻿import Link from "next/link";
-import { Shield, Code, Key, ExternalLink } from "lucide-react";
+import Link from "next/link";
+import { Shield, Code, Key, ExternalLink, ArrowRight } from "lucide-react";
 
 export default function DocsPage() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b px-6 py-4 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-3">
-          <Shield className="w-6 h-6 text-blue-600" />
-          <span className="font-bold text-lg">RiskShield AI</span>
-        </Link>
-        <div className="flex items-center gap-4 text-sm">
-          <Link href="/pricing" className="text-gray-600 hover:text-gray-900">Pricing</Link>
-          <Link href="/dashboard" className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700">Dashboard</Link>
+    <div className="rs-shell">
+      <header className="border-b border-white/10 bg-black/20 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
+              <Shield className="h-5 w-5 text-white" />
+            </div>
+            <span className="text-lg font-semibold text-white">RiskShield AI</span>
+          </Link>
+          <div className="flex items-center gap-3 text-sm">
+            <Link href="/pricing" className="text-slate-400 transition hover:text-white">Pricing</Link>
+            <Link href="/dashboard" className="rounded-full border border-white/12 bg-white/8 px-4 py-2 font-medium text-slate-100 transition hover:border-white/20 hover:bg-white/12">Dashboard</Link>
+          </div>
         </div>
       </header>
 
-      <div className="max-w-3xl mx-auto p-6 space-y-10">
-        <div>
-          <h1 className="text-3xl font-bold">API Documentation</h1>
-          <p className="text-gray-500 mt-2">Integrate fraud detection in minutes. All endpoints require a Bearer token.</p>
-          <p className="text-xs text-amber-600 mt-2">API access is available on Growth and above.</p>
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+        <div className="mb-10">
+          <div className="rs-fade-up mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-sm font-medium text-slate-200">
+            <Code className="h-4 w-4" /> Developer Docs
+          </div>
+          <h1 className="rs-title-settle text-3xl font-semibold text-white sm:text-4xl">API Documentation</h1>
+          <p className="rs-fade-up rs-fade-up-delay-1 mt-3 max-w-2xl text-slate-400">
+            Integrate email and IP risk intelligence in minutes. All endpoints require a Bearer token.
+          </p>
+          <p className="mt-3 text-xs uppercase tracking-[0.22em] text-amber-300">API access is available on Growth and above</p>
         </div>
 
-        <section>
-          <h2 className="text-lg font-semibold flex items-center gap-2 mb-3"><Key className="w-5 h-5" /> Authentication</h2>
-          <p className="text-sm text-gray-600 mb-2">Include your API key in every request:</p>
-          <pre className="bg-gray-900 text-green-400 p-4 rounded-lg text-sm overflow-x-auto">
-{`curl -X POST https://yourdomain.com/api/v1/email/check \\
+        <div className="space-y-8">
+          <section className="rs-card rounded-[28px] p-6">
+            <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-white"><Key className="h-5 w-5 text-slate-300" /> Authentication</h2>
+            <p className="mb-3 text-sm text-slate-400">Include your API key in every request:</p>
+            <pre className="rs-code overflow-x-auto rounded-2xl p-4 text-sm text-slate-300">{`curl -X POST https://yourdomain.com/api/v1/email/check \\
   -H "Authorization: Bearer fsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
   -H "Content-Type: application/json" \\
-  -d '{"email":"test@example.com"}'`}
-          </pre>
-          <p className="text-xs text-gray-400 mt-2">Get your API key from the <Link href="/dashboard" className="text-blue-600 hover:underline">Dashboard</Link>.</p>
-        </section>
+  -d '{"email":"test@example.com"}'`}</pre>
+            <p className="mt-3 text-xs text-slate-500">Get your API key from the <Link href="/dashboard" className="text-white hover:text-slate-200">Dashboard</Link>.</p>
+          </section>
 
-        <section className="space-y-8">
-          <h2 className="text-lg font-semibold flex items-center gap-2"><Code className="w-5 h-5" /> Endpoints</h2>
+          <section className="space-y-6">
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-white"><Code className="h-5 w-5 text-slate-300" /> Endpoints</h2>
 
-          <div className="bg-white rounded-xl border p-6">
-            <div className="flex items-center gap-3 mb-3">
-              <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded">POST</span>
-              <code className="text-sm font-mono">/api/v1/email/check</code>
-            </div>
-            <p className="text-sm text-gray-500 mb-4">Check if an email is valid, disposable, or risky.</p>
-            <div className="text-xs font-semibold text-gray-600 mb-2">Request</div>
-            <pre className="bg-gray-900 text-green-400 p-3 rounded text-xs overflow-x-auto">
-{`{
+            <div className="rs-card rs-card-hover rounded-[28px] p-6">
+              <div className="mb-3 flex items-center gap-3">
+                <span className="rs-method rs-method-post">POST</span>
+                <code className="rs-code rounded-full px-3 py-1 text-sm">/api/v1/email/check</code>
+              </div>
+              <p className="mb-4 text-sm text-slate-400">Check if an email is valid, disposable, or risky.</p>
+              <div className="mb-2 text-xs font-medium uppercase tracking-[0.22em] text-slate-500">Request</div>
+              <pre className="rs-code overflow-x-auto rounded-2xl p-3 text-xs text-slate-300">{`{
   "email": "test@mailinator.com"
 }`}</pre>
-            <div className="text-xs font-semibold text-gray-600 mt-4 mb-2">Response</div>
-            <pre className="bg-gray-900 text-green-400 p-3 rounded text-xs overflow-x-auto">
-{`{
+              <div className="mb-2 mt-4 text-xs font-medium uppercase tracking-[0.22em] text-slate-500">Response</div>
+              <pre className="rs-code overflow-x-auto rounded-2xl p-3 text-xs text-slate-300">{`{
   "success": true,
   "email": "test@mailinator.com",
   "valid": true,
@@ -58,47 +64,41 @@ export default function DocsPage() {
   "domain": "mailinator.com",
   "risk_score": 40
 }`}</pre>
-          </div>
-
-          <div className="bg-white rounded-xl border p-6">
-            <div className="flex items-center gap-3 mb-3">
-              <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded">POST</span>
-              <code className="text-sm font-mono">/api/v1/ip/check</code>
             </div>
-            <p className="text-sm text-gray-500 mb-4">Analyze IP address for VPN/proxy/private network signals.</p>
-            <div className="text-xs font-semibold text-gray-600 mb-2">Request</div>
-            <pre className="bg-gray-900 text-green-400 p-3 rounded text-xs overflow-x-auto">
-{`{
+
+            <div className="rs-card rs-card-hover rounded-[28px] p-6">
+              <div className="mb-3 flex items-center gap-3">
+                <span className="rs-method rs-method-post">POST</span>
+                <code className="rs-code rounded-full px-3 py-1 text-sm">/api/v1/ip/check</code>
+              </div>
+              <p className="mb-4 text-sm text-slate-400">Analyze IP address for VPN, proxy, or private network signals.</p>
+              <div className="mb-2 text-xs font-medium uppercase tracking-[0.22em] text-slate-500">Request</div>
+              <pre className="rs-code overflow-x-auto rounded-2xl p-3 text-xs text-slate-300">{`{
   "ip": "8.8.8.8"
 }`}</pre>
-            <div className="text-xs font-semibold text-gray-600 mt-4 mb-2">Response</div>
-            <pre className="bg-gray-900 text-green-400 p-3 rounded text-xs overflow-x-auto">
-{`{
+              <div className="mb-2 mt-4 text-xs font-medium uppercase tracking-[0.22em] text-slate-500">Response</div>
+              <pre className="rs-code overflow-x-auto rounded-2xl p-3 text-xs text-slate-300">{`{
   "success": true,
   "ip": "8.8.8.8",
   "is_private": false,
   "is_localhost": false,
   "risk_score": 0
 }`}</pre>
-          </div>
-
-          <div className="bg-white rounded-xl border p-6">
-            <div className="flex items-center gap-3 mb-3">
-              <span className="bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded">POST</span>
-              <code className="text-sm font-mono">/api/v1/risk/check</code>
             </div>
-            <p className="text-sm text-gray-500 mb-4">
-              Combined email + IP risk check with AI-powered recommendation.
-            </p>
-            <div className="text-xs font-semibold text-gray-600 mb-2">Request</div>
-            <pre className="bg-gray-900 text-green-400 p-3 rounded text-xs overflow-x-auto">
-{`{
+
+            <div className="rs-card rs-card-hover rounded-[28px] p-6">
+              <div className="mb-3 flex items-center gap-3">
+                <span className="rs-method rs-method-post">POST</span>
+                <code className="rs-code rounded-full px-3 py-1 text-sm">/api/v1/risk/check</code>
+              </div>
+              <p className="mb-4 text-sm text-slate-400">Run a combined email + IP risk check with recommendation output.</p>
+              <div className="mb-2 text-xs font-medium uppercase tracking-[0.22em] text-slate-500">Request</div>
+              <pre className="rs-code overflow-x-auto rounded-2xl p-3 text-xs text-slate-300">{`{
   "email": "spam@mailinator.com",
   "ip": "1.1.1.1"
 }`}</pre>
-            <div className="text-xs font-semibold text-gray-600 mt-4 mb-2">Response</div>
-            <pre className="bg-gray-900 text-green-400 p-3 rounded text-xs overflow-x-auto">
-{`{
+              <div className="mb-2 mt-4 text-xs font-medium uppercase tracking-[0.22em] text-slate-500">Response</div>
+              <pre className="rs-code overflow-x-auto rounded-2xl p-3 text-xs text-slate-300">{`{
   "success": true,
   "risk_score": 70,
   "decision": "BLOCK",
@@ -107,77 +107,71 @@ export default function DocsPage() {
   "email": "spam@mailinator.com",
   "ip": "1.1.1.1"
 }`}</pre>
-          </div>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold flex items-center gap-2 mb-3"><Code className="w-5 h-5" /> Pre-send Protection</h2>
-          <div className="bg-white rounded-xl border p-6">
-            <div className="flex items-center gap-3 mb-3">
-              <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded">POST</span>
-              <code className="text-sm font-mono">/api/v1/pre-send/check</code>
             </div>
-            <p className="text-sm text-gray-500 mb-4">Real-time email screening before you send campaigns. Hook this into your Gmail, Outlook, HubSpot, or custom SMTP workflow to block risky recipients before sending.</p>
-            <div className="text-xs font-semibold text-gray-600 mb-2">Request (batch up to 1,000)</div>
-            <pre className="bg-gray-900 text-green-400 p-3 rounded text-xs overflow-x-auto">
-{`{
-  "emails": ["lead1@company.com", "spam@temp.com", ...],
+          </section>
+
+          <section className="rs-card rounded-[28px] p-6">
+            <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-white"><Code className="h-5 w-5 text-slate-300" /> Pre-send Protection</h2>
+            <div className="mb-3 flex items-center gap-3">
+              <span className="rs-method rs-method-post">POST</span>
+              <code className="rs-code rounded-full px-3 py-1 text-sm">/api/v1/pre-send/check</code>
+            </div>
+            <p className="mb-4 text-sm text-slate-400">Real-time screening before campaigns go out through Gmail, Outlook, HubSpot, or your own sender workflow.</p>
+            <div className="mb-2 text-xs font-medium uppercase tracking-[0.22em] text-slate-500">Request (batch up to 1,000)</div>
+            <pre className="rs-code overflow-x-auto rounded-2xl p-3 text-xs text-slate-300">{`{
+  "emails": ["lead1@company.com", "spam@temp.com", "..."],
   "campaign_id": "spring-outreach-2026"
 }`}</pre>
-            <div className="text-xs font-semibold text-gray-600 mt-4 mb-2">Response</div>
-            <pre className="bg-gray-900 text-green-400 p-3 rounded text-xs overflow-x-auto">
-{`{
+            <div className="mb-2 mt-4 text-xs font-medium uppercase tracking-[0.22em] text-slate-500">Response</div>
+            <pre className="rs-code overflow-x-auto rounded-2xl p-3 text-xs text-slate-300">{`{
   "success": true,
   "summary": { "total": 1000, "allowed": 820, "blocked": 180 },
   "campaign_risk": "LOW",
-  "results": [{ "email": "...", "decision": "ALLOW", ... }, ...]
+  "results": [{ "email": "...", "decision": "ALLOW" }]
 }`}</pre>
-            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-              <strong>How to integrate:</strong> Before your email system sends, call this endpoint. If decision = BLOCK, skip that recipient. Use the API key from your Dashboard.
+            <div className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-200">
+              <strong>Integration tip:</strong> call this endpoint before sending. If decision = BLOCK, skip that recipient.
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section>
-          <h2 className="text-lg font-semibold flex items-center gap-2 mb-3"><Code className="w-5 h-5" /> Google Sheets</h2>
-          <div className="bg-white rounded-xl border p-6">
-            <p className="text-sm text-gray-600 mb-4">
-              The Google Sheets installation guide now lives on its own page, so spreadsheet users can go straight to setup without scrolling through API reference content first.
+          <section className="rs-card rounded-[28px] p-6">
+            <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-white"><Code className="h-5 w-5 text-slate-300" /> Google Sheets</h2>
+            <p className="mb-4 text-sm text-slate-400">
+              The spreadsheet install guide now lives on its own page so non-developers can jump straight into setup.
             </p>
-            <Link href="/docs/google-sheets" className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
-              Open Google Sheets Guide <ExternalLink className="w-4 h-4" />
+            <Link href="/docs/google-sheets" className="rs-link-arrow inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/8 px-4 py-2 text-sm font-medium text-slate-100 transition hover:border-white/20 hover:bg-white/12">
+              Open Google Sheets Guide <ExternalLink className="h-4 w-4" />
             </Link>
-          </div>
-        </section>
+          </section>
 
-        <section>
-          <h2 className="text-lg font-semibold mb-3">Error Codes</h2>
-          <div className="bg-white rounded-xl border p-6 space-y-2 text-sm">
-            <div><code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">401</code> <span className="text-gray-600 ml-2">Missing or invalid API key</span></div>
-            <div><code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">429</code> <span className="text-gray-600 ml-2">Monthly limit exceeded</span></div>
-            <div><code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">400</code> <span className="text-gray-600 ml-2">Invalid request body</span></div>
-          </div>
-        </section>
+          <section className="rs-card rounded-[28px] p-6">
+            <h2 className="mb-3 text-lg font-semibold text-white">Error Codes</h2>
+            <div className="space-y-3 text-sm">
+              <div><code className="rs-code rounded-full px-2 py-1 text-xs">401</code> <span className="ml-2 text-slate-400">Missing or invalid API key</span></div>
+              <div><code className="rs-code rounded-full px-2 py-1 text-xs">429</code> <span className="ml-2 text-slate-400">Monthly limit exceeded</span></div>
+              <div><code className="rs-code rounded-full px-2 py-1 text-xs">400</code> <span className="ml-2 text-slate-400">Invalid request body</span></div>
+            </div>
+          </section>
 
-        <section className="pb-10">
-          <div className="bg-blue-50 rounded-xl p-6 text-center">
-            <p className="text-sm text-blue-700 font-medium">Ready to integrate?</p>
-            <p className="text-xs text-blue-500 mt-1 mb-4">Create a free account now, then upgrade to Growth when you need API access.</p>
-            <Link href="/signup" className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-blue-700">Create Free Account</Link>
-          </div>
-        </section>
+          <section className="rounded-[28px] border border-white/10 bg-white/[0.035] p-6 text-center">
+            <p className="text-sm font-medium text-slate-200">Ready to integrate?</p>
+            <p className="mb-4 mt-1 text-xs text-slate-500">Create a free account now, then upgrade to Growth when you need API access.</p>
+            <Link href="/signup" className="rs-button-primary rs-link-arrow inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-medium">
+              Create Free Account <ArrowRight className="h-4 w-4" />
+            </Link>
+          </section>
+        </div>
       </div>
 
-      <footer className="border-t bg-white px-6 py-6 text-sm text-gray-500">
-        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3">
-          <a href="mailto:support@574269.xyz" className="hover:text-gray-900">support@574269.xyz</a>
+      <footer className="border-t border-white/10 px-4 py-6 text-sm text-slate-500 sm:px-6">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3">
+          <a href="mailto:support@574269.xyz" className="transition hover:text-white">support@574269.xyz</a>
           <div className="flex items-center gap-4">
-            <Link href="/privacy" className="hover:text-gray-900">Privacy Policy</Link>
-            <Link href="/terms" className="hover:text-gray-900">Terms of Service</Link>
+            <Link href="/privacy" className="transition hover:text-white">Privacy Policy</Link>
+            <Link href="/terms" className="transition hover:text-white">Terms of Service</Link>
           </div>
         </div>
       </footer>
     </div>
   );
 }
-

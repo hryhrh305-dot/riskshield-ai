@@ -99,7 +99,7 @@ export default function Home() {
   const ctaLabel = user ? "Open Risk Check" : "Start Free Scan";
 
   return (
-    <div className="rs-app min-h-screen overflow-x-hidden">
+    <div className="rs-shell overflow-x-hidden">
       <nav className="border-b border-white/10 bg-black/20 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
           <Link href="/" className="flex shrink-0 items-center gap-3" onClick={() => setMenuOpen(false)}>
@@ -193,36 +193,36 @@ export default function Home() {
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[720px] rs-grid opacity-20" />
 
         <section className="relative mx-auto grid max-w-6xl gap-10 px-4 pb-16 pt-14 sm:px-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(340px,460px)] lg:items-center lg:gap-14 lg:pb-24 lg:pt-24">
-          <div>
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+          <div className="rs-fade-up">
+            <div className="rs-fade-up mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
               <Sparkles className="h-3.5 w-3.5 text-white" />
               AI Email Risk Intelligence Platform
             </div>
 
-            <h1 className="max-w-4xl text-4xl font-semibold leading-[1.02] tracking-[-0.05em] text-white sm:text-5xl lg:text-6xl">
+            <h1 className="rs-title-settle max-w-4xl text-4xl font-semibold leading-[1.02] tracking-[-0.05em] text-white sm:text-5xl lg:text-6xl">
               Stop risky emails before they cost you money.
             </h1>
 
-            <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">
+            <p className="rs-fade-up rs-fade-up-delay-1 mt-6 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">
               RiskShield AI detects disposable emails, fake signups, invalid inboxes, risky domains, and deliverability issues before they damage your funnel.
             </p>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-              <Link href={ctaHref} className="rs-button-primary inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold">
+            <div className="rs-fade-up rs-fade-up-delay-2 mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+              <Link href={ctaHref} className="rs-button-primary rs-link-arrow inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold">
                 {ctaLabel}
                 <ArrowRight className="h-4 w-4" />
               </Link>
-              <Link href="/risk-check" className="rs-button-secondary inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold">
+              <Link href="/risk-check" className="rs-button-secondary rs-link-arrow inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold">
                 View Live Demo
                 <Code className="h-4 w-4" />
               </Link>
             </div>
 
-            <p className="mt-3 text-sm text-slate-400">No credit card required. Free checks included.</p>
+            <p className="rs-fade-up rs-fade-up-delay-3 mt-3 text-sm text-slate-400">No credit card required. Free checks included.</p>
 
-            <div className="mt-10 grid gap-3 sm:grid-cols-2">
+            <div className="rs-stagger mt-10 grid gap-3 sm:grid-cols-2">
               {trustPoints.map((point) => (
-                <div key={point} className="flex items-center gap-3 rounded-2xl border border-white/10 px-4 py-3 text-sm text-slate-200">
+                <div key={point} className="rs-card-hover flex items-center gap-3 rounded-2xl border border-white/10 px-4 py-3 text-sm text-slate-200">
                   <CheckCircle2 className="h-4 w-4 text-white" />
                   <span>{point}</span>
                 </div>
@@ -230,7 +230,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="rs-panel-strong rounded-[28px] p-5 sm:p-6">
+          <div className="rs-panel-strong rs-card-hover rs-fade-up rs-fade-up-delay-2 rounded-[28px] p-5 sm:p-6">
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Live Scan Preview</p>
@@ -255,7 +255,7 @@ export default function Home() {
                 </div>
 
                 <div className="mt-5 h-2 rounded-full bg-white/10">
-                  <div className="h-2 rounded-full bg-amber-400" style={{ width: "74%" }} />
+                  <div className="rs-progress-load h-2 rounded-full bg-amber-400" style={{ width: "74%" }} />
                 </div>
               </div>
 
