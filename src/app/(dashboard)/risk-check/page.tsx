@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
-import { Shield, Search, Mail, Globe, AlertTriangle, CheckCircle, XCircle, ArrowRight, Zap, History, ChevronDown, ChevronUp, Upload, LogOut } from "lucide-react";
+import { Shield, Mail, Globe, AlertTriangle, CheckCircle, XCircle, ArrowRight, Zap, History, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { getResultVisibility } from "@/lib/plans";
 
@@ -128,7 +128,7 @@ export default function RiskCheckPage() {
     d === "BLOCK" ? "rs-badge-block" : d === "REVIEW" ? "rs-badge-review" : "rs-badge-allow";
 
   const decisionIcon = (d: string) =>
-    d === "BLOCK" ? <XCircle className="w-5 h-5 text-red-600" /> : d === "REVIEW" ? <AlertTriangle className="w-5 h-5 text-yellow-600" /> : <CheckCircle className="w-5 h-5 text-green-600" />;
+    d === "BLOCK" ? <XCircle className="w-5 h-5 text-red-300" /> : d === "REVIEW" ? <AlertTriangle className="w-5 h-5 text-amber-300" /> : <CheckCircle className="w-5 h-5 text-emerald-300" />;
 
   const scoreColor = (s: number) =>
     s >= 60 ? "text-red-300" : s >= 30 ? "text-amber-300" : "text-emerald-300";
@@ -140,13 +140,13 @@ export default function RiskCheckPage() {
     {
       label: "Email format",
       value: "Valid",
-      tone: "text-green-600",
+      tone: "text-emerald-300",
       helper: "The submitted address passed format validation.",
     },
     {
       label: "Disposable email",
       value: emailDetails.isDisposable ? "Detected" : "Not detected",
-      tone: emailDetails.isDisposable ? "text-red-600" : "text-green-600",
+      tone: emailDetails.isDisposable ? "text-red-300" : "text-emerald-300",
       helper: emailDetails.isDisposable
         ? "This address comes from a temporary email provider."
         : "No temporary email provider signal was found.",
@@ -154,7 +154,7 @@ export default function RiskCheckPage() {
     {
       label: "Role-based address",
       value: emailDetails.isRoleBased ? "Detected" : "Not detected",
-      tone: emailDetails.isRoleBased ? "text-yellow-600" : "text-green-600",
+      tone: emailDetails.isRoleBased ? "text-amber-300" : "text-emerald-300",
       helper: emailDetails.isRoleBased
         ? "This looks like a shared inbox such as info@, sales@, or support@."
         : "No shared-inbox pattern was detected.",
@@ -162,7 +162,7 @@ export default function RiskCheckPage() {
     {
       label: "Mail server (MX)",
       value: !emailDetails.mxChecked ? "Not checked" : emailDetails.hasMX ? "Present" : "Missing",
-      tone: !emailDetails.mxChecked ? "text-gray-500" : emailDetails.hasMX ? "text-green-600" : "text-red-600",
+      tone: !emailDetails.mxChecked ? "text-slate-500" : emailDetails.hasMX ? "text-emerald-300" : "text-red-300",
       helper: !emailDetails.mxChecked
         ? "Mail-server verification was not available for this check."
         : emailDetails.hasMX
@@ -399,9 +399,9 @@ export default function RiskCheckPage() {
                   <div>
                     <div className="mb-0.5 text-xs text-slate-500">Inbox Probability</div>
                     <div className={`font-semibold text-sm ${
-                      emailDetails?.inboxProbability === "high" ? "text-green-600" :
-                      emailDetails?.inboxProbability === "medium" ? "text-yellow-600" :
-                      emailDetails?.inboxProbability === "low" ? "text-orange-600" : "text-red-600"
+                      emailDetails?.inboxProbability === "high" ? "text-emerald-300" :
+                      emailDetails?.inboxProbability === "medium" ? "text-amber-300" :
+                      emailDetails?.inboxProbability === "low" ? "text-orange-300" : "text-red-300"
                     }`}>
                       {emailDetails?.inboxProbability === "high" ? "High" :
                        emailDetails?.inboxProbability === "medium" ? "Medium" :
@@ -417,9 +417,9 @@ export default function RiskCheckPage() {
                   <div>
                     <div className="mb-0.5 text-xs text-slate-500">Sender Reputation Risk</div>
                     <div className={`font-semibold text-xs ${
-                      (emailDetails?.senderReputationRisk || "").includes("CRITICAL") ? "text-red-600" :
-                      (emailDetails?.senderReputationRisk || "").includes("HIGH") ? "text-red-500" :
-                      (emailDetails?.senderReputationRisk || "").includes("MEDIUM") ? "text-yellow-600" : "text-green-600"
+                      (emailDetails?.senderReputationRisk || "").includes("CRITICAL") ? "text-red-300" :
+                      (emailDetails?.senderReputationRisk || "").includes("HIGH") ? "text-red-400" :
+                      (emailDetails?.senderReputationRisk || "").includes("MEDIUM") ? "text-amber-300" : "text-emerald-300"
                     }`}>
                       {emailDetails?.senderReputationRisk || "LOW"}
                     </div>
@@ -427,9 +427,9 @@ export default function RiskCheckPage() {
                   <div>
                     <div className="mb-0.5 text-xs text-slate-500">MX Records</div>
                     <div className={`font-semibold text-sm ${
-                      !emailDetails?.mxChecked ? "text-gray-400" :
-                      emailDetails?.domainExists === false ? "text-red-600" :
-                      emailDetails?.hasMX ? "text-green-600" : "text-red-600"
+                      !emailDetails?.mxChecked ? "text-slate-500" :
+                      emailDetails?.domainExists === false ? "text-red-300" :
+                      emailDetails?.hasMX ? "text-emerald-300" : "text-red-300"
                     }`}>
                       {!emailDetails?.mxChecked ? "Not checked" :
                        emailDetails?.domainExists === false ? "Domain does not exist" :
@@ -477,19 +477,19 @@ export default function RiskCheckPage() {
                   </div>
                   <div>
                     <div className="mb-0.5 text-xs text-slate-500">Proxy / VPN</div>
-                    <div className={`font-semibold text-sm ${(result.details.ip as any)?.isProxy ? "text-red-600" : "text-green-600"}`}>
+                    <div className={`font-semibold text-sm ${(result.details.ip as any)?.isProxy ? "text-red-300" : "text-emerald-300"}`}>
                       {(result.details.ip as any)?.isProxy ? "Detected" : "Not detected"}
                     </div>
                   </div>
                   <div>
                     <div className="mb-0.5 text-xs text-slate-500">Hosting / Datacenter</div>
-                    <div className={`font-semibold text-sm ${(result.details.ip as any)?.isHosting ? "text-red-600" : "text-green-600"}`}>
+                    <div className={`font-semibold text-sm ${(result.details.ip as any)?.isHosting ? "text-red-300" : "text-emerald-300"}`}>
                       {(result.details.ip as any)?.isHosting ? "Yes - likely automated" : "No"}
                     </div>
                   </div>
                   {(result.details.ip as any)?.highRiskCountry && (
                     <div className="col-span-2">
-                      <div className="text-xs text-red-500 font-medium">
+                      <div className="text-xs font-medium text-red-300">
                         High-risk region. Low conversion rates in international trade.
                       </div>
                     </div>
@@ -596,10 +596,10 @@ export default function RiskCheckPage() {
                     <span className="max-w-[220px] truncate text-slate-300">{h.input_value}</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className={h.risk_score >= 60 ? "text-red-600" : h.risk_score >= 30 ? "text-yellow-600" : "text-green-600"}>
+                    <span className={h.risk_score >= 60 ? "text-red-300" : h.risk_score >= 30 ? "text-amber-300" : "text-emerald-300"}>
                       {h.risk_score}
                     </span>
-                    <span className="text-gray-400 text-xs">{new Date(h.created_at).toLocaleString()}</span>
+                    <span className="text-xs text-slate-500">{new Date(h.created_at).toLocaleString()}</span>
                   </div>
                 </div>
               ))}
