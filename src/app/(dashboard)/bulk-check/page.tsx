@@ -44,6 +44,35 @@ interface BulkApiError {
   plan?: string;
 }
 
+function MetricCard({
+  label,
+  value,
+  helper,
+  tone,
+}: {
+  label: string;
+  value: string | number;
+  helper: string;
+  tone: "neutral" | "allow" | "review" | "block";
+}) {
+  const toneClasses =
+    tone === "allow"
+      ? "border-emerald-500/15 bg-emerald-500/8 text-emerald-300"
+      : tone === "review"
+        ? "border-amber-500/15 bg-amber-500/8 text-amber-300"
+        : tone === "block"
+          ? "border-red-500/15 bg-red-500/8 text-red-300"
+          : "border-white/10 bg-white/[0.035] text-white";
+
+  return (
+    <div className={`rounded-[24px] border p-4 ${toneClasses}`}>
+      <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">{label}</div>
+      <div className="mt-3 text-2xl font-semibold">{value}</div>
+      <div className="mt-1 text-xs text-slate-500">{helper}</div>
+    </div>
+  );
+}
+
 export default function BulkCheckPage() {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
@@ -96,6 +125,41 @@ export default function BulkCheckPage() {
 
     if (column.key === "risk_level") {
       return <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${decisionBadge(decision)}`}>{String(value)}</span>;
+    }
+
+    if (column.key === "reasons" || column.key === "risk_factors" || column.key === "impact") {
+      const parts = Array.isArray(result[column.key as keyof BulkResult])
+        ? (result[column.key as keyof BulkResult] as string[])
+        : String(value || "")
+            .split(/;|\|/)
+            .map((item) => item.trim())
+            .filter(Boolean);
+
+      if (!parts.length) {
+        return <span className="text-slate-500">-</span>;
+      }
+
+      return (
+        <div className="flex max-w-[320px] flex-wrap gap-1.5">
+          {parts.slice(0, 4).map((part, index) => (
+            <span
+              key={`${column.key}-${index}`}
+              className={`rounded-full border px-2 py-1 text-[11px] leading-4 ${
+                column.key === "impact"
+                  ? "border-amber-500/15 bg-amber-500/8 text-amber-200"
+                  : "border-white/10 bg-white/[0.045] text-slate-300"
+              }`}
+            >
+              {part}
+            </span>
+          ))}
+          {parts.length > 4 && (
+            <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-1 text-[11px] text-slate-500">
+              +{parts.length - 4} more
+            </span>
+          )}
+        </div>
+      );
     }
 
     if (column.key === "disposable" || column.key === "role_based" || column.key === "catch_all") {
@@ -302,6 +366,29 @@ sales@domain.com`}</pre>
             )}
           </div>
 
+          {loading && (
+            <div className="mt-4 rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-medium text-slate-200">Preparing bulk risk report</div>
+                  <div className="mt-1 text-xs text-slate-500">We are checking each contact and assembling the result table.</div>
+                </div>
+                <div className="h-2 w-24 overflow-hidden rounded-full bg-white/10">
+                  <div className="h-2 w-2/3 animate-pulse rounded-full bg-white/30" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {[0, 1, 2].map((item) => (
+                  <div key={item} className="rounded-2xl border border-white/8 bg-black/20 p-4">
+                    <div className="h-3 w-20 animate-pulse rounded bg-white/10" />
+                    <div className="mt-3 h-7 w-16 animate-pulse rounded bg-white/10" />
+                    <div className="mt-2 h-3 w-24 animate-pulse rounded bg-white/10" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {error && (
             <div className="mt-4 flex items-center gap-2 rounded-2xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-200">
               <AlertTriangle className="h-4 w-4 flex-shrink-0" /> {error}
@@ -316,33 +403,40 @@ sales@domain.com`}</pre>
 
         {summary && (
           <div className="rs-card rs-fade-up mb-6 rounded-[28px] p-6">
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="flex items-center gap-2 text-lg font-semibold text-white"><BarChart3 className="h-5 w-5 text-slate-300" /> Campaign Risk Report</h2>
-              <div className="flex flex-wrap gap-2">
-                <button onClick={downloadXLSX} disabled={xlsxDownloading} className="rounded-full border border-white/12 bg-white/6 px-3 py-1.5 text-xs font-medium text-slate-100 transition hover:border-white/20 hover:bg-white/10 disabled:opacity-50">{xlsxDownloading ? "Generating..." : <span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> XLSX</span>}</button>
-                <button onClick={() => exportCSV("all")} className="rounded-full border border-white/12 bg-white/6 px-3 py-1.5 text-xs font-medium text-slate-100 transition hover:border-white/20 hover:bg-white/10"><span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> All CSV</span></button>
-                <button onClick={() => exportCSV("clean")} className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-200 transition hover:bg-emerald-500/15"><span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Clean</span></button>
-                <button onClick={() => exportCSV("risky")} className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-200 transition hover:bg-red-500/15"><span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Risky</span></button>
+            <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h2 className="flex items-center gap-2 text-lg font-semibold text-white"><BarChart3 className="h-5 w-5 text-slate-300" /> Campaign Risk Report</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Review list quality, export clean segments, and surface risky contacts before outreach.
+                </p>
+              </div>
+              <div className="w-full max-w-xl rounded-[24px] border border-white/10 bg-black/20 p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium text-slate-100">Export & follow-up</div>
+                    <div className="mt-1 text-xs text-slate-500">Export clean risk reports or unlock broader bulk screening workflows.</div>
+                  </div>
+                  <Link href="/pricing" className="rs-link-arrow hidden items-center gap-1 text-sm font-medium text-white md:inline-flex">
+                    Upgrade for bulk screening and reports <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                  <button onClick={downloadXLSX} disabled={xlsxDownloading} className="rounded-full border border-white/12 bg-white/6 px-3 py-2 text-xs font-medium text-slate-100 transition hover:border-white/20 hover:bg-white/10 disabled:opacity-50">{xlsxDownloading ? "Generating..." : <span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Export XLSX</span>}</button>
+                  <button onClick={() => exportCSV("all")} className="rounded-full border border-white/12 bg-white/6 px-3 py-2 text-xs font-medium text-slate-100 transition hover:border-white/20 hover:bg-white/10"><span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Full CSV export</span></button>
+                  <button onClick={() => exportCSV("clean")} className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-200 transition hover:bg-emerald-500/15"><span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Export clean report</span></button>
+                  <button onClick={() => exportCSV("risky")} className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-200 transition hover:bg-red-500/15"><span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Risk review list</span></button>
+                </div>
+                <Link href="/pricing" className="rs-link-arrow mt-3 inline-flex items-center gap-1 text-sm font-medium text-white md:hidden">
+                  Upgrade for bulk screening and reports <ArrowRight className="h-4 w-4" />
+                </Link>
               </div>
             </div>
 
-            <div className="rs-stagger mb-4 grid grid-cols-2 gap-4 md:grid-cols-4">
-              <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-4 text-center">
-                <div className="text-2xl font-bold text-white">{summary.total}</div>
-                <div className="mt-1 text-xs text-slate-500">Total Contacts</div>
-              </div>
-              <div className="rounded-[24px] border border-emerald-500/15 bg-emerald-500/8 p-4 text-center">
-                <div className="text-2xl font-bold text-emerald-300">{summary.clean}</div>
-                <div className="mt-1 text-xs text-emerald-200">Clean ({summary.clean_pct}%)</div>
-              </div>
-              <div className="rounded-[24px] border border-amber-500/15 bg-amber-500/8 p-4 text-center">
-                <div className="text-2xl font-bold text-amber-300">{summary.risky}</div>
-                <div className="mt-1 text-xs text-amber-200">Review ({summary.risky_pct}%)</div>
-              </div>
-              <div className="rounded-[24px] border border-red-500/15 bg-red-500/8 p-4 text-center">
-                <div className="text-2xl font-bold text-red-300">{summary.blocked}</div>
-                <div className="mt-1 text-xs text-red-200">Blocked ({summary.blocked_pct}%)</div>
-              </div>
+            <div className="rs-stagger mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <MetricCard label="Total Contacts" value={summary.total} helper="Contacts included in this screening pass" tone="neutral" />
+              <MetricCard label="Allow" value={summary.clean} helper={`${summary.clean_pct}% ready for outreach`} tone="allow" />
+              <MetricCard label="Review" value={summary.risky} helper={`${summary.risky_pct}% need manual review`} tone="review" />
+              <MetricCard label="Block" value={summary.blocked} helper={`${summary.blocked_pct}% should be removed`} tone="block" />
             </div>
 
             {summary.estimated_waste_pct > 0 && (
@@ -357,12 +451,25 @@ sales@domain.com`}</pre>
 
         {results && (
           <div className="rs-card overflow-hidden rounded-[28px]">
-            <div className="max-h-[600px] overflow-x-auto overflow-y-auto">
+            <div className="border-b border-white/8 px-4 py-4 sm:px-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h3 className="text-base font-semibold text-white">Detailed results</h3>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Risk score, decision state, and supporting signals for each contact in the uploaded list.
+                  </p>
+                </div>
+                <div className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-xs text-slate-400">
+                  Scroll horizontally on mobile to review every column
+                </div>
+              </div>
+            </div>
+            <div className="max-h-[600px] overflow-x-auto overflow-y-auto overscroll-contain">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-black/70 backdrop-blur-xl">
                   <tr>
                     {exportColumns.map((column) => (
-                      <th key={column.key} className="min-w-[120px] px-4 py-3 text-left font-medium text-slate-500">
+                      <th key={column.key} className="min-w-[120px] whitespace-nowrap border-b border-white/8 px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.22em] text-slate-500">
                         {column.label}
                       </th>
                     ))}
@@ -372,7 +479,7 @@ sales@domain.com`}</pre>
                   {results.map((result, index) => (
                     <tr key={index} className="border-t border-white/8 transition hover:bg-white/[0.03]">
                       {exportColumns.map((column) => (
-                        <td key={column.key} className="px-4 py-2.5 text-xs align-top">
+                        <td key={column.key} className="px-4 py-3 text-xs align-top leading-5">
                           {renderCell(result, column)}
                         </td>
                       ))}
@@ -380,6 +487,18 @@ sales@domain.com`}</pre>
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {!loading && !results && !summary && !error && (
+          <div className="rs-card rounded-[28px] p-6">
+            <div className="rounded-[24px] border border-white/10 bg-white/[0.03] px-6 py-10 text-center">
+              <BarChart3 className="mx-auto h-10 w-10 text-slate-500" />
+              <h3 className="mt-4 text-lg font-semibold text-white">Your bulk risk report will appear here</h3>
+              <p className="mx-auto mt-2 max-w-2xl text-sm text-slate-500">
+                Upload a CSV/XLSX file or paste a list of emails to generate a risk dashboard, review risky contacts, and export clean reports.
+              </p>
             </div>
           </div>
         )}
