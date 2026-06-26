@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Clock3, Shield } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock3, Shield } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { getPlanRank, isPlanAtLeast, type PlanKey } from "@/lib/plans";
 import { findCreemProductById, hasActiveSubscriptionAccess } from "@/lib/creem";
@@ -188,68 +188,70 @@ export default function BillingSuccessPage() {
     new Date(subscription.current_period_end) > new Date();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="border-b bg-white">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4 sm:px-6">
+    <div className="rs-shell">
+      <header className="border-b border-white/10 bg-black/20 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
           <Link href="/dashboard" className="flex items-center gap-3">
-            <Shield className="h-6 w-6 text-blue-600" />
-            <span className="text-lg font-bold text-gray-900">RiskShield AI</span>
+            <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
+              <Shield className="h-5 w-5 text-white" />
+            </div>
+            <span className="text-lg font-semibold text-white">RiskShield AI</span>
           </Link>
-          <Link href="/pricing" className="text-sm text-gray-600 hover:text-gray-900">
+          <Link href="/pricing" className="text-sm text-slate-400 transition hover:text-white">
             Pricing
           </Link>
         </div>
       </header>
 
-      <main className="mx-auto flex max-w-4xl px-4 py-12 sm:px-6">
-        <section className="w-full rounded-3xl border border-gray-200 bg-white p-8 shadow-sm">
+      <main className="mx-auto flex max-w-5xl px-4 py-10 sm:px-6">
+        <section className="rs-card rs-fade-up w-full rounded-[32px] p-6 sm:p-8">
           <div
             className={`space-y-4 ${
               banner.tone === "emerald"
-                ? "text-emerald-700"
+                ? "text-emerald-300"
                 : banner.tone === "amber"
-                  ? "text-amber-700"
+                  ? "text-amber-300"
                   : banner.tone === "red"
-                    ? "text-red-700"
-                    : "text-blue-700"
+                    ? "text-red-300"
+                    : "text-slate-200"
             }`}
           >
             <div className="flex items-center gap-3">
               {state === "active" ? <CheckCircle2 className="h-8 w-8" /> : <Clock3 className="h-8 w-8" />}
-              <h1 className="text-2xl font-semibold text-gray-900">{banner.title}</h1>
+              <h1 className="rs-title-settle text-2xl font-semibold text-white sm:text-3xl">{banner.title}</h1>
             </div>
 
-            <p className="text-sm text-gray-600">{banner.description}</p>
+            <p className="max-w-2xl text-sm text-slate-400">{banner.description}</p>
 
             {state === "active" && profile && (
               <div className="space-y-4">
                 {isHigherTierAlreadyActive && (
-                  <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5 text-sm text-blue-900">
-                    当前账号已经拥有更高权限，本次付款已记录，不会降级现有计划。
+                  <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-5 text-sm text-slate-300">
+                    Your account already has a higher access tier. This payment was recorded without downgrading the existing plan.
                   </div>
                 )}
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5">
-                    <div className="text-xs font-medium uppercase tracking-wide text-emerald-700">Current plan</div>
-                    <div className="mt-2 text-2xl font-bold capitalize text-gray-900">{profile.plan}</div>
+                  <div className="rounded-[24px] border border-emerald-500/15 bg-emerald-500/8 p-5">
+                    <div className="text-xs font-medium uppercase tracking-[0.22em] text-emerald-300">Current plan</div>
+                    <div className="mt-2 text-2xl font-semibold capitalize text-white">{profile.plan}</div>
                   </div>
-                  <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5">
-                    <div className="text-xs font-medium uppercase tracking-wide text-blue-700">Credits available</div>
-                    <div className="mt-2 text-2xl font-bold text-gray-900">
+                  <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-5">
+                    <div className="text-xs font-medium uppercase tracking-[0.22em] text-slate-400">Credits available</div>
+                    <div className="mt-2 text-2xl font-semibold text-white">
                       {(profile.credits_remaining ?? 0).toLocaleString()}
                     </div>
                   </div>
                 </div>
-                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-700">
+                <div className="rounded-[24px] border border-white/10 bg-black/25 p-5 text-sm text-slate-300">
                   {billingInterval && (
                     <p>
-                      Billing cycle: <span className="font-medium capitalize">{billingInterval}</span>
+                      Billing cycle: <span className="font-medium capitalize text-white">{billingInterval}</span>
                     </p>
                   )}
                   {subscription?.current_period_end && (
                     <p className="mt-1">
                       {isCancelingAtPeriodEnd ? "Access ends on" : "Renews on"}{" "}
-                      <span className="font-medium">
+                      <span className="font-medium text-white">
                         {new Date(subscription.current_period_end).toLocaleDateString()}
                       </span>
                     </p>
@@ -259,26 +261,28 @@ export default function BillingSuccessPage() {
             )}
 
             {state === "syncing" && (
-              <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5 text-sm text-amber-900">
-                正在同步，请稍后刷新。
+              <div className="rounded-[24px] border border-amber-500/20 bg-amber-500/10 p-5 text-sm text-amber-200">
+                We are still syncing your subscription. Please refresh in a moment.
               </div>
             )}
 
             {state === "error" && (
-              <p className="text-sm text-gray-600">{message || "Please refresh and try again."}</p>
+              <div className="rounded-[24px] border border-red-500/20 bg-red-500/10 p-5 text-sm text-red-200">
+                {message || "Please refresh and try again."}
+              </div>
             )}
           </div>
 
-          <div className="mt-8 flex flex-wrap gap-3">
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
               href="/dashboard"
-              className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+              className="rs-button-primary rs-link-arrow inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-medium"
             >
-              Back to Dashboard
+              Back to Dashboard <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
               href="/pricing"
-              className="rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              className="rs-button-secondary inline-flex min-h-11 items-center justify-center rounded-full px-5 py-3 text-sm font-medium"
             >
               View Plans
             </Link>

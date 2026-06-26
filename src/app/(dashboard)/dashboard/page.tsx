@@ -525,7 +525,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="rs-panel rounded-[28px] p-6">
+        <div className="rs-panel rs-card-hover rounded-[28px] p-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="flex items-center gap-2 font-semibold text-white">
               <Key className="h-5 w-5 text-cyan-300" /> API Keys
@@ -546,21 +546,21 @@ export default function DashboardPage() {
           )}
 
           {apiKeys.length === 0 && (
-            <p className="text-sm text-slate-400">
+            <div className="rounded-[24px] border border-dashed border-white/10 bg-black/20 px-4 py-5 text-sm text-slate-400">
               {apiEnabled ? "No API keys yet. Generate one to start using the API." : "Upgrade to Growth to generate API keys."}
-            </p>
+            </div>
           )}
 
           {activeApiKeys.map((k) => (
-            <div key={k.id} className="mt-3 flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-              <div>
-                <div className="font-mono text-sm text-slate-100">{k.key ? k.key.slice(0, 12) + "..." + k.key.slice(-6) : "N/A"}</div>
+            <div key={k.id} className="mt-3 flex flex-col gap-3 rounded-[24px] border border-white/10 bg-black/20 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <div className="truncate font-mono text-sm text-slate-100">{k.key ? k.key.slice(0, 12) + "..." + k.key.slice(-6) : "N/A"}</div>
                 <div className="mt-0.5 text-xs text-slate-500">
                   Created {new Date(k.created_at).toLocaleDateString()}
                   {k.last_used_at ? " - Last used " + new Date(k.last_used_at).toLocaleDateString() : ""}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 self-end sm:self-auto">
                 <button
                   onClick={() => {
                     if (k.key) {
@@ -569,7 +569,8 @@ export default function DashboardPage() {
                       setTimeout(() => setCopied(""), 2000);
                     }
                   }}
-                  className="rounded-xl p-1.5 text-slate-400 transition hover:bg-white/5 hover:text-white"
+                  className="rs-copy-feedback rounded-xl p-1.5 text-slate-400 transition hover:bg-white/5 hover:text-white"
+                  data-copied={copied === k.id}
                 >
                   <Copy className="h-4 w-4" />
                   {copied === k.id && <span className="ml-1 text-xs text-emerald-300">Copied!</span>}
@@ -589,7 +590,7 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        <div className="rs-panel rounded-[28px] p-6">
+        <div className="rs-panel rs-card-hover rounded-[28px] p-6">
           <div className="flex flex-wrap items-start gap-4">
             <div className="flex-1">
               <div className="mb-2 flex items-center gap-2">
@@ -620,15 +621,15 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="shrink-0 rounded-2xl border border-white/10 bg-black/30 p-4 text-sm">
-              <div className="mb-2 font-semibold text-white">Quick Start</div>
-              <code className="mb-1 block rounded bg-white/5 px-2 py-1 text-xs text-slate-300">POST /api/v1/email/batch-check</code>
-              <code className="block rounded bg-white/5 px-2 py-1 text-xs text-slate-300">up to 100 emails/batch</code>
+            <div className="shrink-0 rounded-[24px] border border-white/10 bg-black/30 p-4 text-sm sm:min-w-[220px]">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Quick Start</div>
+              <code className="mb-2 block overflow-x-auto rounded bg-white/5 px-2 py-1 text-xs text-slate-300">POST /api/v1/email/batch-check</code>
+              <code className="block overflow-x-auto rounded bg-white/5 px-2 py-1 text-xs text-slate-300">up to 100 emails/batch</code>
             </div>
           </div>
         </div>
 
-        <div className="rs-panel rounded-[28px] p-6">
+        <div className="rs-panel rs-card-hover rounded-[28px] p-6">
           <h2 className="mb-1 flex items-center gap-2 font-semibold text-white">
             <Settings className="h-5 w-5 text-slate-300" /> Protection Settings
           </h2>
@@ -642,7 +643,7 @@ export default function DashboardPage() {
                 { key: "review_catch_all", label: "Review catch-all domains", desc: "Force REVIEW on domains that accept all mailboxes" },
                 { key: "review_new_domain", label: "Review new domains", desc: "Force REVIEW on domains less than 90 days old" },
               ].map(({ key, label, desc }) => (
-                <div key={key} className="flex items-center justify-between border-b border-white/10 py-2 last:border-0">
+                <div key={key} className="flex items-center justify-between rounded-[20px] border border-white/8 bg-black/20 px-4 py-3">
                   <div>
                     <div className="text-sm font-medium text-slate-100">{label}</div>
                     <div className="text-xs text-slate-500">{desc}</div>
@@ -667,18 +668,22 @@ export default function DashboardPage() {
           {settingsSaved && <span className="ml-3 text-xs text-emerald-300">Saved!</span>}
         </div>
 
-        <div className="rs-panel rounded-[28px] p-6">
+        <div className="rs-panel rs-card-hover rounded-[28px] p-6">
           <h2 className="mb-4 flex items-center gap-2 font-semibold text-white">
             <Activity className="h-5 w-5 text-emerald-300" /> Recent Checks
           </h2>
-          {checks.length === 0 && <p className="text-sm text-slate-400">No checks yet. Run email or IP risk checks from the Risk Check page or via API.</p>}
+          {checks.length === 0 && (
+            <div className="rounded-[24px] border border-dashed border-white/10 bg-black/20 px-4 py-5 text-sm text-slate-400">
+              No checks yet. Run email or IP risk checks from the Risk Check page or via API.
+            </div>
+          )}
           {checks.map((c) => (
-            <div key={c.id} className="flex items-center justify-between border-b border-white/10 py-3 text-sm last:border-0">
-              <div className="flex items-center gap-3">
+            <div key={c.id} className="flex flex-col gap-3 border-b border-white/10 py-3 text-sm last:border-0 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-3">
                 <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-xs uppercase text-slate-300">{c.check_type}</span>
-                <span className="max-w-[200px] truncate text-slate-100">{c.input_value}</span>
+                <span className="truncate text-slate-100 sm:max-w-[260px]">{c.input_value}</span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3 sm:justify-end">
                 <span className={c.risk_score >= 60 ? "text-red-300" : c.risk_score >= 30 ? "text-amber-300" : "text-emerald-300"}>Risk: {c.risk_score}</span>
                 <span className="text-xs text-slate-500">{new Date(c.created_at).toLocaleString()}</span>
               </div>
@@ -686,7 +691,7 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        <div className="rs-panel rounded-[28px] p-6">
+        <div className="rs-panel rs-card-hover rounded-[28px] p-6">
           <h2 className="mb-1 flex items-center gap-2 font-semibold text-white">
             <Mail className="h-5 w-5 text-slate-300" /> Send Feedback
           </h2>
@@ -715,7 +720,7 @@ export default function DashboardPage() {
                 maxLength={120}
                 required
                 placeholder="Bug report, feature request, UX issue..."
-                className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[var(--rs-primary)]"
+                className="rs-input px-4 py-2.5 text-sm"
               />
             </div>
             <div>
@@ -728,25 +733,28 @@ export default function DashboardPage() {
                 required
                 rows={5}
                 placeholder="Tell us what happened, what you expected, and how we can improve."
-                className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[var(--rs-primary)]"
+                className="rs-textarea px-4 py-3 text-sm"
               />
               <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
                 <span>{feedbackRemaining} submissions left today</span>
                 <span>{feedbackMessage.length}/2000</span>
               </div>
             </div>
-            <button
-              type="submit"
-              disabled={feedbackLoading || feedbackRemaining <= 0}
-              className="rs-button-primary rounded-full px-4 py-2 text-sm font-medium disabled:opacity-50"
-            >
-              {feedbackLoading ? "Sending..." : feedbackRemaining <= 0 ? "Daily limit reached" : "Send Feedback"}
-            </button>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-xs text-slate-500">Use this inbox for product feedback, bugs, and workflow issues.</div>
+              <button
+                type="submit"
+                disabled={feedbackLoading || feedbackRemaining <= 0}
+                className="rs-button-primary rounded-full px-4 py-2.5 text-sm font-medium disabled:opacity-50"
+              >
+                {feedbackLoading ? "Sending..." : feedbackRemaining <= 0 ? "Daily limit reached" : "Send Feedback"}
+              </button>
+            </div>
           </form>
         </div>
 
         {isAdmin && (
-          <div className="rs-panel rounded-[28px] p-6">
+          <div className="rs-panel rs-card-hover rounded-[28px] p-6">
             <h2 className="mb-2 flex items-center gap-2 font-semibold text-white">
               <Inbox className="h-5 w-5 text-slate-300" />
               Admin Tools
