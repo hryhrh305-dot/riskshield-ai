@@ -20,11 +20,13 @@
   - Establish a long-term UI memory system for RiskShield AI
   - Align the product more closely with an xAI-inspired monochrome futuristic direction
   - Save raw design reference files under `docs/design-references/` and index them for later UI work
+  - Name the current frozen UI snapshot as "Black-White Minimal RiskShield AI"
 
 - Design Source
   - xAI-inspired `DESIGN.md` reference from VoltAgent `awesome-design-md`
   - RiskShield AI enterprise risk dashboard positioning
   - Raw xAI, Sentry, Vercel, and Stripe reference docs stored in `docs/design-references/`
+  - Internal snapshot reference stored in `docs/design-references/blackwhite-minimal.DESIGN.md`
 
 - Whether DESIGN.md was followed
   - Yes

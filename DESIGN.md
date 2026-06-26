@@ -445,6 +445,7 @@ The brand uses no shadows. Hairline borders carry all elevation cues.
 - `docs/design-references/sentry.DESIGN.md` is the reference for dense security dashboards and alert surfaces.
 - `docs/design-references/vercel.DESIGN.md` is the reference for developer-product clarity and docs-like pages.
 - `docs/design-references/stripe.DESIGN.md` is the reference for pricing, billing, and quota presentation.
+- `docs/design-references/blackwhite-minimal.DESIGN.md` is the frozen current UI snapshot labeled "Black-White Minimal RiskShield AI".
 
 ### Do
 

@@ -59,8 +59,23 @@ They are reference material only, not brand copies.
 - Weight in RiskShield AI:
   - Secondary reference for pricing, billing, quota, and upgrade flows
 
+## 5. Black-White Minimal RiskShield AI
+
+- Source URL: internal snapshot stored at `docs/design-references/blackwhite-minimal.DESIGN.md`
+- Good fit for RiskShield AI:
+  - Frozen reference for the current black-white minimal UI version
+  - Clear, security-first enterprise shell
+  - Strong enough contrast for pricing, dashboard, and billing modules
+- Poor fit for RiskShield AI:
+  - Anything that drifts back into colorful SaaS templating
+  - Decorative gradients or playful visuals
+- Weight in RiskShield AI:
+  - Rollback and reuse target when the user says "黑白极简风"
+  - Preferred label for this exact saved UI version
+
 ## Policy
 
 - Always treat these files as design reference material.
 - Do not copy brand assets, logos, or proprietary wording verbatim.
 - RiskShield AI should remain its own product with its own copy and trust posture.
+- The black-white minimal snapshot is an internal product-state reference, not a vendor brand reference.
