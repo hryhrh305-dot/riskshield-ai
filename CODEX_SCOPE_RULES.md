@@ -28,6 +28,13 @@
 - Estimated Waste Prevented
 - Export / handoff workflow
 
+## 当前 Task 状态
+
+- Task 1：已完成并已 checkpoint commit
+- Task 2A：当前进行中，只做 Credits Ledger 基础层
+- Task 2A 期间不得把新 ledger 接入现有 runtime 路由
+- Task 2A 期间不得替换现有 `consume_credit` 或现有 quota enforcement
+
 ## 允许的延伸
 
 - 轻量规则常量
