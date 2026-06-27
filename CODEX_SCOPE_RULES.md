@@ -1,51 +1,53 @@
-# RiskShield AI Codex Scope Rules
+# CODEX Scope Rules
 
-## This document is a short freeze list for near-term execution
+本文件是 RiskShield AI 第一阶段的执行边界说明。
 
-## Short-term do not build
+## 当前阶段不要做
 
-- Do not build a low-price basic cleaning product front-end
-- Do not add HIBP integration
-- Do not add leak databases or social engineering databases
-- Do not rely on Spamhaus commercial queries
-- Do not build Reacher or SMTP proxy pools
-- Do not add phone number risk
-- Do not create Fintech / LegalTech / Insurance vertical variants
-- Do not implement full Salesforce OAuth
-- Do not implement full HubSpot OAuth
-- Do not migrate old routes in this task stream
-- Do not clean all lint debt globally
-- Do not make large payment system rewrites
-- Do not make large login rewrites
-- Do not make large webhook rewrites
+- 不要做低价基础清洗产品层
+- 不要接 HIBP
+- 不要做泄露库 / 社工库
+- 不要依赖 Spamhaus 商业查询
+- 不要做 Reacher / SMTP 代理池
+- 不要做手机号风险
+- 不要做 Fintech / LegalTech / 保险垂直版
+- 不要做完整 Salesforce / HubSpot OAuth
+- 不要迁移旧 route
+- 不要清全量 lint
+- 不要大改支付 / 登录 / webhook
 
-## What the near-term product should focus on
+## 当前阶段要坚持的方向
 
-- pre-send list audits
-- outbound launch readiness
-- agency-friendly client reports
-- list decisioning
-- exportable work products
-- deliverability risk explanation
-
-## What stays as infrastructure only
-
-- base email detection
-- signal extraction
-- normalization
-- risk reasoning
-- report generation inputs
-
-These are supporting layers, not the public product category.
-
-## Boundaries for future work
-
-If a request expands beyond the current roadmap, pause and confirm before changing code.
-
-The current roadmap should stay centered on:
-
-- Send / Review / Suppress
+- Pre-send List Audit
+- Outbound List Intelligence
+- Agency-ready Campaign Risk Report
+- Client-ready report
+- Send / Review / Suppress 决策
 - Campaign Readiness Score
-- client-ready reporting
-- agency workflow
+- Top Risk Reasons
+- Estimated Waste Prevented
+- Export / handoff workflow
 
+## 允许的延伸
+
+- 轻量规则常量
+- 文档
+- 轻量 smoke test
+- 报告结构优化
+- 导出格式优化
+
+## 不要把底层能力误当产品层
+
+基础邮箱检测、基础 IP 检测、基础风险引擎只是底层能力。
+前台主产品不应再以普通 email verification 为主叙事。
+
+## 只在必要时推进下一步
+
+后续顺序优先考虑：
+
+1. 统一规则常量
+2. 统一文档
+3. Credits ledger
+4. Suppression workspace 化
+5. Report archive / share link
+6. 再考虑 API / white-label / realtime gate
