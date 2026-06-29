@@ -8,6 +8,7 @@ fix_*.py
 src/lib/env.ts
 .vercel
 outputs/
+.codex-temp/
 
 # Codex crash recovery backups
 .codex-crash-recovery/

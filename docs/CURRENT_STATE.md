@@ -1,5 +1,14 @@
 ## Current State - RiskShield AI v0.3 (2026-06-22)
 
+### Vercel Scope
+- Team display name: H Projects
+- Team URL / slug: hrh-projects
+- Future Vercel CLI scope: --scope hrh-projects
+- Vercel project name: riskshield-api
+- GitHub repo: hryhrh305-dot/riskshield-ai
+- Production domains: 574269.xyz, www.574269.xyz
+- Historical deployment URLs may still include the old `risk-shield-ai` slug, but future CLI and team references should use `hrh-projects`
+
 ### Completed
 - Email/IP risk scoring engine (ALLOW/REVIEW/BLOCK)
 - Website: single check, bulk upload, dashboard, pricing
