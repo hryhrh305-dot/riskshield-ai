@@ -15,7 +15,17 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Secwyn - Email & IP Risk Intelligence",
   description:
-    "Secwyn helps teams detect risky emails, suspicious IPs, and low-quality leads with cost-controlled checks and automation-ready workflows.",
+    "Secwyn helps outbound teams audit lead lists, detect risky emails, suspicious IPs, and low-quality contacts before launching campaigns.",
+  openGraph: {
+    title: "Secwyn - Email & IP Risk Intelligence",
+    description:
+      "Audit outbound lead lists before sending. Detect risky emails, suspicious IPs, and low-quality contacts with Secwyn.",
+  },
+  twitter: {
+    title: "Secwyn - Email & IP Risk Intelligence",
+    description:
+      "Pre-send lead list audits for outbound teams. Detect risky emails, suspicious IPs, and low-quality contacts before campaigns launch.",
+  },
 };
 
 export default function RootLayout({
