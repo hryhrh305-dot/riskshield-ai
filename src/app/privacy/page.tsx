@@ -27,7 +27,7 @@ const sections = [
   {
     title: "How we share information",
     body: [
-      "With infrastructure and service providers that help us operate RiskShield AI, including hosting, authentication, database, payment, email, analytics, and security providers.",
+      "With infrastructure and service providers that help us operate Secwyn, including hosting, authentication, database, payment, email, analytics, and security providers.",
       "With payment processors and merchant-of-record providers when needed to process purchases, subscriptions, refunds, taxes, disputes, and compliance reviews.",
       "With authorities, regulators, or third parties when required by law, to protect rights and safety, or to investigate abuse.",
       "We do not sell personal information or customer-uploaded lists.",
@@ -58,7 +58,7 @@ export default function PrivacyPage() {
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4 sm:px-6">
           <Link href="/" className="flex items-center gap-3">
             <Shield className="h-6 w-6 text-blue-600" />
-            <span className="text-lg font-bold text-gray-900">RiskShield AI</span>
+            <span className="text-lg font-bold text-gray-900">Secwyn</span>
           </Link>
           <Link href="/terms" className="text-sm font-medium text-gray-600 hover:text-gray-900">
             Terms
@@ -72,7 +72,7 @@ export default function PrivacyPage() {
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-gray-900">Privacy Policy</h1>
           <p className="mt-3 text-sm text-gray-500">Last updated: June 25, 2026</p>
           <p className="mt-5 text-gray-600">
-            RiskShield AI provides email, IP, domain, and customer-risk intelligence tools for businesses. This Privacy Policy explains what information we collect, how we use it, and how users can contact us.
+            Secwyn provides email, IP, domain, and customer-risk intelligence tools for businesses. This Privacy Policy explains what information we collect, how we use it, and how users can contact us.
           </p>
         </section>
 
@@ -91,7 +91,7 @@ export default function PrivacyPage() {
           <section className="rounded-lg border bg-white p-6">
             <h2 className="text-lg font-semibold text-gray-900">International use</h2>
             <p className="mt-3 text-sm leading-6 text-gray-600">
-              RiskShield AI may process information in countries where our infrastructure, service providers, or payment partners operate. By using the service, you understand that information may be transferred and processed outside your country of residence.
+              Secwyn may process information in countries where our infrastructure, service providers, or payment partners operate. By using the service, you understand that information may be transferred and processed outside your country of residence.
             </p>
           </section>
 

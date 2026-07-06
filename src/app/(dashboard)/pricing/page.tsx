@@ -634,7 +634,7 @@ export default function PricingPage() {
               <Shield className="h-5 w-5 text-white" />
             </span>
             <div>
-              <div className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">RiskShield AI</div>
+              <div className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Secwyn</div>
               <div className="text-xs text-slate-500">Subscription plans</div>
             </div>
           </Link>
@@ -870,13 +870,13 @@ export default function PricingPage() {
         </section>
 
         <section className="mt-6 rounded-[24px] border border-white/10 bg-white/[0.05] px-5 py-4 text-sm text-slate-300">
-          Credits are usage units for RiskShield AI checks. Cached duplicate results may be returned without repeating the underlying check. Starter, Growth, and Scale are recurring subscriptions, activated automatically after the Creem webhook is processed.
+          Credits are usage units for Secwyn checks. Cached duplicate results may be returned without repeating the underlying check. Starter, Growth, and Scale are recurring subscriptions, activated automatically after the Creem webhook is processed.
         </section>
       </main>
 
       <footer className="border-t border-white/10 bg-black/30 px-4 py-6 text-sm text-slate-500 sm:px-6">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p>&copy; {new Date().getFullYear()} RiskShield AI</p>
+          <p>&copy; {new Date().getFullYear()} Secwyn</p>
           <div className="flex flex-wrap items-center gap-4">
             <Link href="/privacy" className="hover:text-white">Privacy Policy</Link>
             <Link href="/terms" className="hover:text-white">Terms of Service</Link>

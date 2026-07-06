@@ -199,7 +199,7 @@ export default function RiskCheckPage() {
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         <div className="mb-8 text-center">
           <div className="rs-fade-up mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-sm font-medium text-slate-200">
-            <Shield className="h-4 w-4" /> RiskShield AI Web Tool
+            <Shield className="h-4 w-4" /> Secwyn Web Tool
           </div>
           <h1 className="rs-title-settle text-3xl font-semibold text-white sm:text-4xl">Contact Check</h1>
           <p className="rs-fade-up rs-fade-up-delay-1 mx-auto mt-3 max-w-2xl text-slate-400">

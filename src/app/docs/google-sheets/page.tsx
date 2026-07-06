@@ -10,7 +10,7 @@ export default function GoogleSheetsGuidePage() {
             <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
               <Shield className="h-5 w-5 text-white" />
             </div>
-            <span className="text-lg font-semibold text-white">RiskShield AI</span>
+            <span className="text-lg font-semibold text-white">Secwyn</span>
           </Link>
           <div className="flex items-center gap-4 text-sm">
             <Link href="/docs" className="text-slate-400 transition hover:text-white">API Docs</Link>
@@ -41,7 +41,7 @@ export default function GoogleSheetsGuidePage() {
               </Link>
             </div>
             <p className="text-sm text-slate-400">
-              Before you start, make sure you already have a RiskShield AI account and a valid API key from your dashboard.
+              Before you start, make sure you already have a Secwyn account and a valid API key from your dashboard.
             </p>
           </section>
 
@@ -63,7 +63,7 @@ export default function GoogleSheetsGuidePage() {
           <section className="rs-card rounded-[28px] p-6">
             <h2 className="mb-4 text-lg font-semibold text-white">Connect Your API Key</h2>
             <ol className="list-decimal space-y-3 pl-5 text-sm text-slate-300">
-              <li>Open your RiskShield AI <Link href="/dashboard" className="text-white underline hover:text-slate-200">Dashboard</Link>.</li>
+              <li>Open your Secwyn <Link href="/dashboard" className="text-white underline hover:text-slate-200">Dashboard</Link>.</li>
               <li>Find your API key and copy it.</li>
               <li>Return to Google Sheets.</li>
               <li>Click <strong className="text-white">Risk Scanner</strong> &gt; <strong className="text-white">Settings</strong>.</li>

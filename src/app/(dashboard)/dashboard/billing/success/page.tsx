@@ -195,7 +195,7 @@ export default function BillingSuccessPage() {
             <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
               <Shield className="h-5 w-5 text-white" />
             </div>
-            <span className="text-lg font-semibold text-white">RiskShield AI</span>
+            <span className="text-lg font-semibold text-white">Secwyn</span>
           </Link>
           <Link href="/pricing" className="text-sm text-slate-400 transition hover:text-white">
             Pricing

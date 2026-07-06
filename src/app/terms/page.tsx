@@ -5,9 +5,9 @@ const supportEmail = "support@574269.xyz";
 
 const sections = [
   {
-    title: "Using RiskShield AI",
+    title: "Using Secwyn",
     body: [
-      "You may use RiskShield AI only for lawful business purposes and only in compliance with these Terms, applicable laws, and any plan limits shown on our website.",
+      "You may use Secwyn only for lawful business purposes and only in compliance with these Terms, applicable laws, and any plan limits shown on our website.",
       "You are responsible for the accuracy, legality, and authorization of the email addresses, IP addresses, domains, files, and other data you submit.",
       "You must keep your account credentials and API keys secure. Activity under your account or API keys is your responsibility unless caused by our proven breach.",
     ],
@@ -24,7 +24,7 @@ const sections = [
   {
     title: "Risk results and limitations",
     body: [
-      "RiskShield AI provides risk signals, scoring, enrichment, and recommendations. Results are informational and do not guarantee deliverability, identity, fraud status, compliance status, or business outcome.",
+      "Secwyn provides risk signals, scoring, enrichment, and recommendations. Results are informational and do not guarantee deliverability, identity, fraud status, compliance status, or business outcome.",
       "You remain responsible for final business decisions, customer screening, compliance obligations, outreach practices, and the use of exported reports.",
       "We may improve, adjust, remove, or limit features, models, signals, scoring logic, data sources, integrations, and exports to protect reliability, cost control, compliance, and product quality.",
     ],
@@ -32,7 +32,7 @@ const sections = [
   {
     title: "Acceptable use",
     body: [
-      "You may not use RiskShield AI for illegal activity, harassment, surveillance, spam, credential attacks, scraping abuse, evasion of platform policies, or high-risk uses that could harm people, systems, or payment networks.",
+      "You may not use Secwyn for illegal activity, harassment, surveillance, spam, credential attacks, scraping abuse, evasion of platform policies, or high-risk uses that could harm people, systems, or payment networks.",
       "You may not resell, white-label, benchmark, reverse engineer, overload, probe, bypass limits, or attempt to extract proprietary logic without written permission.",
       "You may not submit data that you are not legally allowed to process or that violates privacy, anti-spam, export-control, sanctions, or consumer-protection laws.",
       "We may throttle, block, suspend, or terminate accounts and API keys when we believe usage creates security, legal, payment, reputational, or operational risk.",
@@ -49,7 +49,7 @@ const sections = [
   {
     title: "Service availability",
     body: [
-      "We aim to keep RiskShield AI reliable, but we do not guarantee uninterrupted, error-free, or permanently available service.",
+      "We aim to keep Secwyn reliable, but we do not guarantee uninterrupted, error-free, or permanently available service.",
       "We may perform maintenance, impose rate limits, suspend risky traffic, or restrict access where needed for security, compliance, billing, platform integrity, or operational reasons.",
       "Integrations with third-party services, payment providers, APIs, DNS systems, email systems, and data sources may fail or change outside our control.",
     ],
@@ -57,9 +57,9 @@ const sections = [
   {
     title: "Disclaimers and liability limits",
     body: [
-      "To the maximum extent allowed by law, RiskShield AI is provided as is and as available, without warranties of merchantability, fitness for a particular purpose, non-infringement, accuracy, or uninterrupted operation.",
+      "To the maximum extent allowed by law, Secwyn is provided as is and as available, without warranties of merchantability, fitness for a particular purpose, non-infringement, accuracy, or uninterrupted operation.",
       "To the maximum extent allowed by law, we are not liable for lost profits, lost revenue, lost data, business interruption, reputational harm, indirect damages, consequential damages, or decisions made using risk results.",
-      "Our total liability for any claim is limited to the amount you paid to RiskShield AI for the service giving rise to the claim during the three months before the event, or USD 100 if you used a free plan.",
+      "Our total liability for any claim is limited to the amount you paid to Secwyn for the service giving rise to the claim during the three months before the event, or USD 100 if you used a free plan.",
     ],
   },
   {
@@ -79,7 +79,7 @@ export default function TermsPage() {
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4 sm:px-6">
           <Link href="/" className="flex items-center gap-3">
             <Shield className="h-6 w-6 text-blue-600" />
-            <span className="text-lg font-bold text-gray-900">RiskShield AI</span>
+            <span className="text-lg font-bold text-gray-900">Secwyn</span>
           </Link>
           <Link href="/privacy" className="text-sm font-medium text-gray-600 hover:text-gray-900">
             Privacy
@@ -93,7 +93,7 @@ export default function TermsPage() {
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-gray-900">Terms of Service</h1>
           <p className="mt-3 text-sm text-gray-500">Last updated: June 25, 2026</p>
           <p className="mt-5 text-gray-600">
-            These Terms govern access to and use of RiskShield AI, including the website, dashboard, API, reports, exports, subscriptions, and integrations.
+            These Terms govern access to and use of Secwyn, including the website, dashboard, API, reports, exports, subscriptions, and integrations.
           </p>
         </section>
 
@@ -112,7 +112,7 @@ export default function TermsPage() {
           <section className="rounded-lg border bg-white p-6">
             <h2 className="text-lg font-semibold text-gray-900">Changes to these Terms</h2>
             <p className="mt-3 text-sm leading-6 text-gray-600">
-              We may update these Terms from time to time. Updated terms apply when posted unless a different effective date is stated. Continued use of RiskShield AI after an update means you accept the updated Terms.
+              We may update these Terms from time to time. Updated terms apply when posted unless a different effective date is stated. Continued use of Secwyn after an update means you accept the updated Terms.
             </p>
           </section>
 

@@ -371,7 +371,7 @@ export default function DashboardPage() {
                 <Shield className="h-5 w-5 text-white" />
               </span>
               <div>
-                <div className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-300">RiskShield AI</div>
+                <div className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-300">Secwyn</div>
                 <div className="text-xs text-slate-500">Control center</div>
               </div>
             </Link>
@@ -600,7 +600,7 @@ export default function DashboardPage() {
                 <h2 className="text-lg font-semibold text-white">Google Sheets Add-on</h2>
               </div>
               <p className="mb-3 text-sm text-slate-300">
-                Audit lead lists in bulk directly from Google Sheets. Download the script, paste it into Apps Script, then connect it with your RiskShield AI API key.
+                Audit lead lists in bulk directly from Google Sheets. Download the script, paste it into Apps Script, then connect it with your Secwyn API key.
               </p>
               <ol className="mb-4 list-inside list-decimal space-y-1.5 text-sm text-slate-400">
                 <li>Click <strong>Download Code.gs</strong> below.</li>
@@ -696,7 +696,7 @@ export default function DashboardPage() {
             <Mail className="h-5 w-5 text-slate-300" /> Send Feedback
           </h2>
           <p className="mb-4 text-xs text-slate-500">
-            Send product feedback directly inside RiskShield AI. Daily limit: {feedbackSentToday}/{feedbackDailyLimit}. Support:{" "}
+            Send product feedback directly inside Secwyn. Daily limit: {feedbackSentToday}/{feedbackDailyLimit}. Support:{" "}
             <a href="mailto:support@574269.xyz" className="text-[var(--rs-primary)] hover:text-white">support@574269.xyz</a>.
           </p>
           <form onSubmit={handleFeedbackSubmit} className="max-w-2xl space-y-4">
@@ -707,7 +707,7 @@ export default function DashboardPage() {
             )}
             {feedbackSaved && (
               <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
-                Feedback sent successfully. Thanks for helping us improve RiskShield AI.
+                Feedback sent successfully. Thanks for helping us improve Secwyn.
               </div>
             )}
             <div>

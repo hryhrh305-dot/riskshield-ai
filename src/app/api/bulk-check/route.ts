@@ -290,7 +290,7 @@ export async function POST(request: NextRequest) {
     }
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(wsData);
-    XLSX.utils.book_append_sheet(wb, ws, "RiskShield AI Results");
+    XLSX.utils.book_append_sheet(wb, ws, "Secwyn Results");
     const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
     return new NextResponse(buf, {
       headers: {

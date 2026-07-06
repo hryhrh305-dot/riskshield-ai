@@ -37,7 +37,7 @@ const features = [
 const differentiators = [
   {
     title: "More than email validation",
-    desc: "RiskShield AI frames list quality as a send decision, not just a binary valid or invalid check.",
+    desc: "Secwyn frames list quality as a send decision, not just a binary valid or invalid check.",
   },
   {
     title: "Built for outbound operators",
@@ -106,7 +106,7 @@ export default function Home() {
               <Shield className="h-5 w-5 text-white" />
             </span>
             <div>
-              <div className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">RiskShield AI</div>
+              <div className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Secwyn</div>
               <div className="text-xs text-slate-500">Outbound List Intelligence</div>
             </div>
           </Link>
@@ -203,7 +203,7 @@ export default function Home() {
             </h1>
 
             <p className="rs-fade-up rs-fade-up-delay-1 mt-6 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">
-              RiskShield AI helps outbound agencies and RevOps teams audit lead lists, protect sender reputation, and generate client-ready campaign risk reports before sending.
+              Secwyn helps outbound agencies and RevOps teams audit lead lists, protect sender reputation, and generate client-ready campaign risk reports before sending.
             </p>
 
             <div className="rs-fade-up rs-fade-up-delay-2 mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -330,7 +330,7 @@ export default function Home() {
 
       <footer className="border-t border-white/10 bg-black/30 px-4 py-8 text-sm text-slate-400 sm:px-6">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <p>&copy; {new Date().getFullYear()} RiskShield AI. Outbound List Intelligence.</p>
+          <p>&copy; {new Date().getFullYear()} Secwyn. Outbound List Intelligence.</p>
           <div className="flex flex-wrap items-center gap-4">
             <Link href="/privacy" className="transition hover:text-white">Privacy Policy</Link>
             <Link href="/terms" className="transition hover:text-white">Terms of Service</Link>

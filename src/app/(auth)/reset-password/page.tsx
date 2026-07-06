@@ -148,7 +148,7 @@ export default function ResetPasswordPage() {
             <Shield className="h-7 w-7 text-white" />
           </div>
           <h1 className="rs-title-settle mt-4 text-3xl font-semibold text-white">Choose New Password</h1>
-          <p className="rs-fade-up rs-fade-up-delay-1 mt-2 text-sm text-slate-400">Set a new password for your RiskShield AI account.</p>
+          <p className="rs-fade-up rs-fade-up-delay-1 mt-2 text-sm text-slate-400">Set a new password for your Secwyn account.</p>
         </div>
 
         {recoveryTokenHash ? (

@@ -94,7 +94,7 @@ export default function BlacklistPage() {
                 <Shield className="h-5 w-5 text-white" />
               </span>
               <div>
-                <div className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-300">RiskShield AI</div>
+                <div className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-300">Secwyn</div>
                 <div className="text-xs text-slate-500">Blacklist control</div>
               </div>
             </Link>
