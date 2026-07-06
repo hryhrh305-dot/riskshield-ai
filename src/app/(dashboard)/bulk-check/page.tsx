@@ -454,7 +454,7 @@ export default function BulkCheckPage() {
             className={`rounded-[24px] border-2 border-dashed p-8 text-center transition-colors ${dragOver ? "border-white/30 bg-white/10" : "border-white/12 bg-white/[0.025]"}`}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => { e.preventDefault(); setDragOver(false); const file = e.dataTransfer.files[0]; if (file) handleFile(file); }}
+            onDrop={(e) => { e.preventDefault(); setDragOver(false); const file = e.dataTransfer.files[0]; if (file) { const ext = file.name.toLowerCase().slice(file.name.lastIndexOf(".")); const allowed = [".csv", ".txt", ".xlsx", ".xls"]; if (!ext || !allowed.includes(ext)) { setError("Unsupported file type. Please upload a .csv, .txt, .xlsx, or .xls file."); return; } handleFile(file); } }}
           >
             <FileText className="mx-auto mb-3 h-10 w-10 text-slate-500" />
             <p className="mb-2 text-sm text-slate-400">Drop a CSV, TXT, or XLSX file here, or</p>
