@@ -697,7 +697,7 @@ export default function DashboardPage() {
           </h2>
           <p className="mb-4 text-xs text-slate-500">
             Send product feedback directly inside Secwyn. Daily limit: {feedbackSentToday}/{feedbackDailyLimit}. Support:{" "}
-            <a href="mailto:support@574269.xyz" className="text-[var(--rs-primary)] hover:text-white">support@574269.xyz</a>.
+            <a href="mailto:support@secwyn.com" className="text-[var(--rs-primary)] hover:text-white">support@secwyn.com</a>.
           </p>
           <form onSubmit={handleFeedbackSubmit} className="max-w-2xl space-y-4">
             {feedbackError && (

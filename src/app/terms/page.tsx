@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Mail, Shield } from "lucide-react";
 
-const supportEmail = "support@574269.xyz";
+const supportEmail = "support@secwyn.com";
 
 const sections = [
   {

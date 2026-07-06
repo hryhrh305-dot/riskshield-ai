@@ -165,7 +165,7 @@ export default function DocsPage() {
 
       <footer className="border-t border-white/10 px-4 py-6 text-sm text-slate-500 sm:px-6">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3">
-          <a href="mailto:support@574269.xyz" className="transition hover:text-white">support@574269.xyz</a>
+          <a href="mailto:support@secwyn.com" className="transition hover:text-white">support@secwyn.com</a>
           <div className="flex items-center gap-4">
             <Link href="/privacy" className="transition hover:text-white">Privacy Policy</Link>
             <Link href="/terms" className="transition hover:text-white">Terms of Service</Link>

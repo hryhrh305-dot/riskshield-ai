@@ -880,7 +880,7 @@ export default function PricingPage() {
           <div className="flex flex-wrap items-center gap-4">
             <Link href="/privacy" className="hover:text-white">Privacy Policy</Link>
             <Link href="/terms" className="hover:text-white">Terms of Service</Link>
-            <a href="mailto:support@574269.xyz" className="hover:text-white">support@574269.xyz</a>
+            <a href="mailto:support@secwyn.com" className="hover:text-white">support@secwyn.com</a>
           </div>
         </div>
       </footer>

@@ -334,7 +334,7 @@ export default function Home() {
           <div className="flex flex-wrap items-center gap-4">
             <Link href="/privacy" className="transition hover:text-white">Privacy Policy</Link>
             <Link href="/terms" className="transition hover:text-white">Terms of Service</Link>
-            <a href="mailto:support@574269.xyz" className="transition hover:text-white">support@574269.xyz</a>
+            <a href="mailto:support@secwyn.com" className="transition hover:text-white">support@secwyn.com</a>
           </div>
         </div>
       </footer>
