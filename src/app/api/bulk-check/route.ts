@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
 
   const { data: profile } = await getSupabaseAdmin()
     .from("profiles")
-    .select("plan")
+    .select("plan, credits_remaining")
     .eq("id", user.id)
     .single();
   const plan = profile?.plan || "free";
@@ -167,6 +167,46 @@ export async function POST(request: NextRequest) {
   }
 
   emails = emails.slice(0, 5000);
+
+  // === P0 HOTFIX: Deduplicate and consume credits BEFORE running checks ===
+  const uniqueEmails = [...new Set(emails)];
+  const requiredCredits = uniqueEmails.length;
+
+  if (requiredCredits > 5000) {
+    return NextResponse.json({ error: "Too many contacts. Maximum is 5000 per request." }, { status: 400 });
+  }
+
+  const creditsAvailable = profile?.credits_remaining ?? 0;
+  if (requiredCredits > creditsAvailable) {
+    return NextResponse.json({
+      error: "Insufficient credits",
+      message: "Insufficient credits for bulk scan. Upgrade your plan.",
+      upgradeNeeded: true,
+      requiredCredits,
+      creditsAvailable,
+    }, { status: 429 });
+  }
+
+  // consume_credit RPC signature: p_user_id UUID → TABLE(success boolean, remaining integer)
+  for (let i = 0; i < requiredCredits; i++) {
+    const { data: creditResult, error: creditError } = await getSupabaseAdmin().rpc("consume_credit", {
+      p_user_id: user.id,
+    });
+    if (creditError) {
+      console.error("[BulkCheck] consume_credit RPC error:", creditError);
+      return NextResponse.json({ error: "Failed to process credit. Please try again." }, { status: 500 });
+    }
+    const creditSuccess = creditResult?.[0]?.success ?? false;
+    if (!creditSuccess) {
+      return NextResponse.json({
+        error: "Insufficient credits",
+        message: "Insufficient credits for bulk scan. Upgrade your plan.",
+        upgradeNeeded: true,
+        requiredCredits,
+        creditsConsumed: i,
+      }, { status: 429 });
+    }
+  }
 
   // Process in batches
   const results: Array<Record<string, unknown>> = [];
@@ -305,6 +345,9 @@ export async function POST(request: NextRequest) {
     plan,
     detail_tier: getResultCacheScope(plan),
     export_columns: getBatchExportColumnsForPlan(plan),
+    credits: {
+      deducted: requiredCredits,
+    },
     summary: {
       total,
       clean: cleanCount,
