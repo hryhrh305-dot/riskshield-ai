@@ -35,7 +35,7 @@ export default function DocsPage() {
           <section className="rs-card rounded-[28px] p-6">
             <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-white"><Key className="h-5 w-5 text-slate-300" /> Authentication</h2>
             <p className="mb-3 text-sm text-slate-400">Include your API key in every request:</p>
-            <pre className="rs-code overflow-x-auto rounded-2xl p-4 text-sm text-slate-300">{`curl -X POST https://yourdomain.com/api/v1/email/check \\
+            <pre className="rs-code overflow-x-auto rounded-2xl p-4 text-sm text-slate-300">{`curl -X POST https://www.secwyn.com/api/v1/email/check \\
   -H "Authorization: Bearer fsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
   -H "Content-Type: application/json" \\
   -d '{"email":"test@example.com"}'`}</pre>

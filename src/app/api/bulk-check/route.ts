@@ -369,7 +369,7 @@ export async function POST(request: NextRequest) {
     return new NextResponse(buf, {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": "attachment; filename=riskshield-results.xlsx",
+        "Content-Disposition": "attachment; filename=secwyn-results.xlsx",
       },
     });
   }

@@ -771,8 +771,8 @@ export default function DashboardPage() {
                 <li>Delete the default sample code in Apps Script.</li>
                 <li>Open the downloaded <strong>Code.gs</strong> file, copy all code, and paste it into Apps Script.</li>
                 <li>Click <strong>Save</strong>, then reload your Google Sheet.</li>
-                <li>Open <strong>Risk Scanner</strong> &gt; <strong>Settings</strong>, paste your API key, and save.</li>
-                <li>Select the email cells, then choose <strong>Risk Scanner</strong> &gt; <strong>Scan Selected Emails</strong>.</li>
+                <li>Open <strong>Secwyn</strong> &gt; <strong>Settings</strong>, paste your API key, and save.</li>
+                <li>Select the email cells, then choose <strong>Secwyn</strong> &gt; <strong>Scan Selected Emails</strong>.</li>
               </ol>
               <div className="flex flex-wrap items-center gap-3">
                 <a href="/api/google-sheets-addon" className="rs-button-primary inline-flex items-center gap-1 rounded-full px-4 py-2 text-sm font-medium">

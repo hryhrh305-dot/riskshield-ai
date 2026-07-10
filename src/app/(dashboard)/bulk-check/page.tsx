@@ -276,7 +276,7 @@ export default function BulkCheckPage() {
       const ws = XLSXLib.utils.aoa_to_sheet(data);
       const wb = XLSXLib.utils.book_new();
       XLSXLib.utils.book_append_sheet(wb, ws, "Secwyn Results");
-      XLSXLib.writeFile(wb, "riskshield-results.xlsx");
+      XLSXLib.writeFile(wb, "secwyn-results.xlsx");
     } catch (e) {
       console.error("XLSX failed:", e);
     } finally {

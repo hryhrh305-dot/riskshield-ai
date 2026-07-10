@@ -1,21 +1,21 @@
 ﻿/**
- * RiskShield for Google Sheets
- * AI-Powered Email Risk Scanner Add-on
+ * Secwyn for Google Sheets
+ * Pre-send list audit add-on
  * 
  * Installation: Copy this entire script into Extensions > Apps Script
- * Then reload the sheet. "Risk Scanner" menu will appear.
+ * Then reload the sheet. The "Secwyn" menu will appear.
  */
 
 // ============ CONFIGURATION ============
 function getApiBaseUrl_() {
   var props = PropertiesService.getUserProperties();
-  var url = props.getProperty("RISKSHIELD_API_BASE_URL");
-  return url || "https://www.574269.xyz";
+  var url = props.getProperty("SECWYN_API_BASE_URL");
+  return url || "https://www.secwyn.com";
 }
 
 function setApiBaseUrl_(url) {
   var props = PropertiesService.getUserProperties();
-  props.setProperty("RISKSHIELD_API_BASE_URL", url);
+  props.setProperty("SECWYN_API_BASE_URL", url);
 }
 
 var BATCH_ENDPOINT = "/api/v1/email/batch-check";
@@ -24,7 +24,7 @@ var MAX_BATCH_SIZE = 100;
 // ============ MENU SETUP ============
 function onOpen() {
   var ui = SpreadsheetApp.getUi();
-  ui.createMenu("Risk Scanner")
+  ui.createMenu("Secwyn")
     .addItem("Scan Selected Emails", "scanSelectedEmails")
     .addSeparator()
     .addItem("Settings (API Key & URL)", "showSettings")
@@ -39,12 +39,12 @@ function onInstall(e) {
 // ============ API KEY MANAGEMENT ============
 function getApiKey_() {
   var props = PropertiesService.getUserProperties();
-  return props.getProperty("RISKSHIELD_API_KEY");
+  return props.getProperty("SECWYN_API_KEY");
 }
 
 function setApiKey_(key) {
   var props = PropertiesService.getUserProperties();
-  props.setProperty("RISKSHIELD_API_KEY", key);
+  props.setProperty("SECWYN_API_KEY", key);
 }
 
 // ============ SETTINGS ============
@@ -52,12 +52,12 @@ function showSettings() {
   var ui = SpreadsheetApp.getUi();
   var currentKey = getApiKey_() || "";
   var maskedKey = currentKey ? currentKey.slice(0, 12) + "..." + currentKey.slice(-8) : "(not set)";
-  var currentUrl = getApiBaseUrl_() || "https://www.574269.xyz";
+  var currentUrl = getApiBaseUrl_() || "https://www.secwyn.com";
 
   // Clear old settings first to avoid confusion
   var response = ui.prompt(
-    "RiskShield Settings",
-    "Current API Key: " + maskedKey + "\nCurrent API URL: " + currentUrl + "\n\nStep 1: Enter API Base URL below (or press Cancel to keep current).\nDefault: https://www.574269.xyz",
+    "Secwyn Settings",
+    "Current API Key: " + maskedKey + "\nCurrent API URL: " + currentUrl + "\n\nStep 1: Enter API Base URL below (or press Cancel to keep current).\nDefault: https://www.secwyn.com",
     ui.ButtonSet.OK_CANCEL
   );
 
@@ -70,8 +70,8 @@ function showSettings() {
   }
 
   var response2 = ui.prompt(
-    "RiskShield Settings",
-    "Current API Key: " + maskedKey + "\nCurrent API URL: " + currentUrl + "\n\nStep 2: Paste your RiskShield API Key below.\nGet one at: https://574269.xyz/dashboard\n\nExample key format: fsk_...",
+    "Secwyn Settings",
+    "Current API Key: " + maskedKey + "\nCurrent API URL: " + currentUrl + "\n\nStep 2: Paste your Secwyn API Key below.\nGet one at: https://www.secwyn.com/dashboard\n\nExample key format: fsk_...",
     ui.ButtonSet.OK_CANCEL
   );
 
@@ -79,11 +79,11 @@ function showSettings() {
     var newKey = response2.getResponseText().trim();
     if (newKey && newKey.indexOf("fsk_") === 0) {
       // Clear old key before setting new one
-      try { PropertiesService.getUserProperties().deleteProperty("RISKSHIELD_API_KEY"); } catch(e) {}
+      try { PropertiesService.getUserProperties().deleteProperty("SECWYN_API_KEY"); } catch(e) {}
       setApiKey_(newKey);
       ui.alert("Settings Saved!", "API Key: " + newKey.slice(0, 12) + "...\nAPI URL: " + currentUrl + "\n\nTry scanning now.", ui.ButtonSet.OK);
     } else if (newKey) {
-      ui.alert("Invalid Key Format", "API keys must start with 'fsk_'. Please check your key and try again.\n\nGet your key at: https://574269.xyz/dashboard", ui.ButtonSet.OK);
+      ui.alert("Invalid Key Format", "API keys must start with 'fsk_'. Please check your key and try again.\n\nGet your key at: https://www.secwyn.com/dashboard", ui.ButtonSet.OK);
     }
   }
 }
@@ -93,7 +93,7 @@ function scanSelectedEmails() {
   var ui = SpreadsheetApp.getUi();
   var apiKey = getApiKey_();
   if (!apiKey) {
-    ui.alert("API Key Required", "Please set your API Key first.\nGo to: Risk Scanner > Settings", ui.ButtonSet.OK);
+    ui.alert("API Key Required", "Please set your API Key first.\nGo to: Secwyn > Settings", ui.ButtonSet.OK);
     return;
   }
 
@@ -149,7 +149,7 @@ function scanSelectedEmails() {
 function scanEntireColumn() {
   var apiKey = getApiKey_();
   if (!apiKey) {
-    SpreadsheetApp.getUi().alert("API Key Required", "Please set your API Key first.\nGo to: Risk Scanner > Settings", SpreadsheetApp.getUi().ButtonSet.OK);
+    SpreadsheetApp.getUi().alert("API Key Required", "Please set your API Key first.\nGo to: Secwyn > Settings", SpreadsheetApp.getUi().ButtonSet.OK);
     return;
   }
 
@@ -216,11 +216,11 @@ function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCe
     };
 
     if (spreadsheet) {
-      spreadsheet.toast("RiskShield: scanning " + emails.length + " emails...", "RiskShield", 5);
+      spreadsheet.toast("Secwyn: scanning " + emails.length + " emails...", "Secwyn", 5);
     }
     var response = UrlFetchApp.fetch(baseUrl + BATCH_ENDPOINT, options);
     if (spreadsheet) {
-      spreadsheet.toast("RiskShield: processing results...", "RiskShield", 5);
+      spreadsheet.toast("Secwyn: processing results...", "Secwyn", 5);
     }
     var responseCode = response.getResponseCode();
     var responseText = response.getContentText();
@@ -233,10 +233,10 @@ function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCe
     if (responseCode === 401) {
       // Clear cached bad credentials so user can re-enter fresh ones
       try {
-        PropertiesService.getUserProperties().deleteProperty("RISKSHIELD_API_KEY");
-        PropertiesService.getUserProperties().deleteProperty("RISKSHIELD_API_BASE_URL");
+        PropertiesService.getUserProperties().deleteProperty("SECWYN_API_KEY");
+        PropertiesService.getUserProperties().deleteProperty("SECWYN_API_BASE_URL");
       } catch(e) { /* ignore */ }
-      ui.alert("API Key Rejected", "Your stored API key or URL is invalid and has been cleared.\n\nPlease go to Risk Scanner > Settings and re-enter your API Key and URL.\n\nDefault URL: https://www.574269.xyz\n\nIf you need a new API key, visit: https://574269.xyz/dashboard", ui.ButtonSet.OK);
+      ui.alert("API Key Rejected", "Your stored API key or URL is invalid and has been cleared.\n\nPlease go to Secwyn > Settings and re-enter your API Key and URL.\n\nDefault URL: https://www.secwyn.com\n\nIf you need a new API key, visit: https://www.secwyn.com/dashboard", ui.ButtonSet.OK);
       return;
     }
     
@@ -259,7 +259,7 @@ function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCe
 
     writeResults_(sheet, anchorRange, result.results, result.export_columns || [], emailPositions);
     if (spreadsheet) {
-      spreadsheet.toast("RiskShield: scan complete.", "RiskShield", 5);
+      spreadsheet.toast("Secwyn: scan complete.", "Secwyn", 5);
     }
     
     var cachedCount = result.cached_count || 0;
@@ -283,9 +283,9 @@ function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCe
 
   } catch (e) {
     if (spreadsheet) {
-      spreadsheet.toast("RiskShield: scan failed.", "RiskShield", 5);
+      spreadsheet.toast("Secwyn: scan failed.", "Secwyn", 5);
     }
-    ui.alert("Connection Error", "Could not reach RiskShield API.\nCheck your network and API Base URL.\n\n" + e.toString(), ui.ButtonSet.OK);
+    ui.alert("Connection Error", "Could not reach Secwyn API.\nCheck your network and API Base URL.\n\n" + e.toString(), ui.ButtonSet.OK);
   }
 }
 

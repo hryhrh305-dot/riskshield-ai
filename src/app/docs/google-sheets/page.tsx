@@ -56,7 +56,7 @@ export default function GoogleSheetsGuidePage() {
               <li>Copy everything from <strong className="text-white">Code.gs</strong> and paste it into the Apps Script editor.</li>
               <li>Click the <strong className="text-white">Save</strong> button in Apps Script.</li>
               <li>Go back to your Google Sheet and refresh the page.</li>
-              <li>After refresh, look at the top menu and find <strong className="text-white">Risk Scanner</strong>.</li>
+              <li>After refresh, look at the top menu and find <strong className="text-white">Secwyn</strong>.</li>
             </ol>
           </section>
 
@@ -66,7 +66,7 @@ export default function GoogleSheetsGuidePage() {
               <li>Open your Secwyn <Link href="/dashboard" className="text-white underline hover:text-slate-200">Dashboard</Link>.</li>
               <li>Find your API key and copy it.</li>
               <li>Return to Google Sheets.</li>
-              <li>Click <strong className="text-white">Risk Scanner</strong> &gt; <strong className="text-white">Settings</strong>.</li>
+              <li>Click <strong className="text-white">Secwyn</strong> &gt; <strong className="text-white">Settings</strong>.</li>
               <li>Paste your API key into the API key field.</li>
               <li>Keep the default API base URL unless you were told to change it.</li>
               <li>Save the settings.</li>
@@ -81,7 +81,7 @@ export default function GoogleSheetsGuidePage() {
             <ol className="list-decimal space-y-3 pl-5 text-sm text-slate-300">
               <li>Put one email address in each row of a column in your sheet.</li>
               <li>Select the cells you want to scan.</li>
-              <li>Click <strong className="text-white">Risk Scanner</strong> &gt; <strong className="text-white">Scan Selected Emails</strong>.</li>
+              <li>Click <strong className="text-white">Secwyn</strong> &gt; <strong className="text-white">Scan Selected Emails</strong>.</li>
               <li>Wait for the scan to finish.</li>
               <li>The add-on will write the results into new columns beside your selected emails.</li>
             </ol>
