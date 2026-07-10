@@ -48,6 +48,7 @@ export function AuditReportPreview({
   campaignName = "Outbound Campaign",
 }: AuditReportPreviewProps) {
   const report = formatAuditReport(summary);
+  const wastePrevented = summary.estimatedWastePrevented.riskySendsPrevented;
 
   return (
     <section className="rs-card rs-card-hover mb-6 overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-white/[0.045] to-black/[0.2]">
@@ -95,8 +96,13 @@ export function AuditReportPreview({
                 tone={summary.launchStatus === "ready_to_launch" ? "allow" : summary.launchStatus === "launch_with_caution" ? "review" : "block"}
               />
               <StatCard label="Campaign Readiness Score" value={report.readinessLabel} hint="Higher is safer for launch" />
-              <StatCard label="Send" value={report.sendLabel} hint="Safe-to-send contacts" tone="allow" />
-              <StatCard label="Suppress" value={report.suppressLabel} hint="Do not send" tone="block" />
+              <StatCard label="List Acceptance" value={report.listAcceptanceLabel} hint="Client delivery recommendation" />
+              <StatCard
+                label="Waste Prevented"
+                value={`${wastePrevented}`}
+                hint="Risky sends removed from launch"
+                tone={wastePrevented > 0 ? "review" : "neutral"}
+              />
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

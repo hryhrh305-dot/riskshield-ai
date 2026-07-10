@@ -63,35 +63,6 @@ interface BulkApiResponse extends BulkApiError {
 
 type AuditQueue = "send" | "review" | "suppress";
 
-function MetricCard({
-  label,
-  value,
-  helper,
-  tone,
-}: {
-  label: string;
-  value: string | number;
-  helper: string;
-  tone: "neutral" | "allow" | "review" | "block";
-}) {
-  const toneClasses =
-    tone === "allow"
-      ? "border-emerald-500/15 bg-emerald-500/8 text-emerald-300"
-      : tone === "review"
-        ? "border-amber-500/15 bg-amber-500/8 text-amber-300"
-        : tone === "block"
-          ? "border-red-500/15 bg-red-500/8 text-red-300"
-          : "border-white/10 bg-white/[0.035] text-white";
-
-  return (
-    <div className={`rounded-[24px] border p-4 ${toneClasses}`}>
-      <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">{label}</div>
-      <div className="mt-3 text-2xl font-semibold">{value}</div>
-      <div className="mt-1 text-xs text-slate-500">{helper}</div>
-    </div>
-  );
-}
-
 export default function BulkCheckPage() {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
@@ -528,18 +499,22 @@ sales@domain.com`}</pre>
 
         {summary && (
           <div className="rs-card rs-fade-up mb-6 rounded-[28px] p-6">
-            <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <h2 className="flex items-center gap-2 text-lg font-semibold text-white"><BarChart3 className="h-5 w-5 text-slate-300" /> Client-ready Audit Report</h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Review list quality, export send/review/suppress queues, and surface risky contacts before outreach.
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-300">
+                  <BarChart3 className="h-3.5 w-3.5 text-slate-300" />
+                  Audit workspace
+                </div>
+                <h2 className="mt-3 text-lg font-semibold text-white">Review-ready bulk report</h2>
+                <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">
+                  Use the report below as the single source of truth for launch status, readiness, queue breakdown, and client-facing recommendations.
                 </p>
               </div>
-              <div className="w-full max-w-xl rounded-[24px] border border-white/10 bg-black/20 p-4">
+              <div className="w-full max-w-2xl rounded-[24px] border border-white/10 bg-black/20 p-4">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-sm font-medium text-slate-100">Export & follow-up</div>
-                    <div className="mt-1 text-xs text-slate-500">Export clean risk reports or unlock broader list audit workflows.</div>
+                    <div className="text-sm font-medium text-slate-100">Export pack</div>
+                    <div className="mt-1 text-xs text-slate-500">Download the report files without repeating the summary metrics on screen.</div>
                   </div>
                   <Link href="/pricing" className="rs-link-arrow hidden items-center gap-1 text-sm font-medium text-white md:inline-flex">
                     Upgrade for list audits and reports <ArrowRight className="h-4 w-4" />
@@ -552,7 +527,7 @@ sales@domain.com`}</pre>
                   <button onClick={() => exportCSV("risky")} className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-200 transition hover:bg-red-500/15"><span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Risk review list</span></button>
                 </div>
                 <div className="mt-3 rounded-2xl border border-white/8 bg-white/[0.02] p-3">
-                  <div className="mb-2 text-xs uppercase tracking-[0.22em] text-slate-500">Standard CSV pack</div>
+                  <div className="mb-2 text-xs uppercase tracking-[0.22em] text-slate-500">Client delivery files</div>
                   <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                     <button onClick={() => downloadAuditCsv("send")} disabled={!results} className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-200 transition hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-50">
                       <span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Download Send Queue ({sendCount})</span>
@@ -576,21 +551,6 @@ sales@domain.com`}</pre>
                 </Link>
               </div>
             </div>
-
-            <div className="rs-stagger mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <MetricCard label="Total Contacts" value={summary.total} helper="Contacts included in this screening pass" tone="neutral" />
-              <MetricCard label="Allow" value={summary.clean} helper={`${summary.clean_pct}% ready for outreach`} tone="allow" />
-              <MetricCard label="Review" value={summary.risky} helper={`${summary.risky_pct}% need manual review`} tone="review" />
-              <MetricCard label="Block" value={summary.blocked} helper={`${summary.blocked_pct}% should be removed`} tone="block" />
-            </div>
-
-            {summary.estimated_waste_pct > 0 && (
-              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
-                <p className="text-sm text-amber-200">
-                  <strong>Estimated wasted sends: {summary.estimated_waste_pct}%</strong> -- Removing risky contacts could save delivery reputation and reduce bounce rate.
-                </p>
-              </div>
-            )}
           </div>
         )}
 

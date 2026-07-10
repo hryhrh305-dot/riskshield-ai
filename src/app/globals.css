@@ -11,7 +11,9 @@
   --rs-border-strong: rgba(255, 255, 255, 0.22);
   --rs-text: #ffffff;
   --rs-text-muted: #dadbdf;
-  --rs-text-soft: #7d8187;
+  --rs-text-soft: #a0a7b1;
+  --rs-text-subtle: #929ba8;
+  --rs-text-subtle-strong: #aab4c2;
   --rs-primary: #ffffff;
   --rs-primary-hover: #fafaf7;
   --rs-allow: #22c55e;
@@ -106,6 +108,16 @@ body {
     radial-gradient(circle at top center, rgba(255, 255, 255, 0.045), transparent 36%),
     var(--rs-bg);
   color: var(--rs-text);
+}
+
+.rs-app .text-slate-500,
+.rs-shell .text-slate-500 {
+  color: var(--rs-text-subtle-strong) !important;
+}
+
+.rs-app .text-slate-600,
+.rs-shell .text-slate-600 {
+  color: var(--rs-text-subtle) !important;
 }
 
 .rs-shell-grid {
