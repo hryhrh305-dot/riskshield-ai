@@ -202,28 +202,59 @@ export async function POST(request: NextRequest) {
 
   let cleanCount = 0, riskyCount = 0, blockedCount = 0;
   const BATCH_SIZE = 10;
+  const startedAt = Date.now();
+  let cacheHits = 0;
+  let cacheMisses = 0;
+  let reusedDomainChecks = 0;
+  let aiExplanationMs = 0;
+  const uniqueDomains = new Set<string>();
+  const domainAgeByDomain = new Map<string, Promise<Awaited<ReturnType<typeof checkDomainAge>> | null>>();
+  const dnsHealthByDomain = new Map<string, Promise<Awaited<ReturnType<typeof getDNSHealthScore>> | null>>();
+
+  function getSharedDomainAge(domain: string) {
+    const existing = domainAgeByDomain.get(domain);
+    if (existing) {
+      reusedDomainChecks++;
+      return existing;
+    }
+    const promise = checkDomainAge(domain).catch(() => null);
+    domainAgeByDomain.set(domain, promise);
+    return promise;
+  }
+
+  function getSharedDNSHealth(domain: string) {
+    const existing = dnsHealthByDomain.get(domain);
+    if (existing) {
+      reusedDomainChecks++;
+      return existing;
+    }
+    const promise = getDNSHealthScore(domain).catch(() => null);
+    dnsHealthByDomain.set(domain, promise);
+    return promise;
+  }
 
   for (let i = 0; i < emails.length; i += BATCH_SIZE) {
     const batch = emails.slice(i, i + BATCH_SIZE);
     const batchResults = await Promise.all(batch.map(async (email) => {
       const domain = email.split("@")[1]?.toLowerCase();
       const useDeepDetection = shouldUseDeepDetection(plan);
-      let domainAge: Awaited<ReturnType<typeof checkDomainAge>> | null = null;
-      let domainAgeDays: number | null = null;
-      if (domain && useDeepDetection) {
-        try {
-          const age = await checkDomainAge(domain);
-          domainAge = age;
-          domainAgeDays = age.ageDays;
-        } catch { /* skip */ }
-      }
+      if (domain) uniqueDomains.add(domain);
       const cacheKey = makeResultCacheKey(email, null) + ":" + getResultCacheScope(plan);
       const cached = getCachedResult(cacheKey);
       if (cached) {
+        cacheHits++;
         const sanitized = sanitizeBatchResultForPlan({ ...cached, cached: true }, plan);
         const { record, auditDecision } = attachAuditFields(sanitized, cached);
         auditDecisions.push(auditDecision);
         return record;
+      }
+      cacheMisses++;
+
+      let domainAge: Awaited<ReturnType<typeof checkDomainAge>> | null = null;
+      let domainAgeDays: number | null = null;
+      if (domain && useDeepDetection) {
+        domainAge = await getSharedDomainAge(domain);
+        domainAgeDays = domainAge?.ageDays ?? null;
       }
 
       const riskResult = await calculateRiskScore({ email, shouldCheckMX: true, domainAgeDays: useDeepDetection ? domainAgeDays : null });
@@ -234,8 +265,8 @@ export async function POST(request: NextRequest) {
       let companyHealth: Awaited<ReturnType<typeof calculateCompanyHealth>> | null = null;
       if (domain && useDeepDetection) {
         try {
-          const age = domainAge || await checkDomainAge(domain);
-          dnsHealth = await getDNSHealthScore(domain);
+          if (!domainAge) throw new Error("Domain age unavailable");
+          dnsHealth = await getSharedDNSHealth(domain);
           companyHealth = await calculateCompanyHealth({
             riskScore: riskResult.score,
             isDisposable: !!riskResult.emailDetails?.isDisposable,
@@ -243,7 +274,7 @@ export async function POST(request: NextRequest) {
             hasSPF: !!riskResult.emailDetails?.hasSPF,
             hasDMARC: !!riskResult.emailDetails?.hasDMARC,
             dmarcPolicy: (riskResult.emailDetails?.dmarcPolicy as string) || "none",
-            domainAgeDays: age.ageDays,
+            domainAgeDays: domainAge.ageDays,
             isProxy: !!riskResult.ipDetails?.isProxy,
             isHosting: !!riskResult.ipDetails?.isHosting,
             blacklistHits: riskResult.blacklistHits || [],
@@ -263,7 +294,7 @@ export async function POST(request: NextRequest) {
         domain_age: domainAge,
         dns_health: dnsHealth,
         company_health: companyHealth,
-        ai_explanation: shouldUseAiExplanation(plan) ? await getAIExplanation(email, null, riskResult.score, riskResult.reasons, plan) : null,
+        ai_explanation: null as Awaited<ReturnType<typeof getAIExplanation>> | null,
         risk_factors: riskResult.risk_factors || [],
         recommendation: riskResult.recommendation || "",
         estimated_waste_cost: riskResult.estimated_waste_cost ?? 0,
@@ -274,6 +305,11 @@ export async function POST(request: NextRequest) {
         solution: riskResult.solution || [],
         cached: false,
       };
+      if (shouldUseAiExplanation(plan)) {
+        const aiStartedAt = Date.now();
+        rawResult.ai_explanation = await getAIExplanation(email, null, riskResult.score, riskResult.reasons, plan);
+        aiExplanationMs += Date.now() - aiStartedAt;
+      }
       setCachedResult(cacheKey, rawResult);
       const sanitized = sanitizeBatchResultForPlan(rawResult, plan);
       const { record, auditDecision } = attachAuditFields(sanitized, rawResult);
@@ -301,6 +337,16 @@ export async function POST(request: NextRequest) {
 
   const total = results.length;
   const auditSummary = buildListAuditSummary(auditDecisions);
+  console.info("[bulk-check] performance", {
+    total,
+    durationMs: Date.now() - startedAt,
+    cacheHits,
+    cacheMisses,
+    uniqueDomains: uniqueDomains.size,
+    reusedDomainChecks,
+    aiExplanationMs,
+    plan,
+  });
 
   // Check if XLSX download requested
   const url = request.nextUrl;

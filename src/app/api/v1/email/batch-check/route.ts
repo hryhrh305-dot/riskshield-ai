@@ -174,26 +174,59 @@ export async function POST(req: NextRequest) {
   const results: any[] = [];
   const auditDecisions: Array<ReturnType<typeof buildContactAuditDecision>> = [];
   const CONCURRENCY = 25;
+  const startedAt = Date.now();
+  let cacheHits = 0;
+  let cacheMisses = 0;
+  let reusedDomainChecks = 0;
+  let aiExplanationMs = 0;
+  const uniqueDomains = new Set<string>();
+  const domainAgeByDomain = new Map<string, Promise<Awaited<ReturnType<typeof checkDomainAge>> | null>>();
+  const dnsHealthByDomain = new Map<string, Promise<Awaited<ReturnType<typeof getDNSHealthScore>> | null>>();
+
+  function getSharedDomainAge(domain: string) {
+    const existing = domainAgeByDomain.get(domain);
+    if (existing) {
+      reusedDomainChecks++;
+      return existing;
+    }
+    const promise = checkDomainAge(domain).catch(() => null);
+    domainAgeByDomain.set(domain, promise);
+    return promise;
+  }
+
+  function getSharedDNSHealth(domain: string) {
+    const existing = dnsHealthByDomain.get(domain);
+    if (existing) {
+      reusedDomainChecks++;
+      return existing;
+    }
+    const promise = getDNSHealthScore(domain).catch(() => null);
+    dnsHealthByDomain.set(domain, promise);
+    return promise;
+  }
 
   async function processOneEmail(email: string): Promise<any> {
     const cacheKey = makeResultCacheKey(email, null) + ":" + getResultCacheScope(planKey);
     const cached = getCachedResult(cacheKey);
     if (cached) {
+      cacheHits++;
       const sanitized = sanitizeBatchResultForPlan({ ...cached, cached: true }, planKey);
       const { record, auditDecision } = attachAuditFields(sanitized, cached);
       auditDecisions.push(auditDecision);
       return record;
     }
+    cacheMisses++;
 
     const useDeepDetection = shouldUseDeepDetection(planKey);
     const domain = email.split("@")[1]?.toLowerCase() || null;
-    const domainAge = (domain && useDeepDetection) ? await checkDomainAge(domain).catch(() => null) : null;
+    if (domain) uniqueDomains.add(domain);
+    const domainAge = (domain && useDeepDetection) ? await getSharedDomainAge(domain) : null;
     const riskResult = await calculateRiskScore({
       email,
       shouldCheckMX: true,
       domainAgeDays: useDeepDetection ? (domainAge?.ageDays ?? null) : null,
     });
-    const dnsHealth = (domain && useDeepDetection) ? await getDNSHealthScore(domain).catch(() => null) : null;
+    const dnsHealth = (domain && useDeepDetection && domainAge) ? await getSharedDNSHealth(domain) : null;
     const companyHealth = (domain && domainAge && useDeepDetection)
       ? await calculateCompanyHealth({
           riskScore: riskResult.score,
@@ -215,7 +248,7 @@ export async function POST(req: NextRequest) {
       risk_level: riskResult.decision,
       reasons: riskResult.reasons,
       details: riskResult.emailDetails,
-      ai_explanation: shouldUseAiExplanation(planKey) ? await getAIExplanation(email, null, riskResult.score, riskResult.reasons, planKey) : null,
+      ai_explanation: null as Awaited<ReturnType<typeof getAIExplanation>> | null,
       domain_age: domainAge,
       dns_health: dnsHealth,
       company_health: companyHealth,
@@ -226,6 +259,11 @@ export async function POST(req: NextRequest) {
       estimated_waste_cost: riskResult.estimated_waste_cost ?? 0,
       cached: false,
     };
+    if (shouldUseAiExplanation(planKey)) {
+      const aiStartedAt = Date.now();
+      rawResult.ai_explanation = await getAIExplanation(email, null, riskResult.score, riskResult.reasons, planKey);
+      aiExplanationMs += Date.now() - aiStartedAt;
+    }
     setCachedResult(cacheKey, rawResult);
     const sanitized = sanitizeBatchResultForPlan(rawResult, planKey);
     const { record, auditDecision } = attachAuditFields(sanitized, rawResult);
@@ -275,6 +313,16 @@ export async function POST(req: NextRequest) {
   const blockCount = results.filter((r: any) => r.risk_level === "BLOCK").length;
   const totalWasteCost = results.reduce((sum: number, r: any) => sum + (r.estimated_waste_cost || 0), 0);
   const auditSummary = buildListAuditSummary(auditDecisions);
+  console.info("[api-v1-email-batch-check] performance", {
+    total: results.length,
+    durationMs: Date.now() - startedAt,
+    cacheHits,
+    cacheMisses,
+    uniqueDomains: uniqueDomains.size,
+    reusedDomainChecks,
+    aiExplanationMs,
+    plan: planKey,
+  });
 
   return NextResponse.json({
     success: true,
