@@ -565,6 +565,7 @@ export default function PricingPage() {
   const [billingInterval, setBillingInterval] = useState<BillingInterval>("monthly");
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState("");
+  const [copiedContactEmail, setCopiedContactEmail] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -622,6 +623,16 @@ export default function PricingPage() {
     } catch (error) {
       setCheckoutError(error instanceof Error ? error.message : "Failed to start checkout.");
       setCheckoutLoading(null);
+    }
+  }
+
+  async function handleCopyContactEmail() {
+    try {
+      await navigator.clipboard.writeText("support@secwyn.com");
+      setCopiedContactEmail(true);
+      window.setTimeout(() => setCopiedContactEmail(false), 1800);
+    } catch {
+      setCheckoutError("Unable to copy support email right now.");
     }
   }
 
@@ -691,11 +702,15 @@ export default function PricingPage() {
             const isPopular = key === "growth";
             const isPaidSelfServe = selfServePaidPlans.includes(key);
             const annualOffer = getCreemAnnualOffer(key);
-            const showYearly = billingInterval === "yearly" && !!annualOffer;
+            const showYearly = billingInterval === "yearly" && annualOffer !== null;
             const checkoutLoadingKey = isPaidSelfServe ? `${key}:${billingInterval}` : null;
             const subscriptionCopy = getCreemSubscriptionCopy(billingInterval);
-            const displayedPrice = showYearly ? annualOffer.monthlyEquivalentLabel : plan.priceLabel;
+            const displayedPrice = showYearly && annualOffer ? annualOffer.monthlyEquivalentLabel : plan.priceLabel;
             const displayedPeriod = "/month";
+            const yearlyPriceLabel = showYearly && annualOffer ? annualOffer.yearlyPriceLabel : null;
+            const annualDiscountPercentLabel = showYearly && annualOffer ? annualOffer.discountPercentLabel : null;
+            const annualSavingsAmountLabel = showYearly && annualOffer ? annualOffer.savingsAmountLabel : null;
+            const annualPromoLabel = showYearly && annualOffer ? annualOffer.promoLabel : null;
 
             return (
               <article
@@ -725,25 +740,25 @@ export default function PricingPage() {
                   <p className={`mt-2 text-sm font-medium ${isPopular ? "text-slate-100" : "text-slate-300"}`}>
                     {plan.creditsLabel}
                   </p>
-                  {showYearly && (
+                  {showYearly && annualDiscountPercentLabel && annualSavingsAmountLabel && (
                     <div className={`mt-3 flex flex-wrap gap-2 text-xs font-semibold ${
                       isPopular ? "text-white" : "text-emerald-200"
                     }`}>
                       <span className={`rounded-full px-2.5 py-1 ${
                         isPopular ? "bg-white/15" : "bg-emerald-400/10"
                       }`}>
-                        {annualOffer.discountPercentLabel}
+                        {annualDiscountPercentLabel}
                       </span>
                       <span className={`rounded-full px-2.5 py-1 ${
                         isPopular ? "bg-white/15" : "bg-white/8 text-slate-100"
                       }`}>
-                        {annualOffer.savingsAmountLabel}
+                        {annualSavingsAmountLabel}
                       </span>
-                      {annualOffer.promoLabel && (
+                      {annualPromoLabel && (
                         <span className={`rounded-full px-2.5 py-1 ${
                           isPopular ? "bg-white/15" : "bg-white/8 text-slate-100"
                         }`}>
-                          {annualOffer.promoLabel}
+                          {annualPromoLabel}
                         </span>
                       )}
                     </div>
@@ -753,8 +768,8 @@ export default function PricingPage() {
                       <p>{subscriptionCopy.subscriptionLabel}</p>
                       <p>{subscriptionCopy.renewalLabel}</p>
                       <p>Cancel anytime</p>
-                      {showYearly ? (
-                        <p>{annualOffer.yearlyPriceLabel}/year billed yearly</p>
+                      {showYearly && yearlyPriceLabel ? (
+                        <p>{yearlyPriceLabel}/year billed yearly</p>
                       ) : (
                         <p>{subscriptionCopy.cadenceLabel}</p>
                       )}
@@ -777,15 +792,15 @@ export default function PricingPage() {
 
                 <button
                   type="button"
-                  onClick={() => handleCheckout(key)}
+                  onClick={key === "business" ? handleCopyContactEmail : () => handleCheckout(key)}
                   disabled={
                     key === "free" ||
-                    key === "business" ||
-                    key === currentPlan ||
-                    checkoutLoading !== null
+                    (key !== "business" && checkoutLoading !== null) ||
+                    (key !== "business" && key === currentPlan) ||
+                    (key !== "business" && key === "free")
                   }
                   className={`mt-6 w-full rounded-full px-4 py-3 text-sm font-semibold transition ${
-                    key === "free" || key === "business" || key === currentPlan || checkoutLoading !== null
+                    key === "free" || (key !== "business" && key === currentPlan) || (key !== "business" && checkoutLoading !== null)
                       ? isPopular
                         ? "cursor-not-allowed bg-white/85 text-slate-950"
                         : "cursor-not-allowed bg-white/10 text-slate-500"
@@ -808,6 +823,12 @@ export default function PricingPage() {
                               ? "Start Growth"
                               : "Start Scale"}
                 </button>
+
+                {key === "business" && (
+                  <p className="mt-3 text-xs text-slate-500">
+                    {copiedContactEmail ? "support@secwyn.com copied to clipboard." : "Click to copy support@secwyn.com and contact us for custom terms."}
+                  </p>
+                )}
 
                 {isPaidSelfServe && (
                   <p className={`mt-3 text-xs ${isPopular ? "text-slate-200" : "text-slate-500"}`}>
