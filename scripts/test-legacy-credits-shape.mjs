@@ -22,6 +22,8 @@ assert(helper.includes("export async function consumeLegacyCredits"), "legacy he
 assert(helper.includes('rpc("consume_credit"'), "legacy helper must use the existing consume_credit RPC");
 assert(helper.includes("creditsRemaining"), "legacy helper must track post-deduction credits remaining");
 assert(helper.includes("Array.isArray(creditResult)"), "legacy helper must support array or object RPC return shapes");
+assert(helper.includes("CREDIT_DEDUCTION_NOT_CONFIRMED"), "legacy helper must fail closed when deduction is not confirmed");
+assert(helper.includes("confirmedRemaining"), "legacy helper must verify final profile balance after RPC deduction");
 assert(!helper.includes("credit_grants"), "legacy helper must not wire credit_grants");
 assert(!helper.includes("credit_usage"), "legacy helper must not wire credit_usage");
 assert(!helper.includes("consumeLedgerCredits"), "legacy helper must not wire consumeLedgerCredits");

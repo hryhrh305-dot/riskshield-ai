@@ -48,4 +48,9 @@ const adminFeedbackSource = fs.readFileSync("src/app/(dashboard)/admin/feedback/
 assert(adminFeedbackSource.includes('dynamic = "force-dynamic"'), "admin feedback page must force dynamic reads");
 assert(adminFeedbackSource.includes("revalidate = 0"), "admin feedback page must disable stale revalidation");
 
+const supabaseServerSource = fs.readFileSync("src/lib/supabase-server.ts", "utf8");
+assert(supabaseServerSource.includes("createClient as createSupabaseClient"), "service client should use supabase-js admin client");
+assert(supabaseServerSource.includes("persistSession: false"), "service client should not persist a user session");
+assert(supabaseServerSource.includes("detectSessionInUrl: false"), "service client should not bind to browser session state");
+
 console.log("api credit deduction and feedback shape checks passed");

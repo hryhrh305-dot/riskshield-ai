@@ -14,7 +14,7 @@ export type LegacyCreditResult = {
   creditsAvailable: number;
   creditsRemaining: number;
   deducted: number;
-  error?: "PROFILE_CREDIT_LOOKUP_FAILED" | "INSUFFICIENT_CREDITS" | "CONSUME_CREDIT_RPC_FAILED";
+  error?: "PROFILE_CREDIT_LOOKUP_FAILED" | "INSUFFICIENT_CREDITS" | "CONSUME_CREDIT_RPC_FAILED" | "CREDIT_DEDUCTION_NOT_CONFIRMED";
 };
 
 export function normalizeBillableEmail(email: string): string | null {
@@ -135,11 +135,44 @@ export async function consumeLegacyCredits({
       : Math.max(0, creditsAvailable - deducted);
   }
 
+  const { data: finalProfile, error: finalProfileError } = await supabase
+    .from("profiles")
+    .select("credits_remaining")
+    .eq("id", userId)
+    .single();
+
+  if (finalProfileError) {
+    return {
+      ok: false,
+      requiredCredits: safeRequiredCredits,
+      creditsAvailable,
+      creditsRemaining,
+      deducted,
+      error: "PROFILE_CREDIT_LOOKUP_FAILED",
+    };
+  }
+
+  const confirmedRemaining = Number.isFinite(finalProfile?.credits_remaining)
+    ? Number(finalProfile.credits_remaining)
+    : creditsRemaining;
+  const expectedMaximumRemaining = creditsAvailable - safeRequiredCredits;
+
+  if (confirmedRemaining > expectedMaximumRemaining) {
+    return {
+      ok: false,
+      requiredCredits: safeRequiredCredits,
+      creditsAvailable,
+      creditsRemaining: confirmedRemaining,
+      deducted,
+      error: "CREDIT_DEDUCTION_NOT_CONFIRMED",
+    };
+  }
+
   return {
     ok: true,
     requiredCredits: safeRequiredCredits,
     creditsAvailable,
-    creditsRemaining,
+    creditsRemaining: confirmedRemaining,
     deducted,
   };
 }
