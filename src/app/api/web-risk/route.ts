@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { calculateRiskScore, getAIExplanation, checkDomainAge, calculateCompanyHealth, getCachedResult, setCachedResult, makeResultCacheKey, cleanEmail } from "@/lib/risk-engine";
 import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
 import { getResultCacheScope, sanitizeSingleRiskPayloadForPlan, shouldUseAiExplanation, shouldUseDeepDetection } from "@/lib/plans";
+import { consumeLegacyCredits } from "@/lib/legacy-credits";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ");
@@ -118,14 +119,6 @@ try {
 
   console.log("[RiskCheck]", user.id, "plan:", plan, "credits_before:", creditsRemaining, "total:", totalChecks);
 
-  if (creditsRemaining <= 0) {
-    return NextResponse.json({
-      error: "NO_CREDITS",
-      message: "You have 0 credits remaining. Upgrade to continue.",
-      upgradeNeeded: true,
-    }, { status: 429 });
-  }
-
   let body: { email?: string; ip?: string } = {};
   try { body = await request.json(); } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
@@ -142,38 +135,41 @@ try {
     return NextResponse.json({ error: "Please provide an email or IP address." }, { status: 400 });
   }
 
-  // === STEP 0: Check result cache (24h TTL) ?hit returns instantly, NO credit consumed ===
+  // Charge once for every valid full audit result returned to the user.
+  const legacyCreditResult = await consumeLegacyCredits({
+    supabase: getSupabaseAdmin(),
+    userId: user.id,
+    requiredCredits: 1,
+  });
+
+  if (!legacyCreditResult.ok) {
+    const isInsufficient = legacyCreditResult.error === "INSUFFICIENT_CREDITS";
+    return NextResponse.json({
+      error: "Insufficient credits",
+      message: isInsufficient
+        ? "Insufficient credits."
+        : "Failed to process credit. Please try again.",
+      upgradeNeeded: isInsufficient,
+      requiredCredits: legacyCreditResult.requiredCredits,
+      creditsAvailable: legacyCreditResult.creditsAvailable,
+    }, { status: isInsufficient ? 429 : 500 });
+  }
+
+  // === STEP 0: Check result cache (24h TTL). Full audit cache hits still consume one credit. ===
   const cacheKey = makeResultCacheKey(email, requestIP) + ":" + getResultCacheScope(plan);
   const cachedResult = getCachedResult(cacheKey);
   if (cachedResult) {
-    console.log("[RiskCheck] cache HIT for", cacheKey, "?no credit deducted");
+    console.log("[RiskCheck] cache HIT for", cacheKey, "credit deducted");
     return NextResponse.json({
       ...sanitizeSingleRiskPayloadForPlan(cachedResult, plan),
       cached: true,
-      credits: { remaining: creditsRemaining, success: true },
+      credits: {
+        deducted: legacyCreditResult.deducted,
+        requiredCredits: legacyCreditResult.requiredCredits,
+        creditsAvailable: legacyCreditResult.creditsAvailable,
+        success: true,
+      },
     });
-  }
-
-  // === STEP 1: Consume credit BEFORE running risk check ===
-  const { data: creditResult, error: creditError } = await getSupabaseAdmin().rpc("consume_credit", {
-    p_user_id: user.id,
-  });
-  if (creditError) {
-    console.error("[RiskCheck] consume_credit RPC error:", creditError);
-    return NextResponse.json({ error: "Failed to process credit. Please try again." }, { status: 500 });
-  }
-
-  const creditSuccess = creditResult?.[0]?.success ?? false;
-  const newCredits = creditResult?.[0]?.remaining ?? (creditsRemaining - 1);
-
-  console.log("[RiskCheck] credit consumed, remaining:", newCredits);
-
-  if (!creditSuccess) {
-    return NextResponse.json({
-      error: "NO_CREDITS",
-      message: "Insufficient credits.",
-      upgradeNeeded: true,
-    }, { status: 429 });
   }
 // === STEP 2: Run the actual risk check ===
   const useDeepDetection = shouldUseDeepDetection(plan);
@@ -259,7 +255,12 @@ try {
   // === STEP 5: Return result with credit info ===
   return NextResponse.json({
     ...sanitizeSingleRiskPayloadForPlan(cacheData, plan),
-    credits: { remaining: newCredits, success: creditSuccess },
+    credits: {
+      deducted: legacyCreditResult.deducted,
+      requiredCredits: legacyCreditResult.requiredCredits,
+      creditsAvailable: legacyCreditResult.creditsAvailable,
+      success: true,
+    },
   });
 } catch (e) {
   const msg = e instanceof Error ? e.message : String(e);

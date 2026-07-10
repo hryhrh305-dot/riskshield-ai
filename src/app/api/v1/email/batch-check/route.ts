@@ -4,6 +4,7 @@ import { calculateRiskScore, getAIExplanation, getCachedResult, setCachedResult,
 import { getBatchExportColumnsForPlan, getPlanLimits, getResultCacheScope, sanitizeBatchResultForPlan, shouldUseAiExplanation, shouldUseDeepDetection, type PlanKey } from "@/lib/plans";
 import { planCostLimits } from "@/lib/cost-control";
 import { buildContactAuditDecision, buildListAuditSummary } from "@/lib/list-audit";
+import { consumeLegacyCredits, getUniqueBillableEmails } from "@/lib/legacy-credits";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ");
@@ -103,7 +104,7 @@ export async function POST(req: NextRequest) {
   }
 
   const rawCount = emails.length;
-  const validEmails = cleanEmails(emails);
+  const validEmails = getUniqueBillableEmails(cleanEmails(emails));
   const skippedCount = rawCount - validEmails.length;
   if (validEmails.length === 0) {
     return NextResponse.json({
@@ -114,6 +115,25 @@ export async function POST(req: NextRequest) {
   }
 
   const batchSize = validEmails.length;
+
+  const legacyCreditResult = await consumeLegacyCredits({
+    supabase: getSupabaseAdmin(),
+    userId: keyData.user_id,
+    requiredCredits: batchSize,
+  });
+
+  if (!legacyCreditResult.ok) {
+    const isInsufficient = legacyCreditResult.error === "INSUFFICIENT_CREDITS";
+    return NextResponse.json({
+      error: "Insufficient credits",
+      message: isInsufficient
+        ? "Insufficient credits."
+        : "Failed to process credit. Please try again.",
+      upgradeNeeded: isInsufficient,
+      requiredCredits: legacyCreditResult.requiredCredits,
+      creditsAvailable: legacyCreditResult.creditsAvailable,
+    }, { status: isInsufficient ? 429 : 500 });
+  }
 
   // Check quotas
   const now = new Date();
@@ -153,7 +173,6 @@ export async function POST(req: NextRequest) {
   // Process emails in parallel with concurrency control (avoids 504 timeout on Vercel)
   const results: any[] = [];
   const auditDecisions: Array<ReturnType<typeof buildContactAuditDecision>> = [];
-  let creditsConsumed = 0;
   const CONCURRENCY = 25;
 
   async function processOneEmail(email: string): Promise<any> {
@@ -218,12 +237,11 @@ export async function POST(req: NextRequest) {
   for (let i = 0; i < validEmails.length; i += CONCURRENCY) {
     const chunk = validEmails.slice(i, i + CONCURRENCY);
     const chunkResults = await Promise.all(chunk.map(processOneEmail));
-    for (const r of chunkResults) { results.push(r); if (!r.cached) creditsConsumed++; }
+    for (const r of chunkResults) { results.push(r); }
   }
 
-  // Write usage ledger
+  // Write usage ledger as API analytics only. Credits were deducted once through consume_credit above.
   const usageRecords = results
-    .filter((r: any) => !r.cached)
     .map((r: any) => ({
       user_id: keyData.user_id,
       api_key_id: keyData.id,
@@ -237,10 +255,6 @@ export async function POST(req: NextRequest) {
 
   if (usageRecords.length > 0) {
     await getSupabaseAdmin().from("usage_ledger").insert(usageRecords);
-    await getSupabaseAdmin()
-      .from("profiles")
-      .update({ credits_remaining: Math.max(0, (profile.credits_remaining || 0) - creditsConsumed) })
-      .eq("id", keyData.user_id);
   }
 
   // Write scan_history (async)
@@ -269,7 +283,12 @@ export async function POST(req: NextRequest) {
     export_columns: getBatchExportColumnsForPlan(planKey),
     results,
     cached_count: results.filter((r: any) => r.cached).length,
-    new_checks: creditsConsumed,
+    new_checks: legacyCreditResult.deducted,
+    credits: {
+      deducted: legacyCreditResult.deducted,
+      requiredCredits: legacyCreditResult.requiredCredits,
+      creditsAvailable: legacyCreditResult.creditsAvailable,
+    },
     summary: {
       total: batchSize,
       allow: allowCount,
@@ -284,9 +303,9 @@ export async function POST(req: NextRequest) {
     },
     audit_summary: auditSummary,
     quota: {
-      monthly_used: monthlyUsed + creditsConsumed,
+      monthly_used: monthlyUsed + legacyCreditResult.deducted,
       monthly_limit: limits.monthlyUnits,
-      daily_used: dailyUsed + creditsConsumed,
+      daily_used: dailyUsed + legacyCreditResult.deducted,
       daily_limit: limits.dailyUnits,
     },
   });

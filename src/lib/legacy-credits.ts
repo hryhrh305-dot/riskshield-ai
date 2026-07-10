@@ -1,0 +1,132 @@
+const EMAIL_REGEX = /^(?!.*\.\.)(?!\.)[^\s@]+(?<!\.)@(?!\.)[^\s@]+\.[^\s@]{2,}$/i;
+
+type SupabaseAdminLike = {
+  from: (table: string) => any;
+  rpc: (
+    fn: string,
+    params: Record<string, unknown>,
+  ) => Promise<{ data: any; error: any }>;
+};
+
+export type LegacyCreditResult = {
+  ok: boolean;
+  requiredCredits: number;
+  creditsAvailable: number;
+  deducted: number;
+  error?: "PROFILE_CREDIT_LOOKUP_FAILED" | "INSUFFICIENT_CREDITS" | "CONSUME_CREDIT_RPC_FAILED";
+};
+
+export function normalizeBillableEmail(email: string): string | null {
+  const value = email.trim().toLowerCase();
+  if (!value || value.startsWith("#") || value.includes(" ")) return null;
+  return EMAIL_REGEX.test(value) ? value : null;
+}
+
+export function getUniqueBillableEmails(input: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const item of input) {
+    const normalized = normalizeBillableEmail(item);
+    if (normalized && !seen.has(normalized)) {
+      seen.add(normalized);
+      result.push(normalized);
+    }
+  }
+
+  return result;
+}
+
+export function calculateRequiredCreditsFromEmails(input: string[]): number {
+  return getUniqueBillableEmails(input).length;
+}
+
+export async function consumeLegacyCredits({
+  supabase,
+  userId,
+  requiredCredits,
+}: {
+  supabase: SupabaseAdminLike;
+  userId: string;
+  requiredCredits: number;
+}): Promise<LegacyCreditResult> {
+  const safeRequiredCredits = Number.isSafeInteger(requiredCredits)
+    ? Math.max(0, requiredCredits)
+    : 0;
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("credits_remaining")
+    .eq("id", userId)
+    .single();
+
+  if (profileError) {
+    return {
+      ok: false,
+      requiredCredits: safeRequiredCredits,
+      creditsAvailable: 0,
+      deducted: 0,
+      error: "PROFILE_CREDIT_LOOKUP_FAILED",
+    };
+  }
+
+  const creditsAvailable = Number.isFinite(profile?.credits_remaining)
+    ? Number(profile.credits_remaining)
+    : 0;
+
+  if (safeRequiredCredits <= 0) {
+    return {
+      ok: true,
+      requiredCredits: safeRequiredCredits,
+      creditsAvailable,
+      deducted: 0,
+    };
+  }
+
+  if (creditsAvailable < safeRequiredCredits || creditsAvailable < 0) {
+    return {
+      ok: false,
+      requiredCredits: safeRequiredCredits,
+      creditsAvailable,
+      deducted: 0,
+      error: "INSUFFICIENT_CREDITS",
+    };
+  }
+
+  let deducted = 0;
+  for (let i = 0; i < safeRequiredCredits; i += 1) {
+    const { data: creditResult, error: creditError } = await supabase.rpc("consume_credit", {
+      p_user_id: userId,
+    });
+
+    if (creditError) {
+      return {
+        ok: false,
+        requiredCredits: safeRequiredCredits,
+        creditsAvailable,
+        deducted,
+        error: "CONSUME_CREDIT_RPC_FAILED",
+      };
+    }
+
+    const creditSuccess = creditResult?.[0]?.success ?? false;
+    if (!creditSuccess) {
+      return {
+        ok: false,
+        requiredCredits: safeRequiredCredits,
+        creditsAvailable,
+        deducted,
+        error: "INSUFFICIENT_CREDITS",
+      };
+    }
+
+    deducted += 1;
+  }
+
+  return {
+    ok: true,
+    requiredCredits: safeRequiredCredits,
+    creditsAvailable,
+    deducted,
+  };
+}

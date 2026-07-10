@@ -12,6 +12,7 @@ import {
   shouldUseAiExplanation,
   shouldUseDeepDetection,
 } from "@/lib/plans";
+import { consumeLegacyCredits, getUniqueBillableEmails } from "@/lib/legacy-credits";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ");
@@ -169,43 +170,30 @@ export async function POST(request: NextRequest) {
   emails = emails.slice(0, 5000);
 
   // === P0 HOTFIX: Deduplicate and consume credits BEFORE running checks ===
-  const uniqueEmails = [...new Set(emails)];
+  const uniqueEmails = getUniqueBillableEmails(emails);
   const requiredCredits = uniqueEmails.length;
 
   if (requiredCredits > 5000) {
     return NextResponse.json({ error: "Too many contacts. Maximum is 5000 per request." }, { status: 400 });
   }
 
-  const creditsAvailable = profile?.credits_remaining ?? 0;
-  if (requiredCredits > creditsAvailable) {
+  const legacyCreditResult = await consumeLegacyCredits({
+    supabase: getSupabaseAdmin(),
+    userId: user.id,
+    requiredCredits,
+  });
+
+  if (!legacyCreditResult.ok) {
+    const isInsufficient = legacyCreditResult.error === "INSUFFICIENT_CREDITS";
     return NextResponse.json({
       error: "Insufficient credits",
-      message: "Insufficient credits for bulk scan. Upgrade your plan.",
-      upgradeNeeded: true,
-      requiredCredits,
-      creditsAvailable,
-    }, { status: 429 });
-  }
-
-  // consume_credit RPC signature: p_user_id UUID → TABLE(success boolean, remaining integer)
-  for (let i = 0; i < requiredCredits; i++) {
-    const { data: creditResult, error: creditError } = await getSupabaseAdmin().rpc("consume_credit", {
-      p_user_id: user.id,
-    });
-    if (creditError) {
-      console.error("[BulkCheck] consume_credit RPC error:", creditError);
-      return NextResponse.json({ error: "Failed to process credit. Please try again." }, { status: 500 });
-    }
-    const creditSuccess = creditResult?.[0]?.success ?? false;
-    if (!creditSuccess) {
-      return NextResponse.json({
-        error: "Insufficient credits",
-        message: "Insufficient credits for bulk scan. Upgrade your plan.",
-        upgradeNeeded: true,
-        requiredCredits,
-        creditsConsumed: i,
-      }, { status: 429 });
-    }
+      message: isInsufficient
+        ? "Insufficient credits for bulk scan. Upgrade your plan."
+        : "Failed to process credit. Please try again.",
+      upgradeNeeded: isInsufficient,
+      requiredCredits: legacyCreditResult.requiredCredits,
+      creditsAvailable: legacyCreditResult.creditsAvailable,
+    }, { status: isInsufficient ? 429 : 500 });
   }
 
   // Process in batches
@@ -346,7 +334,8 @@ export async function POST(request: NextRequest) {
     detail_tier: getResultCacheScope(plan),
     export_columns: getBatchExportColumnsForPlan(plan),
     credits: {
-      deducted: requiredCredits,
+      deducted: legacyCreditResult.deducted,
+      requiredCredits: legacyCreditResult.requiredCredits,
     },
     summary: {
       total,
