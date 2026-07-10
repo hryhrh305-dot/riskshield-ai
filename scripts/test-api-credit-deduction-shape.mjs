@@ -35,6 +35,7 @@ for (const { file, expectedCredits } of checks) {
   assert(source.includes('from "@/lib/legacy-credits"'), `${file}: missing legacy credit import`);
   assert(consumeIndex !== -1, `${file}: missing legacy credit deduction`);
   assert(source.includes(expectedCredits), `${file}: unexpected required credit count`);
+  assert(source.includes("legacyCreditResult.creditsRemaining"), `${file}: response must expose post-deduction credits remaining`);
   assert(riskIndex === -1 || consumeIndex < riskIndex, `${file}: credit deduction must happen before full checks`);
   assert(responseIndex === -1 || consumeIndex < responseIndex, `${file}: credit deduction must happen before response`);
 }
@@ -42,5 +43,9 @@ for (const { file, expectedCredits } of checks) {
 const feedbackSource = fs.readFileSync("src/app/api/feedback/route.ts", "utf8");
 assert(feedbackSource.includes("createServiceClient"), "feedback route should use service client for quota/write consistency");
 assert(feedbackSource.includes("feedbackId"), "feedback route should return feedbackId for traceability");
+
+const adminFeedbackSource = fs.readFileSync("src/app/(dashboard)/admin/feedback/page.tsx", "utf8");
+assert(adminFeedbackSource.includes('dynamic = "force-dynamic"'), "admin feedback page must force dynamic reads");
+assert(adminFeedbackSource.includes("revalidate = 0"), "admin feedback page must disable stale revalidation");
 
 console.log("api credit deduction and feedback shape checks passed");

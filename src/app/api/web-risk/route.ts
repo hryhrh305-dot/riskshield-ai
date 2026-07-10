@@ -167,6 +167,7 @@ try {
         deducted: legacyCreditResult.deducted,
         requiredCredits: legacyCreditResult.requiredCredits,
         creditsAvailable: legacyCreditResult.creditsAvailable,
+        remaining: legacyCreditResult.creditsRemaining,
         success: true,
       },
     });
@@ -259,6 +260,7 @@ try {
       deducted: legacyCreditResult.deducted,
       requiredCredits: legacyCreditResult.requiredCredits,
       creditsAvailable: legacyCreditResult.creditsAvailable,
+      remaining: legacyCreditResult.creditsRemaining,
       success: true,
     },
   });

@@ -103,6 +103,7 @@ export async function POST(request: NextRequest) {
     credits_deducted: legacyCreditResult.deducted,
     required_credits: legacyCreditResult.requiredCredits,
     credits_available_before: legacyCreditResult.creditsAvailable,
+    credits_remaining: legacyCreditResult.creditsRemaining,
     monthly_remaining: cc.monthlyRemaining,
     daily_remaining: cc.dailyRemaining,
     per_minute_remaining: cc.perMinuteRemaining,

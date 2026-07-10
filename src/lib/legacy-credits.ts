@@ -12,6 +12,7 @@ export type LegacyCreditResult = {
   ok: boolean;
   requiredCredits: number;
   creditsAvailable: number;
+  creditsRemaining: number;
   deducted: number;
   error?: "PROFILE_CREDIT_LOOKUP_FAILED" | "INSUFFICIENT_CREDITS" | "CONSUME_CREDIT_RPC_FAILED";
 };
@@ -65,6 +66,7 @@ export async function consumeLegacyCredits({
       ok: false,
       requiredCredits: safeRequiredCredits,
       creditsAvailable: 0,
+      creditsRemaining: 0,
       deducted: 0,
       error: "PROFILE_CREDIT_LOOKUP_FAILED",
     };
@@ -79,6 +81,7 @@ export async function consumeLegacyCredits({
       ok: true,
       requiredCredits: safeRequiredCredits,
       creditsAvailable,
+      creditsRemaining: creditsAvailable,
       deducted: 0,
     };
   }
@@ -88,12 +91,14 @@ export async function consumeLegacyCredits({
       ok: false,
       requiredCredits: safeRequiredCredits,
       creditsAvailable,
+      creditsRemaining: creditsAvailable,
       deducted: 0,
       error: "INSUFFICIENT_CREDITS",
     };
   }
 
   let deducted = 0;
+  let creditsRemaining = creditsAvailable;
   for (let i = 0; i < safeRequiredCredits; i += 1) {
     const { data: creditResult, error: creditError } = await supabase.rpc("consume_credit", {
       p_user_id: userId,
@@ -104,29 +109,37 @@ export async function consumeLegacyCredits({
         ok: false,
         requiredCredits: safeRequiredCredits,
         creditsAvailable,
+        creditsRemaining,
         deducted,
         error: "CONSUME_CREDIT_RPC_FAILED",
       };
     }
 
-    const creditSuccess = creditResult?.[0]?.success ?? false;
+    const firstCreditResult = Array.isArray(creditResult) ? creditResult[0] : creditResult;
+    const creditSuccess = firstCreditResult?.success ?? false;
     if (!creditSuccess) {
       return {
         ok: false,
         requiredCredits: safeRequiredCredits,
         creditsAvailable,
+        creditsRemaining,
         deducted,
         error: "INSUFFICIENT_CREDITS",
       };
     }
 
     deducted += 1;
+    const nextRemaining = Number(firstCreditResult?.remaining);
+    creditsRemaining = Number.isFinite(nextRemaining)
+      ? nextRemaining
+      : Math.max(0, creditsAvailable - deducted);
   }
 
   return {
     ok: true,
     requiredCredits: safeRequiredCredits,
     creditsAvailable,
+    creditsRemaining,
     deducted,
   };
 }

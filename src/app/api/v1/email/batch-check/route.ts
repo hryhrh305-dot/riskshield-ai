@@ -336,6 +336,7 @@ export async function POST(req: NextRequest) {
       deducted: legacyCreditResult.deducted,
       requiredCredits: legacyCreditResult.requiredCredits,
       creditsAvailable: legacyCreditResult.creditsAvailable,
+      remaining: legacyCreditResult.creditsRemaining,
     },
     summary: {
       total: batchSize,

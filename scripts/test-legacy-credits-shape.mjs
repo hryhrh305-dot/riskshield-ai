@@ -20,6 +20,8 @@ const batchApiRoute = read("src/app/api/v1/email/batch-check/route.ts");
 
 assert(helper.includes("export async function consumeLegacyCredits"), "legacy helper must export consumeLegacyCredits");
 assert(helper.includes('rpc("consume_credit"'), "legacy helper must use the existing consume_credit RPC");
+assert(helper.includes("creditsRemaining"), "legacy helper must track post-deduction credits remaining");
+assert(helper.includes("Array.isArray(creditResult)"), "legacy helper must support array or object RPC return shapes");
 assert(!helper.includes("credit_grants"), "legacy helper must not wire credit_grants");
 assert(!helper.includes("credit_usage"), "legacy helper must not wire credit_usage");
 assert(!helper.includes("consumeLedgerCredits"), "legacy helper must not wire consumeLedgerCredits");
@@ -31,6 +33,7 @@ for (const [name, source] of [
   ["v1/email/batch-check", batchApiRoute],
 ]) {
   assert(source.includes("consumeLegacyCredits"), `${name} must use consumeLegacyCredits`);
+  assert(source.includes("legacyCreditResult.creditsRemaining"), `${name} must return post-deduction credits remaining`);
 }
 
 assert(!bulkRoute.includes('rpc("consume_credit"'), "bulk-check must not call consume_credit directly");

@@ -19,6 +19,9 @@ type Props = {
 
 const PAGE_SIZE = 25;
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function AdminFeedbackPage({ searchParams }: Props) {
   const supabase = await createServerSupabaseClient();
   const {
