@@ -789,9 +789,7 @@ export default function PricingPage() {
                       ? isPopular
                         ? "cursor-not-allowed bg-white/85 text-slate-950"
                         : "cursor-not-allowed bg-white/10 text-slate-500"
-                      : isPopular
-                        ? "bg-white text-slate-950 hover:bg-slate-100"
-                        : "border border-white/10 bg-white text-slate-950 hover:bg-slate-100"
+                      : "border border-[#f0b18f]/80 bg-[#f7ba97] text-[#1f140d] shadow-[0_2px_0_rgba(255,255,255,0.14)_inset,0_10px_24px_rgba(247,186,151,0.14)] hover:bg-[#fac6a8] hover:text-[#140d09]"
                   }`}
                 >
                   {key === "free"

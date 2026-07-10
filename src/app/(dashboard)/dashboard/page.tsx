@@ -609,6 +609,86 @@ export default function DashboardPage() {
         </div>
 
         <div className="rs-panel rs-card-hover rounded-[28px] p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-3xl">
+              <h2 className="mb-2 flex items-center gap-2 font-semibold text-white">
+                <Copy className="h-5 w-5 text-cyan-300" /> Invite & Earn Bonus Checks
+              </h2>
+              <p className="text-sm leading-6 text-slate-300">
+                Share your Secwyn invite link with other outbound teams and agencies. When a referred user becomes a first-time paying subscriber, referral rewards are reviewed and issued after a 30-day eligibility period following their first successful subscription payment.
+              </p>
+            </div>
+
+            <div className="grid min-w-full grid-cols-2 gap-3 sm:min-w-[260px]">
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                <div className="text-2xl font-semibold text-white">{referralSummary?.stats.registeredCount ?? 0}</div>
+                <div className="text-xs text-slate-500">registered referrals</div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                <div className="text-2xl font-semibold text-white">{referralSummary?.stats.pendingCount ?? 0}</div>
+                <div className="text-xs text-slate-500">pending review</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/20 p-3 sm:flex-row sm:items-center">
+            <div className="min-w-0 flex-1 font-mono text-xs text-slate-200">
+              {referralLoading ? "Loading invite link..." : referralSummary?.referralUrl || "Invite link unavailable"}
+            </div>
+            <div className="relative flex items-center self-center">
+              <button
+                type="button"
+                onClick={copyReferralLink}
+                disabled={!referralSummary?.referralUrl}
+                className="inline-flex min-w-[136px] items-center justify-center gap-2 rounded-full border border-[#f0b18f]/80 bg-[#f7ba97] px-4 py-2 text-sm font-semibold text-[#1f140d] shadow-[0_2px_0_rgba(255,255,255,0.14)_inset,0_10px_24px_rgba(247,186,151,0.14)] transition hover:bg-[#fac6a8] hover:text-[#140d09] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Copy className="h-4 w-4" />
+                {referralCopied ? "Copied" : "Copy link"}
+              </button>
+              <div className={`pointer-events-none absolute left-1/2 top-full mt-1 -translate-x-1/2 whitespace-nowrap text-xs transition-opacity duration-200 ${referralCopied ? "opacity-100 text-emerald-300" : "opacity-0 text-transparent"}`}>
+                Link copied
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+              <div className="text-sm font-semibold text-emerald-100">Reward</div>
+              <p className="mt-1 text-sm leading-6 text-emerald-50/85">
+                Earn bonus checks equal to 10% of the referred user's first subscription plan included checks.
+              </p>
+              <p className="mt-2 text-xs text-emerald-100/75">
+                Example: If your referral buys a plan with 2500 included checks, you can earn 250 bonus checks.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="text-sm font-semibold text-white">Rules</div>
+              <ul className="mt-2 space-y-1.5 text-xs leading-5 text-slate-300">
+                <li>No hard monthly cap for legitimate referrals</li>
+                <li>Bonus checks expire after 60 days</li>
+                <li>Rewards are reviewed after a 30-day eligibility period</li>
+                <li>Rewards are not issued for refunded, disputed, charged back, reversed, self-referred, duplicate, suspiciously related, or fraudulent accounts</li>
+                <li>Bonus checks are not cash, not withdrawable, not transferable, and not refundable</li>
+              </ul>
+            </div>
+          </div>
+
+          {referralSummary?.recentAttributions?.length ? (
+            <div className="mt-5 divide-y divide-white/10 rounded-2xl border border-white/10 bg-black/20">
+              {referralSummary.recentAttributions.map((item) => (
+                <div key={`${item.created_at}-${item.status}`} className="flex flex-col gap-1 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-slate-200">Referral registered</span>
+                  <span className="text-xs text-slate-500">
+                    {item.reward_status.replace(/_/g, " ")} - {new Date(item.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="rs-panel rs-card-hover rounded-[28px] p-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="flex items-center gap-2 font-semibold text-white">
               <Key className="h-5 w-5 text-cyan-300" /> API Keys
@@ -865,80 +945,6 @@ export default function DashboardPage() {
           </form>
         </div>
 
-        <div className="rs-panel rs-card-hover rounded-[28px] p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="max-w-3xl">
-              <h2 className="mb-2 flex items-center gap-2 font-semibold text-white">
-                <Copy className="h-5 w-5 text-cyan-300" /> Invite & Earn Bonus Checks
-              </h2>
-              <p className="text-sm leading-6 text-slate-300">
-                Share your Secwyn invite link with other outbound teams and agencies. When a referred user becomes a first-time paying subscriber, referral rewards are reviewed and issued after a 30-day eligibility period following their first successful subscription payment.
-              </p>
-            </div>
-
-            <div className="grid min-w-full grid-cols-2 gap-3 sm:min-w-[260px]">
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-                <div className="text-2xl font-semibold text-white">{referralSummary?.stats.registeredCount ?? 0}</div>
-                <div className="text-xs text-slate-500">registered referrals</div>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-                <div className="text-2xl font-semibold text-white">{referralSummary?.stats.pendingCount ?? 0}</div>
-                <div className="text-xs text-slate-500">pending review</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/20 p-3 sm:flex-row sm:items-center">
-            <div className="min-w-0 flex-1 font-mono text-xs text-slate-200">
-              {referralLoading ? "Loading invite link..." : referralSummary?.referralUrl || "Invite link unavailable"}
-            </div>
-            <button
-              type="button"
-              onClick={copyReferralLink}
-              disabled={!referralSummary?.referralUrl}
-              className="rs-button-primary inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-medium disabled:opacity-50"
-            >
-              <Copy className="h-4 w-4" />
-              {referralCopied ? "Copied" : "Copy link"}
-            </button>
-          </div>
-
-          <div className="mt-5 grid gap-3 md:grid-cols-2">
-            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
-              <div className="text-sm font-semibold text-emerald-100">Reward</div>
-              <p className="mt-1 text-sm leading-6 text-emerald-50/85">
-                Earn bonus checks equal to 10% of the referred user's first subscription plan included checks.
-              </p>
-              <p className="mt-2 text-xs text-emerald-100/75">
-                Example: If your referral buys a plan with 500 included checks, you can earn 50 bonus checks.
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <div className="text-sm font-semibold text-white">Rules</div>
-              <ul className="mt-2 space-y-1.5 text-xs leading-5 text-slate-300">
-                <li>No hard monthly cap for legitimate referrals</li>
-                <li>Bonus checks expire after 60 days</li>
-                <li>Rewards are reviewed after a 30-day eligibility period</li>
-                <li>Rewards are not issued for refunded, disputed, charged back, reversed, self-referred, duplicate, suspiciously related, or fraudulent accounts</li>
-                <li>Bonus checks are not cash, not withdrawable, not transferable, and not refundable</li>
-              </ul>
-            </div>
-          </div>
-
-          {referralSummary?.recentAttributions?.length ? (
-            <div className="mt-5 divide-y divide-white/10 rounded-2xl border border-white/10 bg-black/20">
-              {referralSummary.recentAttributions.map((item) => (
-                <div key={`${item.created_at}-${item.status}`} className="flex flex-col gap-1 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-                  <span className="text-slate-200">Referral registered</span>
-                  <span className="text-xs text-slate-500">
-                    {item.reward_status.replace(/_/g, " ")} - {new Date(item.created_at).toLocaleDateString()}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
 
         {isAdmin && (
           <div className="rs-panel rs-card-hover rounded-[28px] p-6">
