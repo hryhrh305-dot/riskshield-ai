@@ -4,6 +4,7 @@ import { costControlCheck } from "@/lib/cost-control";
 import { createResponse } from "@/lib/response";
 import { calculateRiskScore, checkDomainAge, calculateCompanyHealth, getAIExplanation } from "@/lib/risk-engine";
 import { sanitizeSingleRiskPayloadForPlan, shouldUseAiExplanation, shouldUseDeepDetection } from "@/lib/plans";
+import { consumeLegacyCredits } from "@/lib/legacy-credits";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_oJC5RP3_DX926_NOzX_CkA_Mvq9jrIJ");
@@ -22,12 +23,6 @@ export async function POST(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "127.0.0.1";
   const apiKey = request.headers.get("x-api-key") || request.headers.get("authorization")?.replace("Bearer ", "") || "";
 
-  // ---- UNIFIED COST CONTROL CHECK (7 steps) ----
-  const cc = await costControlCheck({ apiKey, endpoint: "risk/check", ip });
-  if (!cc.allowed) {
-    return NextResponse.json({ error: cc.errorCode, message: cc.errorMessage }, { status: 429 });
-  }
-
   // Parse body
   let body: { email?: string; ip?: string } = {};
   try { body = await request.json(); } catch {
@@ -36,6 +31,27 @@ export async function POST(request: NextRequest) {
 
   const email = body.email || null;
   const requestIP = body.ip || ip;
+
+  const cc = await costControlCheck({ apiKey, endpoint: "risk/check", ip });
+  if (!cc.allowed) {
+    return NextResponse.json({ error: cc.errorCode, message: cc.errorMessage }, { status: 429 });
+  }
+
+  const legacyCreditResult = await consumeLegacyCredits({
+    supabase: getSupabaseAdmin(),
+    userId: cc.userId,
+    requiredCredits: 1,
+  });
+  if (!legacyCreditResult.ok) {
+    const isInsufficient = legacyCreditResult.error === "INSUFFICIENT_CREDITS";
+    return NextResponse.json({
+      error: "Insufficient credits",
+      message: isInsufficient ? "Insufficient credits." : "Failed to process credit. Please try again.",
+      upgradeNeeded: isInsufficient,
+      requiredCredits: legacyCreditResult.requiredCredits,
+      creditsAvailable: legacyCreditResult.creditsAvailable,
+    }, { status: isInsufficient ? 429 : 500 });
+  }
 
   // ---- Risk Scoring Engine ----
   const useDeepDetection = shouldUseDeepDetection(cc.plan || "free");
@@ -84,6 +100,9 @@ export async function POST(request: NextRequest) {
   // Add cost info
   (result as any).cost = {
     units_consumed: cc.costUnits,
+    credits_deducted: legacyCreditResult.deducted,
+    required_credits: legacyCreditResult.requiredCredits,
+    credits_available_before: legacyCreditResult.creditsAvailable,
     monthly_remaining: cc.monthlyRemaining,
     daily_remaining: cc.dailyRemaining,
     per_minute_remaining: cc.perMinuteRemaining,

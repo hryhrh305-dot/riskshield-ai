@@ -4,6 +4,7 @@ import { costControlCheck } from "@/lib/cost-control";
 import { checkBlacklist, autoBlacklistIfHighRisk } from "@/lib/blacklist";
 import { disposableDomainsSet } from "@/lib/disposable-domains";
 import { buildContactAuditDecision, buildListAuditSummary } from "@/lib/list-audit";
+import { consumeLegacyCredits } from "@/lib/legacy-credits";
 const disposableDomains = disposableDomainsSet;
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
@@ -56,18 +57,36 @@ export async function POST(req: NextRequest) {
   const clientIP = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "127.0.0.1";
   const apiKey = req.headers.get("authorization")?.replace("Bearer ", "") || "";
 
-  const cc = await costControlCheck({ apiKey, endpoint: "pre-send/check", ip: clientIP });
-  if (!cc.allowed) {
-    return NextResponse.json({ success: false, error: cc.errorCode, message: cc.errorMessage }, { status: 429 });
-  }
-
   let body: { emails?: string[]; ip?: string; campaign_id?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ success: false, error: "Invalid JSON" }, { status: 400 }); }
 
   // MAX BATCH SIZE: 1000 emails
   const emails = (body.emails || []).slice(0, 1000);
+  const billableEmails = emails.map((email) => email.trim().toLowerCase()).filter(Boolean);
   const targetIP = body.ip?.trim() || null;
-  if (!emails.length) return NextResponse.json({ success: false, error: "emails array is required" }, { status: 400 });
+  if (!billableEmails.length) return NextResponse.json({ success: false, error: "emails array is required" }, { status: 400 });
+
+  const cc = await costControlCheck({ apiKey, endpoint: "pre-send/check", ip: clientIP });
+  if (!cc.allowed) {
+    return NextResponse.json({ success: false, error: cc.errorCode, message: cc.errorMessage }, { status: 429 });
+  }
+
+  const legacyCreditResult = await consumeLegacyCredits({
+    supabase: getSupabaseAdmin(),
+    userId: cc.userId,
+    requiredCredits: billableEmails.length,
+  });
+  if (!legacyCreditResult.ok) {
+    const isInsufficient = legacyCreditResult.error === "INSUFFICIENT_CREDITS";
+    return NextResponse.json({
+      success: false,
+      error: "Insufficient credits",
+      message: isInsufficient ? "Insufficient credits." : "Failed to process credit. Please try again.",
+      upgradeNeeded: isInsufficient,
+      requiredCredits: legacyCreditResult.requiredCredits,
+      creditsAvailable: legacyCreditResult.creditsAvailable,
+    }, { status: isInsufficient ? 429 : 500 });
+  }
 
   const results: Array<{ email: string; decision: string; score: number; reasons: string[]; blacklisted: boolean }> = [];
   const auditDecisions: Array<ReturnType<typeof buildContactAuditDecision>> = [];
@@ -143,6 +162,9 @@ export async function POST(req: NextRequest) {
     results,
     cost: {
       units_consumed: cc.costUnits,
+      credits_deducted: legacyCreditResult.deducted,
+      required_credits: legacyCreditResult.requiredCredits,
+      credits_available_before: legacyCreditResult.creditsAvailable,
       monthly_remaining: cc.monthlyRemaining,
       daily_remaining: cc.dailyRemaining,
     },

@@ -648,16 +648,45 @@ export default function DashboardPage() {
                     <div className="text-sm font-medium text-slate-100">{label}</div>
                     <div className="text-xs text-slate-500">{desc}</div>
                   </div>
+                  {(() => {
+                    const s = settings || defaultSettings;
+                    const typedKey = key as keyof typeof defaultSettings;
+                    const enabled = s[typedKey];
+
+                    return (
                   <button
+                    type="button"
+                    role="switch"
+                    aria-checked={enabled}
+                    aria-label={label}
                     onClick={() => {
-                      const s = settings || defaultSettings;
-                      const typedKey = key as keyof typeof defaultSettings;
                       setSettings({ ...s, [typedKey]: !s[typedKey] });
                     }}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${(settings || defaultSettings)[key as keyof typeof defaultSettings] ? "bg-[var(--rs-primary)]" : "bg-white/15"}`}
+                    className={`group relative inline-flex h-6 w-11 items-center rounded-full border px-1 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${
+                      enabled
+                        ? "border-emerald-400/50 bg-emerald-500/22 shadow-[0_0_0_1px_rgba(52,211,153,0.18),0_8px_18px_rgba(16,185,129,0.14)]"
+                        : "border-white/10 bg-white/8"
+                    }`}
                   >
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${(settings || defaultSettings)[key as keyof typeof defaultSettings] ? "translate-x-6" : "translate-x-1"}`} />
+                    <span
+                      className={`pointer-events-none absolute text-[8px] font-semibold uppercase tracking-[0.08em] transition-all duration-200 ${
+                        enabled
+                          ? "left-2 text-emerald-200/95"
+                          : "left-[18px] text-slate-500"
+                      }`}
+                    >
+                      {enabled ? "On" : "Off"}
+                    </span>
+                    <span
+                      className={`inline-block h-4 w-4 rounded-full transition-all duration-200 ${
+                        enabled
+                          ? "translate-x-5 bg-emerald-300 shadow-[0_0_0_1px_rgba(255,255,255,0.2),0_4px_10px_rgba(16,185,129,0.35)]"
+                          : "translate-x-0 bg-white/90 shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_4px_10px_rgba(0,0,0,0.35)]"
+                      }`}
+                    />
                   </button>
+                    );
+                  })()}
                 </div>
               ))}
           </div>

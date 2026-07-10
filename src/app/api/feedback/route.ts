@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
 
 const DAILY_FEEDBACK_LIMIT = 3;
 
@@ -35,7 +35,7 @@ function getUtcDayStartIso() {
 }
 
 async function getTodayFeedbackCount(userId: string) {
-  const supabase = await createServerSupabaseClient();
+  const supabase = await createServiceClient();
   const { count, error } = await supabase
     .from("feedback_messages")
     .select("id", { count: "exact", head: true })
@@ -111,13 +111,13 @@ export async function POST(request: NextRequest) {
       console.warn("[feedback][POST][quota]", quotaError);
     }
 
-    const supabase = await createServerSupabaseClient();
-    const { error } = await supabase.from("feedback_messages").insert({
+    const supabase = await createServiceClient();
+    const { data: insertedFeedback, error } = await supabase.from("feedback_messages").insert({
       user_id: user.id,
       email: user.email,
       subject,
       message,
-    });
+    }).select("id").single();
 
     if (error) {
       console.error("[feedback][POST][insert]", {
@@ -146,6 +146,7 @@ export async function POST(request: NextRequest) {
       dailyLimit: DAILY_FEEDBACK_LIMIT,
       remainingToday: Math.max(0, DAILY_FEEDBACK_LIMIT - nextSentToday),
       message: "Feedback sent successfully.",
+      feedbackId: insertedFeedback?.id ?? null,
       quotaLookupFailed,
     });
   } catch (error) {
