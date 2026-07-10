@@ -1,10 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { resendSignupConfirmation, signUp } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Shield } from "lucide-react";
+
+const REFERRAL_STORAGE_KEY = "secwyn_referral_code";
+const REFERRAL_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+
+function normalizeReferralCode(value: string | null) {
+  return (value || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 32);
+}
 
 export default function SignUpPage() {
   const [email, setEmail] = useState("");
@@ -17,6 +24,20 @@ export default function SignUpPage() {
   const [resendCooldown, setResendCooldown] = useState(0);
   const [pendingVerificationEmail, setPendingVerificationEmail] = useState("");
   const router = useRouter();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = normalizeReferralCode(params.get("ref"));
+    if (!ref) return;
+
+    localStorage.setItem(
+      REFERRAL_STORAGE_KEY,
+      JSON.stringify({
+        code: ref,
+        expiresAt: Date.now() + REFERRAL_MAX_AGE_MS,
+      }),
+    );
+  }, []);
 
   function startResendCooldown() {
     setResendCooldown(60);

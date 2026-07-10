@@ -24,6 +24,8 @@ import {
   CreditCard,
 } from "lucide-react";
 
+const REFERRAL_STORAGE_KEY = "secwyn_referral_code";
+
 interface Profile {
   id: string;
   email: string;
@@ -67,6 +69,22 @@ interface SubscriptionRow {
   cancelled_at?: string | null;
   provider_product_id?: string | null;
   created_at?: string | null;
+}
+
+interface ReferralAttributionRow {
+  created_at: string;
+  status: string;
+  reward_status: string;
+}
+
+interface ReferralSummary {
+  code: string;
+  referralUrl: string;
+  stats: {
+    registeredCount: number;
+    pendingCount: number;
+  };
+  recentAttributions: ReferralAttributionRow[];
 }
 
 const defaultSettings = {
@@ -114,6 +132,9 @@ export default function DashboardPage() {
   const [billingPortalLoading, setBillingPortalLoading] = useState(false);
   const [billingPortalError, setBillingPortalError] = useState("");
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
+  const [referralSummary, setReferralSummary] = useState<ReferralSummary | null>(null);
+  const [referralLoading, setReferralLoading] = useState(false);
+  const [referralCopied, setReferralCopied] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -127,6 +148,12 @@ export default function DashboardPage() {
       router.replace("/login?reason=invalid_session&next=/dashboard");
     }
   }, [authChecked, profile, router]);
+
+  useEffect(() => {
+    if (!authChecked || !profile) return;
+    void processStoredReferral();
+    void loadReferralSummary();
+  }, [authChecked, profile?.id]);
 
   async function loadSettings() {
     try {
@@ -235,6 +262,62 @@ export default function DashboardPage() {
     } finally {
       setBillingPortalLoading(false);
     }
+  }
+
+  function readStoredReferralCode() {
+    try {
+      const raw = localStorage.getItem(REFERRAL_STORAGE_KEY);
+      if (!raw) return "";
+      const parsed = JSON.parse(raw) as { code?: string; expiresAt?: number };
+      if (!parsed.code || !parsed.expiresAt || parsed.expiresAt < Date.now()) {
+        localStorage.removeItem(REFERRAL_STORAGE_KEY);
+        return "";
+      }
+      return parsed.code;
+    } catch {
+      localStorage.removeItem(REFERRAL_STORAGE_KEY);
+      return "";
+    }
+  }
+
+  async function processStoredReferral() {
+    const ref = readStoredReferralCode();
+    if (!ref) return;
+
+    try {
+      const res = await fetch("/api/referrals/attribute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ ref }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && (data?.ok || data?.reason === "self_referral" || data?.reason === "invalid_ref")) {
+        localStorage.removeItem(REFERRAL_STORAGE_KEY);
+      }
+    } catch {
+      // Referral attribution should never block dashboard access.
+    }
+  }
+
+  async function loadReferralSummary() {
+    setReferralLoading(true);
+    try {
+      const res = await fetch("/api/referrals/me", { credentials: "include" });
+      if (!res.ok) return;
+      const data = await res.json();
+      setReferralSummary(data);
+    } catch {
+    } finally {
+      setReferralLoading(false);
+    }
+  }
+
+  async function copyReferralLink() {
+    if (!referralSummary?.referralUrl) return;
+    await navigator.clipboard.writeText(referralSummary.referralUrl);
+    setReferralCopied(true);
+    setTimeout(() => setReferralCopied(false), 2000);
   }
 
   async function loadData() {
@@ -780,6 +863,81 @@ export default function DashboardPage() {
               </button>
             </div>
           </form>
+        </div>
+
+        <div className="rs-panel rs-card-hover rounded-[28px] p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-3xl">
+              <h2 className="mb-2 flex items-center gap-2 font-semibold text-white">
+                <Copy className="h-5 w-5 text-cyan-300" /> Invite & Earn Bonus Checks
+              </h2>
+              <p className="text-sm leading-6 text-slate-300">
+                Share your Secwyn invite link with other outbound teams and agencies. When a referred user becomes a first-time paying subscriber, referral rewards are reviewed and issued after a 30-day eligibility period following their first successful subscription payment.
+              </p>
+            </div>
+
+            <div className="grid min-w-full grid-cols-2 gap-3 sm:min-w-[260px]">
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                <div className="text-2xl font-semibold text-white">{referralSummary?.stats.registeredCount ?? 0}</div>
+                <div className="text-xs text-slate-500">registered referrals</div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                <div className="text-2xl font-semibold text-white">{referralSummary?.stats.pendingCount ?? 0}</div>
+                <div className="text-xs text-slate-500">pending review</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/20 p-3 sm:flex-row sm:items-center">
+            <div className="min-w-0 flex-1 font-mono text-xs text-slate-200">
+              {referralLoading ? "Loading invite link..." : referralSummary?.referralUrl || "Invite link unavailable"}
+            </div>
+            <button
+              type="button"
+              onClick={copyReferralLink}
+              disabled={!referralSummary?.referralUrl}
+              className="rs-button-primary inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-medium disabled:opacity-50"
+            >
+              <Copy className="h-4 w-4" />
+              {referralCopied ? "Copied" : "Copy link"}
+            </button>
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+              <div className="text-sm font-semibold text-emerald-100">Reward</div>
+              <p className="mt-1 text-sm leading-6 text-emerald-50/85">
+                Earn bonus checks equal to 10% of the referred user's first subscription plan included checks.
+              </p>
+              <p className="mt-2 text-xs text-emerald-100/75">
+                Example: If your referral buys a plan with 500 included checks, you can earn 50 bonus checks.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="text-sm font-semibold text-white">Rules</div>
+              <ul className="mt-2 space-y-1.5 text-xs leading-5 text-slate-300">
+                <li>No hard monthly cap for legitimate referrals</li>
+                <li>Bonus checks expire after 60 days</li>
+                <li>Rewards are reviewed after a 30-day eligibility period</li>
+                <li>Rewards are not issued for refunded, disputed, charged back, reversed, self-referred, duplicate, suspiciously related, or fraudulent accounts</li>
+                <li>Bonus checks are not cash, not withdrawable, not transferable, and not refundable</li>
+              </ul>
+            </div>
+          </div>
+
+          {referralSummary?.recentAttributions?.length ? (
+            <div className="mt-5 divide-y divide-white/10 rounded-2xl border border-white/10 bg-black/20">
+              {referralSummary.recentAttributions.map((item) => (
+                <div key={`${item.created_at}-${item.status}`} className="flex flex-col gap-1 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-slate-200">Referral registered</span>
+                  <span className="text-xs text-slate-500">
+                    {item.reward_status.replace(/_/g, " ")} - {new Date(item.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         {isAdmin && (
