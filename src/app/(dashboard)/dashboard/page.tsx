@@ -662,25 +662,25 @@ export default function DashboardPage() {
                     onClick={() => {
                       setSettings({ ...s, [typedKey]: !s[typedKey] });
                     }}
-                    className={`group relative inline-flex h-6 w-11 items-center rounded-full border px-1 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${
+                    className={`group relative inline-flex h-5 w-9 items-center rounded-full border px-0.5 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${
                       enabled
-                        ? "border-emerald-400/50 bg-emerald-500/22 shadow-[0_0_0_1px_rgba(52,211,153,0.18),0_8px_18px_rgba(16,185,129,0.14)]"
+                        ? "border-emerald-400/55 bg-emerald-500/28 shadow-[0_0_0_1px_rgba(52,211,153,0.18),0_6px_14px_rgba(16,185,129,0.14)]"
                         : "border-white/10 bg-white/8"
                     }`}
                   >
                     <span
-                      className={`pointer-events-none absolute text-[8px] font-semibold uppercase tracking-[0.08em] transition-all duration-200 ${
+                      className={`pointer-events-none absolute text-[7px] font-semibold uppercase tracking-[0.05em] transition-all duration-200 ${
                         enabled
-                          ? "left-2 text-emerald-200/95"
-                          : "left-[18px] text-slate-500"
+                          ? "left-1.5 text-emerald-100/95"
+                          : "left-[15px] text-slate-500"
                       }`}
                     >
                       {enabled ? "On" : "Off"}
                     </span>
                     <span
-                      className={`inline-block h-4 w-4 rounded-full transition-all duration-200 ${
+                      className={`inline-block h-3.5 w-3.5 rounded-full transition-all duration-200 ${
                         enabled
-                          ? "translate-x-5 bg-emerald-300 shadow-[0_0_0_1px_rgba(255,255,255,0.2),0_4px_10px_rgba(16,185,129,0.35)]"
+                          ? "translate-x-4 bg-emerald-300 shadow-[0_0_0_1px_rgba(255,255,255,0.2),0_3px_8px_rgba(16,185,129,0.35)]"
                           : "translate-x-0 bg-white/90 shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_4px_10px_rgba(0,0,0,0.35)]"
                       }`}
                     />
