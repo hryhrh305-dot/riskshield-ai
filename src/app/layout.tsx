@@ -17,14 +17,10 @@ export const metadata: Metadata = {
   title: "Secwyn - Email & IP Risk Intelligence",
   description:
     "Secwyn helps outbound teams audit lead lists, detect risky emails, suspicious IPs, and low-quality contacts before launching campaigns.",
-  alternates: {
-    canonical: "/",
-  },
   openGraph: {
     title: "Secwyn - Email & IP Risk Intelligence",
     description:
       "Audit outbound lead lists before sending. Detect risky emails, suspicious IPs, and low-quality contacts with Secwyn.",
-    url: "https://www.secwyn.com/",
     siteName: "Secwyn",
   },
   twitter: {
