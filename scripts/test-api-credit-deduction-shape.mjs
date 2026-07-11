@@ -4,10 +4,12 @@ const checks = [
   {
     file: "src/app/api/v1/email/check/route.ts",
     expectedCredits: "requiredCredits: 1",
+    requiresApiKeyHeader: true,
   },
   {
     file: "src/app/api/v1/ip/check/route.ts",
     expectedCredits: "requiredCredits: 1",
+    requiresApiKeyHeader: true,
   },
   {
     file: "src/app/api/v1/risk/check/route.ts",
@@ -23,7 +25,7 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-for (const { file, expectedCredits } of checks) {
+for (const { file, expectedCredits, requiresApiKeyHeader } of checks) {
   const source = fs.readFileSync(file, "utf8");
   const consumeIndex = source.indexOf("const legacyCreditResult = await consumeLegacyCredits");
   const riskIndex = Math.max(
@@ -36,6 +38,9 @@ for (const { file, expectedCredits } of checks) {
   assert(consumeIndex !== -1, `${file}: missing legacy credit deduction`);
   assert(source.includes(expectedCredits), `${file}: unexpected required credit count`);
   assert(source.includes("legacyCreditResult.creditsRemaining"), `${file}: response must expose post-deduction credits remaining`);
+  if (requiresApiKeyHeader) {
+    assert(source.includes('req.headers.get("x-api-key")'), `${file}: API route should accept x-api-key header`);
+  }
   assert(riskIndex === -1 || consumeIndex < riskIndex, `${file}: credit deduction must happen before full checks`);
   assert(responseIndex === -1 || consumeIndex < responseIndex, `${file}: credit deduction must happen before response`);
 }

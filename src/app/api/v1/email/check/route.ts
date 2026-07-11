@@ -20,7 +20,8 @@ function getSupabaseAdmin() {
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "127.0.0.1";
-  const apiKey = req.headers.get("authorization")?.replace("Bearer ", "") || "";
+  const authHeader = req.headers.get("authorization") || "";
+  const apiKey = req.headers.get("x-api-key") || (authHeader.startsWith("Bearer ") ? authHeader.slice(7) : authHeader);
 
   let body: { email?: string };
   try { body = await req.json(); } catch {
