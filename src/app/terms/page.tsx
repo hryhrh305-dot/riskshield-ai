@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Mail, Shield } from "lucide-react";
+import { Mail } from "lucide-react";
+import { SecwynMark } from "@/components/brand/SecwynMark";
 
 const supportEmail = "support@secwyn.com";
 
@@ -78,7 +79,7 @@ export default function TermsPage() {
       <header className="border-b bg-white">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4 sm:px-6">
           <Link href="/" className="flex items-center gap-3">
-            <Shield className="h-6 w-6 text-blue-600" />
+            <SecwynMark className="h-6 w-6 text-gray-950" />
             <span className="text-lg font-bold text-gray-900">Secwyn</span>
           </Link>
           <Link href="/privacy" className="text-sm font-medium text-gray-600 hover:text-gray-900">

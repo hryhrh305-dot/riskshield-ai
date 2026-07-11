@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Download, ExternalLink, Shield, TableProperties } from "lucide-react";
+import { Download, ExternalLink, TableProperties } from "lucide-react";
+import { SecwynMark } from "@/components/brand/SecwynMark";
 
 export default function GoogleSheetsGuidePage() {
   return (
@@ -8,7 +9,7 @@ export default function GoogleSheetsGuidePage() {
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <Link href="/" className="flex items-center gap-3">
             <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
-              <Shield className="h-5 w-5 text-white" />
+              <SecwynMark className="h-5 w-5 text-white" />
             </div>
             <span className="text-lg font-semibold text-white">Secwyn</span>
           </Link>

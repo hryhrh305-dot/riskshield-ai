@@ -14,6 +14,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import { SecwynMark } from "@/components/brand/SecwynMark";
 import { createClient } from "@/lib/supabase";
 
 const features = [
@@ -104,7 +105,7 @@ export default function HomePageClient() {
           <div className="flex items-center gap-3">
             <Link href="/" className="flex shrink-0 items-center gap-3" onClick={() => setMenuOpen(false)}>
               <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
-                <Shield className="h-5 w-5 text-white" />
+                <SecwynMark className="h-5 w-5 text-white" />
               </span>
               <div>
                 <div className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Secwyn</div>

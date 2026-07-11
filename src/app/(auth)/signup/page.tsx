@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { resendSignupConfirmation, signUp } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Shield } from "lucide-react";
+import { SecwynMark } from "@/components/brand/SecwynMark";
 
 const REFERRAL_STORAGE_KEY = "secwyn_referral_code";
 const REFERRAL_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
@@ -128,7 +128,7 @@ export default function SignUpPage() {
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <div className="rs-fade-up inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
-            <Shield className="h-7 w-7 text-white" />
+            <SecwynMark className="h-7 w-7 text-white" />
           </div>
           <h1 className="rs-title-settle mt-4 text-3xl font-semibold text-white">Create Account</h1>
           <p className="rs-fade-up rs-fade-up-delay-1 mt-2 text-sm text-slate-400">Start with your free Secwyn account</p>

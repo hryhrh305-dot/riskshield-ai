@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Shield } from "lucide-react";
+import { SecwynMark } from "@/components/brand/SecwynMark";
 import { createClient } from "@/lib/supabase";
 import { updatePassword } from "@/lib/auth";
 
@@ -145,7 +145,7 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <div className="rs-fade-up inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
-            <Shield className="h-7 w-7 text-white" />
+            <SecwynMark className="h-7 w-7 text-white" />
           </div>
           <h1 className="rs-title-settle mt-4 text-3xl font-semibold text-white">Choose New Password</h1>
           <p className="rs-fade-up rs-fade-up-delay-1 mt-2 text-sm text-slate-400">Set a new password for your Secwyn account.</p>

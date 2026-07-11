@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Clock3, Shield } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock3 } from "lucide-react";
+import { SecwynMark } from "@/components/brand/SecwynMark";
 import { createClient } from "@/lib/supabase";
 import { getPlanRank, isPlanAtLeast, type PlanKey } from "@/lib/plans";
 import { findCreemProductById, hasActiveSubscriptionAccess } from "@/lib/creem";
@@ -193,7 +194,7 @@ export default function BillingSuccessPage() {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
           <Link href="/dashboard" className="flex items-center gap-3">
             <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
-              <Shield className="h-5 w-5 text-white" />
+              <SecwynMark className="h-5 w-5 text-white" />
             </div>
             <span className="text-lg font-semibold text-white">Secwyn</span>
           </Link>
