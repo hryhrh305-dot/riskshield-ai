@@ -12,3 +12,9 @@
 10. Provide complete files, not patches
 11. Push to GitHub triggers Vercel deploy automatically (warn user to wait ~30s)
 12. Do not use xlsx dynamic import in browser (causes page crashes in Turbopack). Use static import at file top.
+
+## Single Writer Multi-Agent Skill Reference
+
+- Read `docs/SINGLE_WRITER_MULTI_AGENT_SKILL.md` before any multi-agent or harness-style task.
+- Only one writer is allowed at a time; other agents are read-only unless the user explicitly approves otherwise.
+- Do not create `.codex/agents/` in this repo.
