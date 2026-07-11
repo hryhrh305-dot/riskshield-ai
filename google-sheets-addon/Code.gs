@@ -265,11 +265,13 @@ function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCe
     var cachedCount = result.cached_count || 0;
     var newChecks = result.new_checks || emails.length;
     var summary = result.summary || {};
+    var remainingCredits = result.credits && result.credits.remaining != null
+      ? result.credits.remaining
+      : (result.quota ? (result.quota.monthly_limit - result.quota.monthly_used) : "N/A");
     var scanMsg = "Emails scanned: " + emails.length + "\n" +
       "ALLOW (safe): " + (summary.allow || 0) + " | REVIEW: " + (summary.review || 0) + " | BLOCK: " + (summary.block || 0) + "\n" +
       "New checks consumed: " + newChecks + " | Cached (free): " + cachedCount + "\n" +
-      "Est. waste cost avoided: " + (summary.estimated_waste_cost_total != null ? "$" + summary.estimated_waste_cost_total : "$0.00") + "\n" +
-      "Monthly remaining: " + (result.quota ? (result.quota.monthly_limit - result.quota.monthly_used) : "N/A");
+      "Credits remaining: " + remainingCredits;
     if (typeof skippedCells !== 'undefined' && skippedCells > 0) {
       scanMsg += "\n\nSkipped " + skippedCells + " invalid/non-email cells.";
       if (typeof skippedSamples !== 'undefined' && skippedSamples.length > 0) {
