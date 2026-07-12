@@ -1,4 +1,4 @@
-const FALLBACK_APP_URL = "https://www.574269.xyz";
+const FALLBACK_APP_URL = "https://www.secwyn.com";
 
 export function getAppUrl(env: NodeJS.ProcessEnv = process.env) {
   return env.NEXT_PUBLIC_APP_URL || FALLBACK_APP_URL;
