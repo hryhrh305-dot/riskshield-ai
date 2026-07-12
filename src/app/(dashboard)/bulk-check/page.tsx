@@ -7,6 +7,7 @@ import { Upload, FileText, Download, CheckCircle, AlertTriangle, XCircle, ArrowR
 import { buildCsvContent, downloadCsvFile, type CsvColumn } from "@/lib/export/csv";
 import type { AuditEvidence, ListAuditSummary } from "@/lib/list-audit";
 import { AuditReportPreview } from "@/components/audit/AuditReportPreview";
+import { chunkWebBulkEmails, extractWebBulkEmails, mergeWebBulkResponses, runWebBulkBatches } from "@/lib/bulk-web-batching";
 
 interface BulkResult {
   audit_queue?: string;
@@ -195,6 +196,32 @@ export default function BulkCheckPage() {
     return <span className={`${textColor} whitespace-pre-wrap break-words`}>{String(value || "-")}</span>;
   }
 
+  async function scanInBatches(emails: string[]) {
+    const chunks = chunkWebBulkEmails(emails);
+    const responses = await runWebBulkBatches(chunks, async (chunk) => {
+      const res = await fetch("/api/bulk-check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emails: chunk }),
+      });
+      const data: BulkApiResponse = await res.json();
+      if (!res.ok) {
+        const failure = new Error(data.message || data.error || "Check failed") as Error & { upgradeNeeded?: boolean };
+        failure.upgradeNeeded = !!data.upgradeNeeded;
+        throw failure;
+      }
+      return data;
+    }, (completed, total) => {
+      setStatusMessage(`Scanning batch ${completed} of ${total}...`);
+    });
+    const merged = mergeWebBulkResponses(responses);
+    setResults(merged.results as BulkResult[]);
+    setSummary(merged.summary);
+    setAuditSummary(merged.audit_summary);
+    setExportColumns(merged.export_columns.length ? merged.export_columns : exportColumns);
+    setStatusMessage(`Scan complete. ${merged.results.length.toLocaleString()} unique emails checked.`);
+  }
+
   async function handleFile(file: File) {
     setLoading(true);
     setError("");
@@ -202,25 +229,22 @@ export default function BulkCheckPage() {
     setResults(null);
     setSummary(null);
     setAuditSummary(null);
-    setStatusMessage("Uploading file and scanning emails...");
+    setStatusMessage("Reading file...");
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/bulk-check", { method: "POST", body: formData });
-      const data: BulkApiResponse = await res.json();
-      if (!res.ok) {
-        setUpgradeNeeded(!!data.upgradeNeeded);
-        setError(data.message || data.error || "Upload failed");
-        setStatusMessage(data.upgradeNeeded ? "Upgrade required for bulk scanning." : "");
-        return;
+      let sourceText: string;
+      if (/\.xlsx?$/i.test(file.name)) {
+        const workbook = XLSXLib.read(await file.arrayBuffer(), { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSXLib.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "" });
+        sourceText = rows.flat().map(String).join("\n");
+      } else {
+        sourceText = await file.text();
       }
-      setResults(data.results || null);
-      setSummary(data.summary || null);
-      setAuditSummary(data.audit_summary || null);
-      setExportColumns(data.export_columns || exportColumns);
-      setStatusMessage("Scan complete.");
-    } catch {
-      setError("Network error");
+      await scanInBatches(extractWebBulkEmails(sourceText));
+    } catch (caught) {
+      const failure = caught as Error & { upgradeNeeded?: boolean };
+      setUpgradeNeeded(!!failure.upgradeNeeded);
+      setError(failure.message || "Network error");
       setStatusMessage("Scan failed. Please try again.");
     } finally {
       setLoading(false);
@@ -240,25 +264,11 @@ export default function BulkCheckPage() {
     setAuditSummary(null);
     setStatusMessage("Scanning pasted emails and building the report...");
     try {
-      const res = await fetch("/api/bulk-check", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-      const data: BulkApiResponse = await res.json();
-      if (!res.ok) {
-        setUpgradeNeeded(!!data.upgradeNeeded);
-        setError(data.message || data.error || "Check failed");
-        setStatusMessage(data.upgradeNeeded ? "Upgrade required for bulk scanning." : "");
-        return;
-      }
-      setResults(data.results || null);
-      setSummary(data.summary || null);
-      setAuditSummary(data.audit_summary || null);
-      setExportColumns(data.export_columns || exportColumns);
-      setStatusMessage("Scan complete.");
-    } catch {
-      setError("Network error");
+      await scanInBatches(extractWebBulkEmails(text));
+    } catch (caught) {
+      const failure = caught as Error & { upgradeNeeded?: boolean };
+      setUpgradeNeeded(!!failure.upgradeNeeded);
+      setError(failure.message || "Network error");
       setStatusMessage("Scan failed. Please try again.");
     } finally {
       setLoading(false);
