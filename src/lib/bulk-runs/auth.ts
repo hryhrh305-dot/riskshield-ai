@@ -13,7 +13,7 @@ export async function resolveBulkRunActor(request: NextRequest): Promise<BulkRun
     const { data: key } = await admin.from("api_keys").select("user_id,status").eq("key", apiKey).eq("status", "active").maybeSingle();
     if (!key) throw new BulkRunServiceError("INVALID_API_KEY", 401, "Invalid API key.");
     const { data: profile } = await admin.from("profiles").select("plan").eq("id", key.user_id).maybeSingle();
-    if (!profile || !["growth", "scale"].includes(String(profile.plan).toLowerCase())) throw new BulkRunServiceError("PLAN_RESTRICTION", 403, "Bulk API access requires Growth or Scale.");
+    if (!profile || !isPlanAtLeast(String(profile.plan), "growth")) throw new BulkRunServiceError("PLAN_RESTRICTION", 403, "Bulk API access requires Growth or higher.");
     return { userId: key.user_id, source: "sheets", plan: profile.plan };
   }
   const token = readAccessTokenFromCookieHeader(request.headers.get("cookie") || "", "njhjiavnidssjvnkcxfo");
