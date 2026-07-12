@@ -73,7 +73,7 @@ export default function GoogleSheetsGuidePage() {
               <li>Save the settings.</li>
             </ol>
             <div className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-200">
-              Google Sheets batch scanning uses the API. It requires a Growth, Scale, or Business plan.
+              Google Sheets bulk scanning supports up to 5,000 unique emails per action and requires a Growth or Scale plan. Duplicate emails share one result and are charged once; invalid cells are marked without a charge.
             </div>
           </section>
 
@@ -83,8 +83,9 @@ export default function GoogleSheetsGuidePage() {
               <li>Put one email address in each row of a column in your sheet.</li>
               <li>Select the cells you want to scan.</li>
               <li>Click <strong className="text-white">Secwyn</strong> &gt; <strong className="text-white">Scan Selected Emails</strong>.</li>
-              <li>Wait for the scan to finish.</li>
-              <li>The add-on will write the results into new columns beside your selected emails.</li>
+              <li>The add-on creates a resumable bulk run and processes 50-email chunks. Keep the sheet open while it runs.</li>
+              <li>For larger lists, Apps Script saves progress and schedules a continuation automatically. Do not manually duplicate the trigger.</li>
+              <li>The add-on writes each completed batch back beside the selected range. If Google requests authorization after updating the script, approve the new authorization before scanning.</li>
             </ol>
           </section>
 

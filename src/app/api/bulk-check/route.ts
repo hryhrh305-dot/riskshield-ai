@@ -167,8 +167,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No valid emails found. Please upload a CSV, TXT, or XLSX file, or paste emails one per line or separated by spaces." }, { status: 400 });
   }
 
-  emails = emails.slice(0, 5000);
-
   // === P0 HOTFIX: Deduplicate and consume credits BEFORE running checks ===
   const uniqueEmails = getUniqueBillableEmails(emails);
   const requiredCredits = uniqueEmails.length;

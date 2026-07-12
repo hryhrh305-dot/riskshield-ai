@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import * as XLSXLib from "xlsx";
 import Link from "next/link";
 import { Upload, FileText, Download, CheckCircle, AlertTriangle, XCircle, ArrowRight, BarChart3 } from "lucide-react";
 import { buildCsvContent, downloadCsvFile, type CsvColumn } from "@/lib/export/csv";
 import type { AuditEvidence, ListAuditSummary } from "@/lib/list-audit";
 import { AuditReportPreview } from "@/components/audit/AuditReportPreview";
+import { runWithConcurrency } from "@/lib/bulk-runs/client";
 
 interface BulkResult {
   audit_queue?: string;
@@ -54,12 +55,7 @@ interface BulkApiError {
   plan?: string;
 }
 
-interface BulkApiResponse extends BulkApiError {
-  results?: BulkResult[];
-  summary?: Record<string, number>;
-  export_columns?: ExportColumn[];
-  audit_summary?: ListAuditSummary;
-}
+interface CreatedBulkRun { runId: string; chunkCount: number; totalContacts: number; }
 
 type AuditQueue = "send" | "review" | "suppress";
 
@@ -74,7 +70,8 @@ export default function BulkCheckPage() {
   const [upgradeNeeded, setUpgradeNeeded] = useState(false);
   const [xlsxDownloading, setXlsxDownloading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
-  const [exportColumns, setExportColumns] = useState<ExportColumn[]>([
+  const [runId, setRunId] = useState<string | null>(null);
+  const [exportColumns] = useState<ExportColumn[]>([
     { key: "email", label: "Email" },
     { key: "risk_score", label: "Risk Score" },
     { key: "risk_level", label: "Risk Level" },
@@ -195,36 +192,54 @@ export default function BulkCheckPage() {
     return <span className={`${textColor} whitespace-pre-wrap break-words`}>{String(value || "-")}</span>;
   }
 
-  async function handleFile(file: File) {
+  async function startBulkRun(emails: string[]) {
     setLoading(true);
     setError("");
     setUpgradeNeeded(false);
     setResults(null);
     setSummary(null);
     setAuditSummary(null);
-    setStatusMessage("Uploading file and scanning emails...");
+    setStatusMessage("Preparing resumable bulk run...");
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/bulk-check", { method: "POST", body: formData });
-      const data: BulkApiResponse = await res.json();
+      const idempotencyKey = crypto.randomUUID().replace(/-/g, "") + "bulk";
+      const res = await fetch("/api/bulk-runs", { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey }, body: JSON.stringify({ emails }) });
+      const data = await res.json() as Partial<CreatedBulkRun> & BulkApiError;
       if (!res.ok) {
-        setUpgradeNeeded(!!data.upgradeNeeded);
-        setError(data.message || data.error || "Upload failed");
-        setStatusMessage(data.upgradeNeeded ? "Upgrade required for bulk scanning." : "");
+        setError(data.message || data.error || "Unable to create bulk run.");
         return;
       }
-      setResults(data.results || null);
-      setSummary(data.summary || null);
-      setAuditSummary(data.audit_summary || null);
-      setExportColumns(data.export_columns || exportColumns);
-      setStatusMessage("Scan complete.");
-    } catch {
-      setError("Network error");
-      setStatusMessage("Scan failed. Please try again.");
+      if (!data.runId || typeof data.chunkCount !== "number" || typeof data.totalContacts !== "number") throw new Error("Invalid bulk run response");
+      setRunId(data.runId); localStorage.setItem("secwyn-bulk-run-id", data.runId);
+      const indexes = Array.from({ length: data.chunkCount }, (_, index) => index);
+      setStatusMessage(`Processing ${data.totalContacts} unique contacts…`);
+      await runWithConcurrency(indexes, 2, async (index) => {
+        const response = await fetch(`/api/bulk-runs/${data.runId}/chunks/${index}`, { method: "POST" });
+        if (!response.ok) throw { status: response.status };
+      });
+      const allResults: BulkResult[] = []; let cursor: number | null = 0;
+      while (cursor !== null) {
+        const resultsResponse = await fetch(`/api/bulk-runs/${data.runId}/results?limit=20&cursor=${cursor}`);
+        if (!resultsResponse.ok) throw { status: resultsResponse.status };
+        const resultData = await resultsResponse.json() as { results?: BulkResult[]; nextCursor?: number | null };
+        allResults.push(...(resultData.results || [])); cursor = resultData.nextCursor ?? null;
+      }
+      setResults(allResults); setStatusMessage("Scan complete. Completed chunks were saved.");
+    } catch (caught) {
+      const status = typeof caught === "object" && caught !== null && "status" in caught ? Number((caught as { status: number }).status) : 0;
+      setError(status >= 500 || status === 0 ? "Temporary server error. Your completed chunks were saved; resume this run to continue." : "Bulk run could not be completed.");
+      setStatusMessage("Partial completion. You can safely resume this run.");
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleFile(file: File) {
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSXLib.read(buffer, { type: "array" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSXLib.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: "" });
+    const emails = rows.flat().map((value) => String(value).trim()).filter((value) => value.includes("@"));
+    await startBulkRun(emails);
   }
 
   async function handlePaste() {
@@ -232,38 +247,21 @@ export default function BulkCheckPage() {
       setError("Paste emails one per line or separated by spaces, or upload a CSV, TXT, or XLSX file.");
       return;
     }
-    setLoading(true);
-    setError("");
-    setUpgradeNeeded(false);
-    setResults(null);
-    setSummary(null);
-    setAuditSummary(null);
-    setStatusMessage("Scanning pasted emails and building the report...");
-    try {
-      const res = await fetch("/api/bulk-check", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-      const data: BulkApiResponse = await res.json();
-      if (!res.ok) {
-        setUpgradeNeeded(!!data.upgradeNeeded);
-        setError(data.message || data.error || "Check failed");
-        setStatusMessage(data.upgradeNeeded ? "Upgrade required for bulk scanning." : "");
-        return;
-      }
-      setResults(data.results || null);
-      setSummary(data.summary || null);
-      setAuditSummary(data.audit_summary || null);
-      setExportColumns(data.export_columns || exportColumns);
-      setStatusMessage("Scan complete.");
-    } catch {
-      setError("Network error");
-      setStatusMessage("Scan failed. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+    await startBulkRun(text.split(/[\s,;]+/));
   }
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const savedRunId = localStorage.getItem("secwyn-bulk-run-id");
+      if (!savedRunId || runId) return;
+      setRunId(savedRunId); setStatusMessage("Saved bulk run found. Refreshing status…");
+      fetch(`/api/bulk-runs/${savedRunId}`).then((response) => response.ok ? response.json() : null).then((data: { status?: string } | null) => {
+        if (data?.status === "completed") setStatusMessage("Saved bulk run completed. Reload results to review them.");
+        else if (data) setStatusMessage("Saved bulk run is awaiting resume.");
+      }).catch(() => undefined);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [runId]);
 
   async function downloadXLSX() {
     if (!results || results.length === 0) return;
