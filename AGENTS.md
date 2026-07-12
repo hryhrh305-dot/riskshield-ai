@@ -1,3 +1,30 @@
+# Secwyn Repository Identity Lock
+
+- Product: Secwyn
+- Historical product name: RiskShield AI
+- Canonical repository root: `D:\ai-saas-mvp`
+- Expected Git root: `D:/ai-saas-mvp`
+- Production domain: `https://www.secwyn.com`
+- This repository is not Flowwyn.
+- Never use `D:\flowwyn` for Secwyn work.
+- Never use `J:\Documents\RiskShield AI` as the Secwyn repository.
+- Historical repository or remote names containing `riskshield` still refer to Secwyn, not Flowwyn.
+- Before any read, edit, test, commit, push, deploy, database, Supabase, Vercel, payment, or environment action, run `git rev-parse --show-toplevel`.
+- If the result is not exactly `D:/ai-saas-mvp`, stop and report the mismatch.
+- Do not inherit Flowwyn-specific phases, paths, Supabase identities, deployment rules, blueprints, or Skills.
+- Project-specific instructions in this file override generic global workflow guidance when they conflict.
+
+## Secwyn Current Product Constants
+
+- Starter: 500 audited contacts per month
+- Growth: 2,500 audited contacts per month
+- Scale: 15,000 audited contacts per month
+- New user default: 50 credits
+- API Access: Growth and Scale only
+- Google Sheets: Growth and Scale only
+- Current production brand: Secwyn
+- Old public domain `574269.xyz` is not part of Secwyn and must not be reattached or used as a Secwyn canonical domain.
+
 ## Project Rules for AI Coding Agents
 
 1. Do NOT delete existing functionality without explicit user permission
