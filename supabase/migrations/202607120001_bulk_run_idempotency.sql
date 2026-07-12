@@ -68,7 +68,7 @@ declare v_existing public.bulk_runs; v_total integer; v_remaining integer; v_run
 begin
   if p_user_id is null or p_source not in ('web','sheets','api') or p_idempotency_key !~ '^[A-Za-z0-9._-]{16,200}$'
      or p_request_fingerprint !~ '^[0-9a-f]{64}$' or jsonb_typeof(p_chunks) <> 'array' then raise exception 'BULK_RUN_INVALID_INPUT'; end if;
-  select * into v_existing from public.bulk_runs where user_id = p_user_id and idempotency_key = p_idempotency_key for update;
+  select * into v_existing from public.bulk_runs as existing_run where existing_run.user_id = p_user_id and existing_run.idempotency_key = p_idempotency_key for update;
   if found then
     if v_existing.request_fingerprint <> p_request_fingerprint then raise exception 'IDEMPOTENCY_KEY_CONFLICT'; end if;
     return query select v_existing.id, true, v_existing.status, v_existing.total_contacts,
@@ -94,7 +94,7 @@ begin
     group by email
     having count(*) > 1
   ) then raise exception 'BULK_RUN_DUPLICATE_CONTACT'; end if;
-  select * into v_existing from public.bulk_runs where user_id = p_user_id and request_fingerprint = p_request_fingerprint and status in ('pending','processing','partial') for update;
+  select * into v_existing from public.bulk_runs as active_run where active_run.user_id = p_user_id and active_run.request_fingerprint = p_request_fingerprint and active_run.status in ('pending','processing','partial') for update;
   if found then raise exception 'ACTIVE_DUPLICATE_RUN:%', v_existing.id; end if;
   update public.profiles set credits_remaining = credits_remaining - v_total where id = p_user_id and credits_remaining >= v_total returning credits_remaining into v_remaining;
   if not found then raise exception 'INSUFFICIENT_CREDITS'; end if;
@@ -118,7 +118,7 @@ begin
   if v_chunk.status='processing' and v_chunk.lease_expires_at > now() then return v_chunk; end if;
   if v_chunk.attempt_count >= 2 then update public.bulk_run_chunks set status='failed_terminal',updated_at=now() where id=v_chunk.id returning * into v_chunk; return v_chunk; end if;
   update public.bulk_run_chunks set status='processing',attempt_count=attempt_count+1,claimed_at=now(),lease_expires_at=now()+make_interval(secs=>p_lease_seconds),claim_token=gen_random_uuid(),updated_at=now() where id=v_chunk.id returning * into v_chunk;
-  update public.bulk_runs set status='processing',last_activity_at=now(),updated_at=now() where id=p_run_id and status='pending';
+  update public.bulk_runs as run_row set status='processing',last_activity_at=now(),updated_at=now() where run_row.id=p_run_id and run_row.status='pending';
   return v_chunk;
 end $$;
 

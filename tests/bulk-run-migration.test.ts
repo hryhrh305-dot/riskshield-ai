@@ -36,4 +36,10 @@ describe("bulk run migration contract", () => {
     expect(migration).toContain("claim_token=gen_random_uuid()");
     expect(migration).toContain("BULK_RUN_STALE_CLAIM");
   });
+
+  it("qualifies status references inside the table-returning create RPC", () => {
+    expect(migration).toContain("active_run.status in ('pending','processing','partial')");
+    expect(migration).not.toContain("and status in ('pending','processing','partial')");
+    expect(migration).toContain("v_chunk->'contacts');");
+  });
 });
