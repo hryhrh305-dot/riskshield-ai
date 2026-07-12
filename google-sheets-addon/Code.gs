@@ -387,7 +387,6 @@ function getFallbackExportColumns_() {
   return [
     { key: "risk_score", label: "Risk Score" },
     { key: "risk_level", label: "Risk Level" },
-    { key: "estimated_waste_cost", label: "Waste Cost" },
     { key: "recommendation", label: "Recommendation" },
     { key: "risk_factors", label: "Risk Factors" },
     { key: "cached", label: "Cached?" },
