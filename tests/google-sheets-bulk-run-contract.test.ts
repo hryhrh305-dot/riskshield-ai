@@ -21,5 +21,7 @@ describe("Google Sheets bulk run contract", () => {
     expect(script).toContain(".setValues(output)");
     expect(script).toContain('outcome === "completed"');
     expect(script).toContain("bulk run is partially complete");
+    expect(script).toContain('{ key: "risk_factors", label: "Risk Factors" }');
+    expect(script).toContain('var headerRow = range.getRow() > 1 ? range.getRow() - 1 : range.getRow();');
   });
 });

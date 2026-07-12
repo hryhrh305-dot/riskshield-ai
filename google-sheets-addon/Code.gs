@@ -275,8 +275,17 @@ function writeBulkResults_(sheet, range, results) {
   if (!results.length) return;
   var columns = getFallbackExportColumns_(); var byEmail = {}; results.forEach(function(result) { byEmail[String(result.email).toLowerCase()] = result; });
   var values = range.getValues(); var output = values.map(function(row) { var result = byEmail[String(row[0]).trim().toLowerCase()]; return columns.map(function(column) { return result ? readExportValue_(result, column.key) : ""; }); });
-  sheet.getRange(range.getRow(), range.getColumn() + range.getNumColumns(), 1, columns.length).setValues([columns.map(function(column) { return column.label; })]);
+  var headerRow = range.getRow() > 1 ? range.getRow() - 1 : range.getRow();
+  if (range.getRow() > 1) sheet.getRange(headerRow, range.getColumn() + range.getNumColumns(), 1, columns.length).setValues([columns.map(function(column) { return column.label; })]);
   sheet.getRange(range.getRow(), range.getColumn() + range.getNumColumns(), output.length, columns.length).setValues(output);
+  var scoreBackgrounds = values.map(function(row) {
+    var result = byEmail[String(row[0]).trim().toLowerCase()];
+    if (!result) return [null];
+    if (result.risk_score >= 70) return ["#FEE2E2"];
+    if (result.risk_score >= 40) return ["#FEF3C7"];
+    return ["#D1FAE5"];
+  });
+  sheet.getRange(range.getRow(), range.getColumn() + range.getNumColumns(), scoreBackgrounds.length, 1).setBackgrounds(scoreBackgrounds);
 }
 
 function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCells, skippedSamples, emailPositions) {
@@ -376,11 +385,11 @@ function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCe
 
 function getFallbackExportColumns_() {
   return [
-    { key: "email", label: "Email" },
     { key: "risk_score", label: "Risk Score" },
     { key: "risk_level", label: "Risk Level" },
+    { key: "estimated_waste_cost", label: "Waste Cost" },
     { key: "recommendation", label: "Recommendation" },
-    { key: "estimated_waste_cost", label: "Estimated Waste Cost" },
+    { key: "risk_factors", label: "Risk Factors" },
     { key: "cached", label: "Cached?" },
   ];
 }
@@ -407,13 +416,13 @@ function readExportValue_(result, key) {
   }
   if (key === "domain_age_days") return result.domain_age && result.domain_age.ageDays != null ? result.domain_age.ageDays : "";
   if (key === "dns_health_score") return result.dns_health && result.dns_health.score != null ? result.dns_health.score : "";
-  if (key === "estimated_waste_cost") return result.estimated_waste_cost != null ? result.estimated_waste_cost : "";
+  if (key === "estimated_waste_cost") return result.estimated_waste_cost != null ? "$" + Number(result.estimated_waste_cost).toFixed(2) : "";
   if (key === "ai_explanation") return result.ai_explanation || "";
   if (key === "health_score") return result.health_score != null ? result.health_score : "";
   if (key === "disposable") return result.disposable ? "Yes" : "No";
   if (key === "role_based") return result.role_based ? "Yes" : "No";
   if (key === "catch_all") return result.catch_all ? "Yes" : "No";
-  if (key === "cached") return result.cached ? "Yes" : "No";
+  if (key === "cached") return result.cached ? "Yes (free)" : "New";
 
   var value = result[key];
   if (Array.isArray(value)) return value.join("; ");
