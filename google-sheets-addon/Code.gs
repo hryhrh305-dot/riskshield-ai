@@ -18,19 +18,14 @@ function setApiBaseUrl_(url) {
   props.setProperty("SECWYN_API_BASE_URL", url);
 }
 
-var BATCH_ENDPOINT = "/api/v1/email/batch-check"; // retained for 1-100 compatibility only
-var BULK_RUN_ENDPOINT = "/api/bulk-runs";
-var MAX_BATCH_SIZE = 50;
-var MAX_CONTACTS_PER_RUN = 5000;
-var CONTINUATION_BUDGET_MS = 270000;
-var BULK_STATE_KEY = "SECWYN_BULK_RUN_STATE";
+var BATCH_ENDPOINT = "/api/v1/email/batch-check";
+var MAX_BATCH_SIZE = 100;
 
 // ============ MENU SETUP ============
 function onOpen() {
   var ui = SpreadsheetApp.getUi();
   ui.createMenu("Secwyn")
     .addItem("Scan Selected Emails", "scanSelectedEmails")
-    .addItem("Resume Saved Bulk Run", "resumeSavedBulkRun")
     .addSeparator()
     .addItem("Settings (API Key & URL)", "showSettings")
     .addItem("Scan Entire Column", "scanEntireColumn")
@@ -142,11 +137,12 @@ function scanSelectedEmails() {
     return;
   }
 
-  if (uniqueEmails_(emails).length > MAX_CONTACTS_PER_RUN) {
-    ui.alert("Too Many Emails", "Maximum " + MAX_CONTACTS_PER_RUN + " unique emails per scan. Please remove duplicates or split the selection.", ui.ButtonSet.OK);
+  if (emails.length > MAX_BATCH_SIZE) {
+    ui.alert("Too Many Emails", "Maximum " + MAX_BATCH_SIZE + " emails per scan. You selected " + emails.length + ". Please select fewer emails.", ui.ButtonSet.OK);
     return;
   }
-  startBulkRun_(sheet, selection, emails, apiKey, totalCells, skippedCells, skippedSamples, emailPositions);
+
+  processBatch_(sheet, selection, emails, apiKey, totalCells, skippedCells, skippedSamples, emailPositions);
 }
 
 // ============ SCAN ENTIRE COLUMN ============
@@ -190,104 +186,18 @@ function scanEntireColumn() {
   var confirmResponse = ui.alert("Confirm Scan", confirmMsg, ui.ButtonSet.YES_NO);
   if (confirmResponse !== ui.Button.YES) return;
 
-  if (uniqueEmails_(emails).length > MAX_CONTACTS_PER_RUN) {
-    SpreadsheetApp.getUi().alert("Too Many Emails", "Maximum " + MAX_CONTACTS_PER_RUN + " unique emails per scan.", SpreadsheetApp.getUi().ButtonSet.OK);
-    return;
+  var totalScanned = 0;
+  for (var b = 0; b < emails.length; b += MAX_BATCH_SIZE) {
+    var batch = emails.slice(b, Math.min(b + MAX_BATCH_SIZE, emails.length));
+    var batchPositions = emailPositions.slice(b, Math.min(b + MAX_BATCH_SIZE, emails.length));
+    processBatch_(sheet, range.offset(b, 0, batch.length, 1), batch, apiKey, undefined, undefined, undefined, batchPositions);
+    totalScanned += batch.length;
   }
-  startBulkRun_(sheet, range, emails, apiKey, emails.length, 0, [], emailPositions);
+
+  ui.alert("Scan Complete", "Total emails scanned: " + totalScanned + "\nResults written to adjacent columns.", ui.ButtonSet.OK);
 }
 
 // ============ CORE: BATCH PROCESSING ============
-function uniqueEmails_(emails) {
-  var seen = {}; var unique = [];
-  for (var i = 0; i < emails.length; i++) { var email = String(emails[i]).trim().toLowerCase(); if (email && !seen[email]) { seen[email] = true; unique.push(email); } }
-  return unique;
-}
-
-function startBulkRun_(sheet, range, emails, apiKey, totalCells, skippedCells, skippedSamples, emailPositions) {
-  var unique = uniqueEmails_(emails);
-  var response = UrlFetchApp.fetch(getApiBaseUrl_() + BULK_RUN_ENDPOINT, {
-    method: "post", contentType: "application/json", headers: { "x-api-key": apiKey, "Idempotency-Key": Utilities.getUuid().replace(/-/g, "") },
-    payload: JSON.stringify({ emails: unique }), muteHttpExceptions: true
-  });
-  if (response.getResponseCode() !== 201 && response.getResponseCode() !== 200) {
-    var failure = response.getContentText();
-    SpreadsheetApp.getUi().alert("Secwyn Bulk Run", failure.substring(0, 300), SpreadsheetApp.getUi().ButtonSet.OK); return;
-  }
-  var run = JSON.parse(response.getContentText());
-  // Range identity is persisted; each continuation re-reads it, avoiding an oversized Property value for 5,000 row mappings.
-  var state = { runId: run.runId, spreadsheetId: SpreadsheetApp.getActiveSpreadsheet().getId(), sheetId: sheet.getSheetId(), rangeA1: range.getA1Notation(), apiKey: apiKey, chunkCount: run.chunkCount, cursor: 0, startedAt: Date.now(), retryCount: 0, totalCells: totalCells, skippedCells: skippedCells, skippedSamples: skippedSamples, triggerId: null, updatedAt: Date.now() };
-  PropertiesService.getUserProperties().setProperty(BULK_STATE_KEY, JSON.stringify(state));
-  continueBulkRun_();
-}
-
-function continueBulkRun_() {
-  var props = PropertiesService.getUserProperties(); var raw = props.getProperty(BULK_STATE_KEY); if (!raw) return;
-  var state = JSON.parse(raw); var started = Date.now(); var spreadsheet = SpreadsheetApp.openById(state.spreadsheetId); var sheet = spreadsheet.getSheets().filter(function(s) { return s.getSheetId() === state.sheetId; })[0];
-  if (!sheet) { cleanupBulkRun_(); return; }
-  while (state.cursor < state.chunkCount && Date.now() - started < CONTINUATION_BUDGET_MS) {
-    var response = UrlFetchApp.fetch(getApiBaseUrl_() + BULK_RUN_ENDPOINT + "/" + state.runId + "/chunks/" + state.cursor, { method: "post", headers: { "x-api-key": state.apiKey }, muteHttpExceptions: true });
-    if (response.getResponseCode() >= 400 && response.getResponseCode() < 500) { finishBulkRun_(spreadsheet, sheet, state, "partial"); return; }
-    if (response.getResponseCode() >= 500) {
-      state.retryCount = (state.retryCount || 0) + 1; state.updatedAt = Date.now(); props.setProperty(BULK_STATE_KEY, JSON.stringify(state));
-      if (state.retryCount <= 1) { scheduleContinuation_(); spreadsheet.toast("Secwyn: retrying this chunk once.", "Secwyn", 10); return; }
-      finishBulkRun_(spreadsheet, sheet, state, "partial"); return;
-    }
-    state.retryCount = 0;
-    state.cursor += 1;
-    state.updatedAt = Date.now(); props.setProperty(BULK_STATE_KEY, JSON.stringify(state));
-  }
-  if (state.cursor < state.chunkCount) { scheduleContinuation_(); spreadsheet.toast("Secwyn: awaiting continuation.", "Secwyn", 10); return; }
-  var runResponse = UrlFetchApp.fetch(getApiBaseUrl_() + BULK_RUN_ENDPOINT + "/" + state.runId, { headers: { "x-api-key": state.apiKey }, muteHttpExceptions: true });
-  var runStatus = runResponse.getResponseCode() === 200 ? JSON.parse(runResponse.getContentText()).status : "partial";
-  finishBulkRun_(spreadsheet, sheet, state, runStatus === "completed" ? "completed" : "partial");
-}
-
-function resumeSavedBulkRun() {
-  var props = PropertiesService.getUserProperties(); var raw = props.getProperty(BULK_STATE_KEY);
-  if (!raw) { SpreadsheetApp.getUi().alert("Secwyn Bulk Run", "There is no saved bulk run to resume.", SpreadsheetApp.getUi().ButtonSet.OK); return; }
-  var state = JSON.parse(raw);
-  var response = UrlFetchApp.fetch(getApiBaseUrl_() + BULK_RUN_ENDPOINT + "/" + state.runId + "/resume", { method: "post", headers: { "x-api-key": state.apiKey }, muteHttpExceptions: true });
-  if (response.getResponseCode() !== 200) { SpreadsheetApp.getUi().alert("Secwyn Bulk Run", "This bulk run cannot be resumed: " + response.getContentText().substring(0, 180), SpreadsheetApp.getUi().ButtonSet.OK); return; }
-  var resumable = JSON.parse(response.getContentText()).chunkIndexes || [];
-  if (!resumable.length) { SpreadsheetApp.getUi().alert("Secwyn Bulk Run", "No eligible chunks remain to resume.", SpreadsheetApp.getUi().ButtonSet.OK); return; }
-  state.cursor = resumable[0]; state.retryCount = 0; state.updatedAt = Date.now(); props.setProperty(BULK_STATE_KEY, JSON.stringify(state)); continueBulkRun_();
-}
-
-function finishBulkRun_(spreadsheet, sheet, state, outcome) {
-  var allResults = []; var cursor = 0;
-  while (cursor !== null) {
-    var resultsResponse = UrlFetchApp.fetch(getApiBaseUrl_() + BULK_RUN_ENDPOINT + "/" + state.runId + "/results?limit=20&cursor=" + cursor, { headers: { "x-api-key": state.apiKey }, muteHttpExceptions: true });
-    if (resultsResponse.getResponseCode() !== 200) break;
-    var result = JSON.parse(resultsResponse.getContentText()); allResults = allResults.concat(result.results || []); cursor = result.nextCursor;
-  }
-  if (allResults.length) writeBulkResults_(sheet, sheet.getRange(state.rangeA1), allResults);
-  if (outcome === "completed") { spreadsheet.toast("Secwyn: bulk run completed. Results are available in the adjacent columns.", "Secwyn", 10); cleanupBulkRun_(); return; }
-  spreadsheet.toast("Secwyn: bulk run is partially complete. Completed results were written; use Resume to continue eligible chunks.", "Secwyn", 10);
-  PropertiesService.getUserProperties().setProperty(BULK_STATE_KEY, JSON.stringify(state));
-}
-
-function scheduleContinuation_() { cleanupTriggers_(); var trigger = ScriptApp.newTrigger("continueBulkRun_").timeBased().after(60 * 1000).create(); var props = PropertiesService.getUserProperties(); var raw = props.getProperty(BULK_STATE_KEY); if (raw) { var state = JSON.parse(raw); state.triggerId = trigger.getUniqueId(); state.updatedAt = Date.now(); props.setProperty(BULK_STATE_KEY, JSON.stringify(state)); } }
-function cleanupTriggers_() { ScriptApp.getProjectTriggers().forEach(function(trigger) { if (trigger.getHandlerFunction() === "continueBulkRun_") ScriptApp.deleteTrigger(trigger); }); }
-function cleanupBulkRun_() { PropertiesService.getUserProperties().deleteProperty(BULK_STATE_KEY); cleanupTriggers_(); }
-
-function writeBulkResults_(sheet, range, results) {
-  if (!results.length) return;
-  var columns = getFallbackExportColumns_(); var byEmail = {}; results.forEach(function(result) { byEmail[String(result.email).toLowerCase()] = result; });
-  var values = range.getValues(); var output = values.map(function(row) { var result = byEmail[String(row[0]).trim().toLowerCase()]; return columns.map(function(column) { return result ? readExportValue_(result, column.key) : ""; }); });
-  var headerRow = range.getRow() > 1 ? range.getRow() - 1 : range.getRow();
-  if (range.getRow() > 1) sheet.getRange(headerRow, range.getColumn() + range.getNumColumns(), 1, columns.length).setValues([columns.map(function(column) { return column.label; })]);
-  sheet.getRange(range.getRow(), range.getColumn() + range.getNumColumns(), output.length, columns.length).setValues(output);
-  var scoreBackgrounds = values.map(function(row) {
-    var result = byEmail[String(row[0]).trim().toLowerCase()];
-    if (!result) return [null];
-    if (result.risk_score >= 70) return ["#FEE2E2"];
-    if (result.risk_score >= 40) return ["#FEF3C7"];
-    return ["#D1FAE5"];
-  });
-  sheet.getRange(range.getRow(), range.getColumn() + range.getNumColumns(), scoreBackgrounds.length, 1).setBackgrounds(scoreBackgrounds);
-}
-
 function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCells, skippedSamples, emailPositions) {
   var ui = SpreadsheetApp.getUi();
   var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
@@ -385,10 +295,11 @@ function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCe
 
 function getFallbackExportColumns_() {
   return [
+    { key: "email", label: "Email" },
     { key: "risk_score", label: "Risk Score" },
     { key: "risk_level", label: "Risk Level" },
     { key: "recommendation", label: "Recommendation" },
-    { key: "risk_factors", label: "Risk Factors" },
+    { key: "estimated_waste_cost", label: "Estimated Waste Cost" },
     { key: "cached", label: "Cached?" },
   ];
 }
@@ -415,13 +326,13 @@ function readExportValue_(result, key) {
   }
   if (key === "domain_age_days") return result.domain_age && result.domain_age.ageDays != null ? result.domain_age.ageDays : "";
   if (key === "dns_health_score") return result.dns_health && result.dns_health.score != null ? result.dns_health.score : "";
-  if (key === "estimated_waste_cost") return result.estimated_waste_cost != null ? "$" + Number(result.estimated_waste_cost).toFixed(2) : "";
+  if (key === "estimated_waste_cost") return result.estimated_waste_cost != null ? result.estimated_waste_cost : "";
   if (key === "ai_explanation") return result.ai_explanation || "";
   if (key === "health_score") return result.health_score != null ? result.health_score : "";
   if (key === "disposable") return result.disposable ? "Yes" : "No";
   if (key === "role_based") return result.role_based ? "Yes" : "No";
   if (key === "catch_all") return result.catch_all ? "Yes" : "No";
-  if (key === "cached") return result.cached ? "Yes (free)" : "New";
+  if (key === "cached") return result.cached ? "Yes" : "No";
 
   var value = result[key];
   if (Array.isArray(value)) return value.join("; ");
