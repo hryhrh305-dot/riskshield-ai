@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
 
 const script = readFileSync(resolve(process.cwd(), "google-sheets-addon/Code.gs"), "utf8");
@@ -20,5 +21,30 @@ describe("Google Sheets detailed batch contract", () => {
     expect(script).toContain("Maximum " + '" + MAX_CONTACTS_PER_SCAN + "' + " emails per scan");
     expect(script).toContain("writeResults_(sheet, anchorRange, result.results, result.export_columns || []");
     expect(script).toContain("sheet.getRange(rowToWrite, startCol + 1, 1, rowValues.length).setValues([rowValues])");
+  });
+
+  it("retries one transient DNS failure without changing the request batch", () => {
+    let attempts = 0;
+    const sleeps: number[] = [];
+    const context = {
+      UrlFetchApp: {
+        fetchAll(requests: unknown[]) {
+          attempts += 1;
+          if (attempts === 1) throw new Error("DNS error: https://www.secwyn.com");
+          return requests;
+        },
+      },
+      Utilities: { sleep(milliseconds: number) { sleeps.push(milliseconds); } },
+    };
+
+    runInNewContext(script, context);
+    const requests = [{ url: "https://www.secwyn.com/api/v1/email/batch-check" }];
+    const responses = (context as typeof context & {
+      fetchAllWithRetry_: (value: unknown[]) => unknown[];
+    }).fetchAllWithRetry_(requests);
+
+    expect(responses).toEqual(requests);
+    expect(attempts).toBe(2);
+    expect(sleeps).toEqual([1000]);
   });
 });

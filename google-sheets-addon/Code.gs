@@ -217,6 +217,16 @@ function completePendingScan_(pendingScan) {
   PropertiesService.getDocumentProperties().deleteProperty(pendingScan.propertyKey);
 }
 
+function fetchAllWithRetry_(requests) {
+  try {
+    return UrlFetchApp.fetchAll(requests);
+  } catch (error) {
+    if (String(error).toLowerCase().indexOf("dns") === -1) throw error;
+    Utilities.sleep(1000);
+    return UrlFetchApp.fetchAll(requests);
+  }
+}
+
 function processBatches_(sheet, anchorRange, emails, apiKey, totalCells, skippedCells, skippedSamples, emailPositions) {
   var ui = SpreadsheetApp.getUi();
   var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
@@ -247,7 +257,7 @@ function processBatches_(sheet, anchorRange, emails, apiKey, totalCells, skipped
         };
       });
       if (spreadsheet) spreadsheet.toast("Secwyn: scanning batches " + (waveStart + 1) + "-" + Math.min(waveStart + wave.length, batches.length) + " of " + batches.length + "...", "Secwyn", 10);
-      var responses = UrlFetchApp.fetchAll(requests);
+      var responses = fetchAllWithRetry_(requests);
       for (var index = 0; index < responses.length; index++) {
         var response = responses[index];
         var responseCode = response.getResponseCode();
