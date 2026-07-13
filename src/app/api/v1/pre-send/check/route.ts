@@ -5,6 +5,7 @@ import { checkBlacklist, autoBlacklistIfHighRisk } from "@/lib/blacklist";
 import { disposableDomainsSet } from "@/lib/disposable-domains";
 import { buildContactAuditDecision, buildListAuditSummary } from "@/lib/list-audit";
 import { consumeLegacyCredits } from "@/lib/legacy-credits";
+import { buildCreditRequestId } from "@/lib/credit-accounting";
 const disposableDomains = disposableDomainsSet;
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
@@ -75,6 +76,9 @@ export async function POST(req: NextRequest) {
     supabase: getSupabaseAdmin(),
     userId: cc.userId,
     requiredCredits: billableEmails.length,
+    requestId: buildCreditRequestId(req, "pre-send"),
+    reason: "pre_send_audit",
+    requestFingerprint: { emails: billableEmails, ip: targetIP, campaignId: body.campaign_id ?? null },
   });
   if (!legacyCreditResult.ok) {
     const isInsufficient = legacyCreditResult.error === "INSUFFICIENT_CREDITS";

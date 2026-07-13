@@ -5,6 +5,7 @@ import { getBatchExportColumnsForPlan, getPlanLimits, getResultCacheScope, sanit
 import { planCostLimits } from "@/lib/cost-control";
 import { buildContactAuditDecision, buildListAuditSummary } from "@/lib/list-audit";
 import { consumeLegacyCredits, getUniqueBillableEmails } from "@/lib/legacy-credits";
+import { buildCreditRequestId } from "@/lib/credit-accounting";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SECRET_KEY || "");
@@ -156,6 +157,9 @@ export async function POST(req: NextRequest) {
     supabase: getSupabaseAdmin(),
     userId: keyData.user_id,
     requiredCredits: batchSize,
+    requestId: buildCreditRequestId(req, "email-batch"),
+    reason: req.headers.has("x-api-key") ? "sheets_audit" : "api_audit",
+    requestFingerprint: { emails: validEmails },
   });
 
   if (!legacyCreditResult.ok) {

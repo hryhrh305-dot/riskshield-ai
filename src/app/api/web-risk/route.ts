@@ -4,6 +4,7 @@ import { calculateRiskScore, getAIExplanation, checkDomainAge, calculateCompanyH
 import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
 import { getResultCacheScope, sanitizeSingleRiskPayloadForPlan, shouldUseAiExplanation, shouldUseDeepDetection } from "@/lib/plans";
 import { consumeLegacyCredits } from "@/lib/legacy-credits";
+import { buildCreditRequestId } from "@/lib/credit-accounting";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SECRET_KEY || "");
@@ -140,6 +141,9 @@ try {
     supabase: getSupabaseAdmin(),
     userId: user.id,
     requiredCredits: 1,
+    requestId: buildCreditRequestId(request, "web-risk"),
+    reason: "web_audit",
+    requestFingerprint: { email, ip: requestIP },
   });
 
   if (!legacyCreditResult.ok) {

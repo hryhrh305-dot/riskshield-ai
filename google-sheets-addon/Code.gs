@@ -197,6 +197,26 @@ function scanEntireColumn() {
 }
 
 // ============ CORE: BATCH PROCESSING ============
+function getPendingScanRequest_(emails) {
+  var digest = Utilities.base64EncodeWebSafe(Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    emails.join("\n"),
+    Utilities.Charset.UTF_8
+  )).substring(0, 40);
+  var propertyKey = "SECWYN_PENDING_SCAN_" + digest;
+  var properties = PropertiesService.getDocumentProperties();
+  var requestId = properties.getProperty(propertyKey);
+  if (!requestId) {
+    requestId = Utilities.getUuid();
+    properties.setProperty(propertyKey, requestId);
+  }
+  return { propertyKey: propertyKey, requestId: requestId };
+}
+
+function completePendingScan_(pendingScan) {
+  PropertiesService.getDocumentProperties().deleteProperty(pendingScan.propertyKey);
+}
+
 function processBatches_(sheet, anchorRange, emails, apiKey, totalCells, skippedCells, skippedSamples, emailPositions) {
   var ui = SpreadsheetApp.getUi();
   var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
@@ -210,15 +230,18 @@ function processBatches_(sheet, anchorRange, emails, apiKey, totalCells, skipped
   }
 
   var totals = { allow: 0, review: 0, block: 0, cached: 0, checked: 0, remaining: null };
+  var pendingScan = getPendingScanRequest_(emails);
+  var scanRequestId = pendingScan.requestId;
   try {
     for (var waveStart = 0; waveStart < batches.length; waveStart += MAX_PARALLEL_BATCHES) {
       var wave = batches.slice(waveStart, waveStart + MAX_PARALLEL_BATCHES);
-      var requests = wave.map(function(batch) {
+      var requests = wave.map(function(batch, waveIndex) {
+        var absoluteBatchIndex = waveStart + waveIndex;
         return {
           url: baseUrl + BATCH_ENDPOINT,
           method: "post",
           contentType: "application/json",
-          headers: { "x-api-key": apiKey },
+          headers: { "x-api-key": apiKey, "Idempotency-Key": scanRequestId + ":" + absoluteBatchIndex },
           payload: JSON.stringify({ emails: batch.emails }),
           muteHttpExceptions: true,
         };
@@ -259,6 +282,7 @@ function processBatches_(sheet, anchorRange, emails, apiKey, totalCells, skipped
       "Cached (charged): " + totals.cached + "\nCredits remaining: " + totals.remaining;
     if (skippedCells > 0) scanMsg += "\n\nSkipped " + skippedCells + " invalid/non-email cells.";
     if (totalCells > 0 && totals.checked < totalCells) scanMsg += "\nDetected: " + totals.checked + " / " + totalCells + " cells";
+    completePendingScan_(pendingScan);
     ui.alert("Scan Complete", scanMsg, ui.ButtonSet.OK);
   } catch (e) {
     ui.alert("Connection Error", "Could not reach Secwyn API.\nCheck your network and API Base URL.\n\n" + e.toString(), ui.ButtonSet.OK);
@@ -272,11 +296,14 @@ function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCe
   try {
     var baseUrl = getApiBaseUrl_();
     var payload = JSON.stringify({ emails: emails });
+    var pendingScan = getPendingScanRequest_(emails);
+    var scanRequestId = pendingScan.requestId;
     var options = {
       method: "post",
       contentType: "application/json",
       headers: {
         "x-api-key": apiKey,
+        "Idempotency-Key": scanRequestId + ":0",
       },
       payload: payload,
       muteHttpExceptions: true,
@@ -325,6 +352,7 @@ function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCe
     }
 
     writeResults_(sheet, anchorRange, result.results, result.export_columns || [], emailPositions);
+    completePendingScan_(pendingScan);
     if (spreadsheet) {
       spreadsheet.toast("Secwyn: scan complete.", "Secwyn", 5);
     }

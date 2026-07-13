@@ -185,6 +185,10 @@ export function sortCreditGrantsForConsumption(grants: CreditGrant[], now: Date 
     .map(normalizeCreditGrant)
     .filter((grant) => isCreditGrantUsable(grant, now))
     .sort((a, b) => {
+      const aPriority = a.sourceType === "referral_bonus" ? 0 : a.sourceType === "subscription" ? 1 : 2;
+      const bPriority = b.sourceType === "referral_bonus" ? 0 : b.sourceType === "subscription" ? 1 : 2;
+      if (aPriority !== bPriority) return aPriority - bPriority;
+
       const aExpires = getGrantExpirationMs(a);
       const bExpires = getGrantExpirationMs(b);
       const aHasExpires = aExpires != null;

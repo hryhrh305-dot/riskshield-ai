@@ -1,3 +1,5 @@
+import { consumeContactCredits, type ContactCreditReason } from "./credit-accounting";
+
 const EMAIL_REGEX = /^(?!.*\.\.)(?!\.)[^\s@]+(?<!\.)@(?!\.)[^\s@]+\.[^\s@]{2,}$/i;
 
 type SupabaseAdminLike = {
@@ -46,10 +48,16 @@ export async function consumeLegacyCredits({
   supabase,
   userId,
   requiredCredits,
+  requestId,
+  reason,
+  requestFingerprint,
 }: {
   supabase: SupabaseAdminLike;
   userId: string;
   requiredCredits: number;
+  requestId: string;
+  reason: ContactCreditReason;
+  requestFingerprint: unknown;
 }): Promise<LegacyCreditResult> {
   const safeRequiredCredits = Number.isSafeInteger(requiredCredits)
     ? Math.max(0, requiredCredits)
@@ -97,82 +105,21 @@ export async function consumeLegacyCredits({
     };
   }
 
-  let deducted = 0;
-  let creditsRemaining = creditsAvailable;
-  for (let i = 0; i < safeRequiredCredits; i += 1) {
-    const { data: creditResult, error: creditError } = await supabase.rpc("consume_credit", {
-      p_user_id: userId,
-    });
-
-    if (creditError) {
-      return {
-        ok: false,
-        requiredCredits: safeRequiredCredits,
-        creditsAvailable,
-        creditsRemaining,
-        deducted,
-        error: "CONSUME_CREDIT_RPC_FAILED",
-      };
-    }
-
-    const firstCreditResult = Array.isArray(creditResult) ? creditResult[0] : creditResult;
-    const creditSuccess = firstCreditResult?.success ?? false;
-    if (!creditSuccess) {
-      return {
-        ok: false,
-        requiredCredits: safeRequiredCredits,
-        creditsAvailable,
-        creditsRemaining,
-        deducted,
-        error: "INSUFFICIENT_CREDITS",
-      };
-    }
-
-    deducted += 1;
-    const nextRemaining = Number(firstCreditResult?.remaining);
-    creditsRemaining = Number.isFinite(nextRemaining)
-      ? nextRemaining
-      : Math.max(0, creditsAvailable - deducted);
-  }
-
-  const { data: finalProfile, error: finalProfileError } = await supabase
-    .from("profiles")
-    .select("credits_remaining")
-    .eq("id", userId)
-    .single();
-
-  if (finalProfileError) {
-    return {
-      ok: false,
-      requiredCredits: safeRequiredCredits,
-      creditsAvailable,
-      creditsRemaining,
-      deducted,
-      error: "PROFILE_CREDIT_LOOKUP_FAILED",
-    };
-  }
-
-  const confirmedRemaining = Number.isFinite(finalProfile?.credits_remaining)
-    ? Number(finalProfile.credits_remaining)
-    : creditsRemaining;
-  const expectedMaximumRemaining = creditsAvailable - safeRequiredCredits;
-
-  if (confirmedRemaining > expectedMaximumRemaining) {
-    return {
-      ok: false,
-      requiredCredits: safeRequiredCredits,
-      creditsAvailable,
-      creditsRemaining: confirmedRemaining,
-      deducted,
-      error: "CREDIT_DEDUCTION_NOT_CONFIRMED",
-    };
-  }
+  const atomic = await consumeContactCredits({ supabase, userId, amount: safeRequiredCredits, reason, requestId, requestFingerprint });
+  if (!atomic.ok) return {
+    ok: false,
+    requiredCredits: safeRequiredCredits,
+    creditsAvailable,
+    creditsRemaining: creditsAvailable,
+    deducted: 0,
+    error: atomic.error,
+  };
 
   return {
     ok: true,
     requiredCredits: safeRequiredCredits,
-    creditsAvailable,
-    creditsRemaining: confirmedRemaining,
-    deducted,
+    creditsAvailable: atomic.creditsAvailable,
+    creditsRemaining: atomic.creditsRemaining,
+    deducted: atomic.deducted,
   };
 }

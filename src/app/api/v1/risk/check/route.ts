@@ -5,6 +5,7 @@ import { createResponse } from "@/lib/response";
 import { calculateRiskScore, checkDomainAge, calculateCompanyHealth, getAIExplanation } from "@/lib/risk-engine";
 import { sanitizeSingleRiskPayloadForPlan, shouldUseAiExplanation, shouldUseDeepDetection } from "@/lib/plans";
 import { consumeLegacyCredits } from "@/lib/legacy-credits";
+import { buildCreditRequestId } from "@/lib/credit-accounting";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SECRET_KEY || "");
@@ -41,6 +42,9 @@ export async function POST(request: NextRequest) {
     supabase: getSupabaseAdmin(),
     userId: cc.userId,
     requiredCredits: 1,
+    requestId: buildCreditRequestId(request, "risk-check"),
+    reason: "api_audit",
+    requestFingerprint: { email, ip: requestIP },
   });
   if (!legacyCreditResult.ok) {
     const isInsufficient = legacyCreditResult.error === "INSUFFICIENT_CREDITS";

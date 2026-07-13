@@ -4,6 +4,7 @@ import { costControlCheck } from "@/lib/cost-control";
 import { calculateRiskScore, checkDomainAge, calculateCompanyHealth, cleanEmail } from "@/lib/risk-engine";
 import { sanitizeSingleRiskPayloadForPlan, shouldUseDeepDetection } from "@/lib/plans";
 import { consumeLegacyCredits } from "@/lib/legacy-credits";
+import { buildCreditRequestId } from "@/lib/credit-accounting";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SECRET_KEY || "");
@@ -45,6 +46,9 @@ export async function POST(req: NextRequest) {
     supabase: getSupabaseAdmin(),
     userId: cc.userId,
     requiredCredits: 1,
+    requestId: buildCreditRequestId(req, "email-check"),
+    reason: "api_audit",
+    requestFingerprint: { email },
   });
   if (!legacyCreditResult.ok) {
     const isInsufficient = legacyCreditResult.error === "INSUFFICIENT_CREDITS";

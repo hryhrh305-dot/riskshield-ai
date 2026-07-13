@@ -13,6 +13,7 @@ import {
   shouldUseDeepDetection,
 } from "@/lib/plans";
 import { consumeLegacyCredits, getUniqueBillableEmails } from "@/lib/legacy-credits";
+import { buildCreditRequestId } from "@/lib/credit-accounting";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SECRET_KEY || "");
@@ -181,6 +182,9 @@ export async function POST(request: NextRequest) {
     supabase: getSupabaseAdmin(),
     userId: user.id,
     requiredCredits,
+    requestId: buildCreditRequestId(request, "web-bulk"),
+    reason: "web_bulk_audit",
+    requestFingerprint: { emails: uniqueEmails },
   });
 
   if (!legacyCreditResult.ok) {
