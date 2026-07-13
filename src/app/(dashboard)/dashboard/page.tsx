@@ -666,7 +666,7 @@ export default function DashboardPage() {
             <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
               <div className="text-sm font-semibold text-emerald-100">Reward</div>
               <p className="mt-1 text-sm leading-6 text-emerald-50/85">
-                Earn bonus checks equal to 10% of the referred user's first subscription plan included checks.
+                Earn bonus checks equal to 10% of the referred user&apos;s first subscription plan included checks.
               </p>
               <p className="mt-2 text-xs text-emerald-100/75">
                 Example: If your referral buys a plan with 2500 included checks, you can earn 250 bonus checks.

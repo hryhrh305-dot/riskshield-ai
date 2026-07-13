@@ -51,11 +51,11 @@ const migrations = fs.existsSync(migrationDir)
   : [];
 assert(migrations.length > 0, "referral migration file is missing");
 
-for (const file of migrations) {
-  const migration = read(path.join(migrationDir, file));
-  assert(migration.includes("referral_codes"), `${file}: referral_codes table is missing`);
-  assert(migration.includes("referral_attributions"), `${file}: referral_attributions table is missing`);
-  assert(!migration.includes(forbiddenPhrase("credits", "_remaining")), `${file}: migration must not touch the legacy balance field`);
-}
+const migrationSource = migrations.map((file) => read(path.join(migrationDir, file))).join("\n");
+assert(migrationSource.includes("referral_codes"), "referral_codes table is missing from referral migrations");
+assert(migrationSource.includes("referral_attributions"), "referral_attributions table is missing from referral migrations");
+const latestMigration = read(path.join(migrationDir, migrations.sort().at(-1)));
+assert(latestMigration.includes("referral_bonus"), "latest referral delivery must create a referral grant");
+assert(!latestMigration.includes(forbiddenPhrase("credits", "_remaining")), "latest referral delivery must not touch the legacy balance field");
 
 console.log("referral shape checks passed");

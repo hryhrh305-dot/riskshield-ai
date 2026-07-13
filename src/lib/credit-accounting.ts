@@ -1,8 +1,13 @@
 import { createHash } from "node:crypto";
 
 export type CreditAccountingClient = {
-  rpc: (fn: string, params: Record<string, unknown>) => Promise<{ data: any; error: any }>;
+  rpc: unknown;
 };
+
+type CreditRpc = (fn: string, params: Record<string, unknown>) => PromiseLike<{
+  data: unknown;
+  error: { message?: string } | null;
+}>;
 
 export type ContactCreditReason =
   | "web_audit"
@@ -44,7 +49,8 @@ export async function consumeContactCredits({
   const fingerprint = createHash("sha256")
     .update(JSON.stringify({ creditType: "contact_audit", amount: safeAmount, reason, request: requestFingerprint }))
     .digest("hex");
-  const { data, error } = await supabase.rpc("consume_grant_credits", {
+  const rpc = (supabase.rpc as CreditRpc).bind(supabase);
+  const { data, error } = await rpc("consume_grant_credits", {
     p_user_id: userId,
     p_credit_type: "contact_audit",
     p_amount: safeAmount,
@@ -62,7 +68,8 @@ export async function consumeContactCredits({
       error: insufficient ? "INSUFFICIENT_CREDITS" as const : "CONSUME_CREDIT_RPC_FAILED" as const,
     };
   }
-  const value = Array.isArray(data) ? data[0] : data;
+  const candidate = Array.isArray(data) ? data[0] : data;
+  const value = candidate && typeof candidate === "object" ? candidate as Record<string, unknown> : null;
   const deducted = Number(value?.deducted);
   const remaining = Number(value?.remaining);
   if (!Number.isSafeInteger(deducted) || deducted !== safeAmount
@@ -82,7 +89,8 @@ export async function getCreditSummary({ supabase, userId }: {
   supabase: CreditAccountingClient;
   userId: string;
 }) {
-  const { data, error } = await supabase.rpc("get_credit_summary", { p_user_id: userId });
+  const rpc = (supabase.rpc as CreditRpc).bind(supabase);
+  const { data, error } = await rpc("get_credit_summary", { p_user_id: userId });
   if (error) throw new Error("CREDIT_SUMMARY_FAILED");
   return Array.isArray(data) ? data[0] : data;
 }

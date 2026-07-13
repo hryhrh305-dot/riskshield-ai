@@ -14,7 +14,7 @@ describe("credit accounting and dashboard contract", () => {
     expect(dashboard).toContain('gte("risk_score", 26).lte("risk_score", 65)');
     expect(dashboard).toContain('gte("risk_score", 66)');
     expect(dashboard).not.toContain('gte("risk_score", 40).lte("risk_score", 69)');
-    expect(dashboard).toContain("Math.max(0, monthlyLimit - displayCreditsRemaining)");
+    expect(dashboard).toContain("Math.max(0, monthlyLimit - subscriptionCreditsRemaining)");
     expect(dashboard).toContain("Current Credit Cycle");
     expect(dashboard).toContain("subscriptionRow?.current_period_start || startOfMonth");
     expect(dashboard).toContain("credits used");

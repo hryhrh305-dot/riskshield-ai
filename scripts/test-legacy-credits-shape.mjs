@@ -14,19 +14,21 @@ function assert(condition, message) {
 }
 
 const helper = read("src/lib/legacy-credits.ts");
+const accounting = read("src/lib/credit-accounting.ts");
 const bulkRoute = read("src/app/api/bulk-check/route.ts");
 const webRiskRoute = read("src/app/api/web-risk/route.ts");
 const batchApiRoute = read("src/app/api/v1/email/batch-check/route.ts");
 
 assert(helper.includes("export async function consumeLegacyCredits"), "legacy helper must export consumeLegacyCredits");
-assert(helper.includes('rpc("consume_credit"'), "legacy helper must use the existing consume_credit RPC");
+assert(accounting.includes('rpc("consume_grant_credits"'), "credit adapter must use atomic consume_grant_credits RPC");
 assert(helper.includes("creditsRemaining"), "legacy helper must track post-deduction credits remaining");
-assert(helper.includes("Array.isArray(creditResult)"), "legacy helper must support array or object RPC return shapes");
-assert(helper.includes("CREDIT_DEDUCTION_NOT_CONFIRMED"), "legacy helper must fail closed when deduction is not confirmed");
-assert(helper.includes("confirmedRemaining"), "legacy helper must verify final profile balance after RPC deduction");
+assert(accounting.includes("Array.isArray(data)"), "credit adapter must support array or object RPC return shapes");
+assert(accounting.includes("CONSUME_CREDIT_RPC_FAILED"), "credit adapter must fail closed on malformed RPC data");
+assert(!helper.includes("for (let i = 0; i < safeRequiredCredits"), "legacy helper must not partially deduct in a loop");
+assert(helper.includes("requestFingerprint"), "legacy helper must bind idempotency to the business payload");
 assert(!helper.includes("credit_grants"), "legacy helper must not wire credit_grants");
 assert(!helper.includes("credit_usage"), "legacy helper must not wire credit_usage");
-assert(!helper.includes("consumeLedgerCredits"), "legacy helper must not wire consumeLedgerCredits");
+assert(helper.includes("consumeContactCredits"), "legacy helper must delegate to the atomic accounting adapter");
 assert(!helper.includes(".update({ credits_remaining"), "legacy helper must not manually update profiles.credits_remaining");
 
 for (const [name, source] of [

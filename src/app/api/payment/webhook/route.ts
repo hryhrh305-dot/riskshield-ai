@@ -416,56 +416,6 @@ async function findBillingSubjectFromWebhookEvent(event: CreemWebhookEvent): Pro
   return null;
 }
 
-async function updateMatchedSubscriptionState(params: {
-  userId: string;
-  subscriptionId?: string | null;
-  subscriptionStatus: "cancelled" | "paused";
-  productId?: string | null;
-}) {
-  const admin = getSupabaseAdmin();
-  const nowIso = new Date().toISOString();
-
-  if (params.subscriptionId) {
-    const { error } = await admin
-      .from("subscriptions")
-      .update({
-        status: params.subscriptionStatus,
-        current_period_end: nowIso,
-        cancelled_at: nowIso,
-        billing_terminal_at: nowIso,
-        cancel_at_period_end: false,
-      })
-      .eq("user_id", params.userId)
-      .eq("provider_subscription_id", params.subscriptionId);
-    if (error) throw error;
-    return;
-  }
-
-  const { data: latestSubscription, error: lookupError } = await admin
-    .from("subscriptions")
-    .select("id")
-    .eq("user_id", params.userId)
-    .eq("provider_product_id", params.productId || "")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (lookupError) throw lookupError;
-
-  if (!latestSubscription?.id) return;
-
-  const { error } = await admin
-    .from("subscriptions")
-    .update({
-      status: params.subscriptionStatus,
-      current_period_end: nowIso,
-      cancelled_at: nowIso,
-      billing_terminal_at: nowIso,
-      cancel_at_period_end: false,
-    })
-    .eq("id", latestSubscription.id);
-  if (error) throw error;
-}
-
 async function revokePaidAccessForBillingIssue(params: {
   userId: string;
   subscriptionId?: string | null;
@@ -511,13 +461,11 @@ export async function POST(req: NextRequest) {
 
     switch (eventType) {
       case "checkout.completed": {
-        const { userId, plan } = extractCheckoutUserAndPlan(event);
+        const { userId } = extractCheckoutUserAndPlan(event);
         const subscriptionId = event?.object?.subscription?.id || null;
         const checkoutId = event?.object?.id || null;
         const orderId = event?.object?.order?.id || null;
         const productId = event?.object?.product?.id || event?.object?.order?.product || null;
-        const currentPeriodStart = event?.object?.subscription?.created_at || null;
-        const currentPeriodEnd = event?.object?.subscription?.current_period_end_date || null;
         const customerId = extractCustomerId(event);
 
         if (checkoutId) {
@@ -533,42 +481,14 @@ export async function POST(req: NextRequest) {
           await updateProfileCustomerId(userId, customerId);
         }
 
-        if (userId && plan && subscriptionId) {
-          await upsertSubscriptionRecord({
-            userId,
-            plan,
-            subscriptionId,
-            status: event?.object?.subscription?.status || "active",
-            customerId,
-            productId,
-            currentPeriodStart,
-            currentPeriodEnd,
-            cancelledAt: event?.object?.subscription?.canceled_at || null,
-          });
-        }
         break;
       }
 
       case "subscription.active": {
-        const { userId, plan, subscriptionId, productId } = await resolveSubscriptionContext(event);
+        const { userId } = await resolveSubscriptionContext(event);
         const customerId = extractCustomerId(event);
-        if (userId && plan && subscriptionId) {
-          if (customerId) {
-            await updateProfileCustomerId(userId, customerId);
-          }
-
-          await upsertSubscriptionRecord({
-            userId,
-            plan,
-            subscriptionId,
-            status: "active",
-            customerId,
-            productId,
-            currentPeriodStart: event?.object?.current_period_start_date || event?.object?.created_at || null,
-            currentPeriodEnd: event?.object?.current_period_end_date || null,
-            cancelledAt: event?.object?.canceled_at || null,
-          });
-
+        if (userId && customerId) {
+          await updateProfileCustomerId(userId, customerId);
         }
         break;
       }
@@ -666,39 +586,12 @@ export async function POST(req: NextRequest) {
       }
 
       case "subscription.update": {
-        const { userId, plan, subscriptionId, productId } = await resolveSubscriptionContext(event);
+        const { userId, subscriptionId } = await resolveSubscriptionContext(event);
         const customerId = extractCustomerId(event);
         if (!userId || !subscriptionId) break;
 
-        const subscriptionStatus = (event?.object?.status || "active") as "active" | "cancelled" | "expired" | "past_due" | "paused";
-
         if (customerId) {
           await updateProfileCustomerId(userId, customerId);
-        }
-
-        await upsertSubscriptionRecord({
-          userId,
-          plan: plan || "free",
-          subscriptionId,
-          status: subscriptionStatus,
-          customerId,
-          productId,
-          currentPeriodStart: event?.object?.current_period_start_date || event?.object?.created_at || null,
-          currentPeriodEnd: event?.object?.current_period_end_date || null,
-          cancelledAt: event?.object?.canceled_at || null,
-        });
-
-        if (subscriptionStatus === "active") {
-          await updateProfileSubscriptionState({ userId, status: "active", plan: plan || undefined,
-            subscriptionEnd: event?.object?.current_period_end_date || null, customerId });
-        } else {
-          await updateProfileSubscriptionState({
-            userId,
-            status: subscriptionStatus,
-            plan: plan || undefined,
-            subscriptionEnd: event?.object?.current_period_end_date || event?.object?.canceled_at || null,
-            customerId,
-          });
         }
         break;
       }
@@ -736,7 +629,7 @@ export async function POST(req: NextRequest) {
       }
 
       case "subscription.scheduled_cancel": {
-        const { userId, plan, subscriptionId, productId } = await resolveSubscriptionContext(event);
+        const { userId, subscriptionId } = await resolveSubscriptionContext(event);
         const customerId = extractCustomerId(event);
         if (!userId || !subscriptionId) break;
 
@@ -744,21 +637,12 @@ export async function POST(req: NextRequest) {
           await updateProfileCustomerId(userId, customerId);
         }
 
-        await upsertSubscriptionRecord({
-          userId,
-          plan: plan || "free",
-          subscriptionId,
-          status: "active",
-          customerId,
-          productId,
-          currentPeriodStart: event?.object?.current_period_start_date || null,
-          currentPeriodEnd: event?.object?.current_period_end_date || null,
-          cancelledAt: event?.object?.canceled_at || new Date().toISOString(),
-          cancelAtPeriodEnd: true,
-        });
-
-        await updateProfileSubscriptionState({ userId, status: "active", plan: plan || undefined,
-          subscriptionEnd: event?.object?.current_period_end_date || event?.object?.canceled_at || null, customerId });
+        const { error } = await getSupabaseAdmin()
+          .from("subscriptions")
+          .update({ cancel_at_period_end: true, updated_at: new Date().toISOString() })
+          .eq("user_id", userId)
+          .eq("provider_subscription_id", subscriptionId);
+        if (error) throw error;
         break;
       }
 
