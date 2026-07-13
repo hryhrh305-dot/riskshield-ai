@@ -415,15 +415,21 @@ export default function DashboardPage() {
 
   const planKey = profile.plan as PlanKey;
   const planInfo = getPlanLimits(planKey);
+  const isBusinessPlan = planKey === "business";
   const monthlyLimit = planInfo.monthlyLimit || 50000;
   const creditsRemaining = profile.credits_remaining ?? 0;
   const apiEnabled = planInfo.apiAccess;
   const feedbackRemaining = Math.max(0, feedbackDailyLimit - feedbackSentToday);
-  const subscriptionCreditsRemaining = referralSummary?.credits?.subscription ?? Math.min(creditsRemaining, monthlyLimit);
+  const creditSummarySubscription = referralSummary?.credits?.subscription ?? Math.min(creditsRemaining, monthlyLimit);
+  const creditSummaryManual = referralSummary?.credits?.manual ?? 0;
+  const subscriptionCreditsRemaining = isBusinessPlan
+    ? creditSummarySubscription + creditSummaryManual
+    : creditSummarySubscription;
+  const otherCreditsRemaining = isBusinessPlan ? 0 : creditSummaryManual;
   const displayCreditsRemaining = referralSummary?.credits?.total ?? creditsRemaining;
   const monthlyUsed = Math.max(0, monthlyLimit - subscriptionCreditsRemaining);
-  const monthlyRemaining = subscriptionCreditsRemaining;
-  const creditsPercent = monthlyLimit > 0 ? Math.min(100, Math.round((subscriptionCreditsRemaining / monthlyLimit) * 100)) : 100;
+  const monthlyRemaining = displayCreditsRemaining;
+  const creditsPercent = monthlyLimit > 0 ? Math.min(100, Math.round((displayCreditsRemaining / monthlyLimit) * 100)) : 100;
   const monthlyPercent = creditsPercent;
   const usageStatus = monthlyPercent <= 20 ? "critical" : monthlyPercent <= 50 ? "warning" : "healthy";
   const activeApiKeys = apiKeys.filter((key) => key.status === "active");
@@ -511,9 +517,15 @@ export default function DashboardPage() {
             <AlertTriangle className="h-5 w-5 shrink-0 text-amber-300" />
             <div className="flex-1">
               <p className="text-sm font-medium text-amber-100">Only {monthlyRemaining.toLocaleString()} credits left - you are approaching your monthly limit.</p>
-              <p className="mt-0.5 text-xs text-amber-200/80">Upgrade to increase credits, unlock deeper checks, and enable API access.</p>
+              <p className="mt-0.5 text-xs text-amber-200/80">
+                {isBusinessPlan ? "Contact support to add contract capacity." : "Upgrade to increase credits, unlock deeper checks, and enable API access."}
+              </p>
             </div>
-            <Link href="/pricing" className="rs-button-primary shrink-0 rounded-full px-4 py-2 text-sm font-medium">Upgrade Plan</Link>
+            {isBusinessPlan ? (
+              <a href="mailto:support@secwyn.com" className="rs-button-primary shrink-0 rounded-full px-4 py-2 text-sm font-medium">Contact Support</a>
+            ) : (
+              <Link href="/pricing" className="rs-button-primary shrink-0 rounded-full px-4 py-2 text-sm font-medium">Upgrade Plan</Link>
+            )}
           </div>
         )}
 
@@ -531,7 +543,7 @@ export default function DashboardPage() {
               <div className="h-2 rounded-full bg-[var(--rs-primary)] transition-all" style={{ width: `${creditsPercent}%` }} />
             </div>
             <div className="mt-1.5 text-xs text-slate-400">
-              <div className="mb-1">Plan {subscriptionCreditsRemaining.toLocaleString()} · Referral {(referralSummary?.credits?.referral ?? 0).toLocaleString()} · Other {(referralSummary?.credits?.manual ?? 0).toLocaleString()}</div>
+              <div className="mb-1">Plan {subscriptionCreditsRemaining.toLocaleString()} · Referral {(referralSummary?.credits?.referral ?? 0).toLocaleString()} · Other {otherCreditsRemaining.toLocaleString()}</div>
               {referralSummary?.credits?.nearestExpiry ? <div className="mb-1">Nearest bonus expiry: {new Date(referralSummary.credits.nearestExpiry).toLocaleDateString()}</div> : null}
               {usageStatus === "healthy" ? (
                 <span className="font-medium text-emerald-300">Sufficient for current usage</span>
@@ -550,8 +562,8 @@ export default function DashboardPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <div className="text-2xl font-semibold text-white">{monthlyUsed.toLocaleString()}</div>
-                <div className="mt-0.5 text-xs text-slate-500">credits used</div>
+                <div className="text-2xl font-semibold text-white">{(isBusinessPlan ? displayCreditsRemaining : monthlyUsed).toLocaleString()}</div>
+                <div className="mt-0.5 text-xs text-slate-500">{isBusinessPlan ? "contract credits remaining" : "credits used"}</div>
               </div>
               <div>
                 <div className="text-2xl font-semibold text-amber-300">{riskyCount.toLocaleString()}</div>

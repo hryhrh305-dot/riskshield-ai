@@ -20,6 +20,19 @@ describe("credit accounting and dashboard contract", () => {
     expect(dashboard).toContain("credits used");
   });
 
+  it("uses total usable credits for low-balance warnings across every paid plan", () => {
+    expect(dashboard).toContain("const monthlyRemaining = displayCreditsRemaining");
+    expect(dashboard).toContain("displayCreditsRemaining / monthlyLimit");
+    expect(dashboard).not.toContain("const monthlyRemaining = subscriptionCreditsRemaining");
+  });
+
+  it("treats Business contract balances as plan capacity without an upgrade prompt", () => {
+    expect(dashboard).toContain('const isBusinessPlan = planKey === "business"');
+    expect(dashboard).toContain("creditSummaryManual");
+    expect(dashboard).toContain("contract credits remaining");
+    expect(dashboard).toContain("Contact support to add contract capacity.");
+  });
+
   it("states that cached Sheets results are charged", () => {
     expect(sheets).not.toContain("Cached (free)");
     expect(sheets).toContain("Cached (charged)");
