@@ -112,7 +112,7 @@ export default function BulkCheckPage() {
     return value == null ? "" : String(value);
   }
 
-  const scoreColor = (score: number) => score >= 60 ? "text-red-300" : score >= 30 ? "text-amber-300" : "text-emerald-300";
+  const scoreColor = (score: number) => score >= 66 ? "text-red-300" : score >= 26 ? "text-amber-300" : "text-emerald-300";
   const decisionBadge = (decision: string) => decision === "BLOCK" ? "rs-badge-block" : decision === "REVIEW" ? "rs-badge-review" : "rs-badge-allow";
 
   function normalizeAuditQueue(result: BulkResult): AuditQueue {

@@ -284,7 +284,7 @@ export default function RiskCheckPage() {
               </div>
               <div className="mt-3 h-2 rounded-full bg-white/10">
                 <div
-                  className={`rs-progress-load h-2 rounded-full transition-all duration-700 ${result.risk_score >= 60 ? "bg-red-400" : result.risk_score >= 30 ? "bg-amber-400" : "bg-emerald-400"}`}
+                  className={`rs-progress-load h-2 rounded-full transition-all duration-700 ${result.risk_score >= 66 ? "bg-red-400" : result.risk_score >= 26 ? "bg-amber-400" : "bg-emerald-400"}`}
                   style={{ width: result.risk_score + "%" }}
                 />
               </div>
@@ -596,7 +596,7 @@ export default function RiskCheckPage() {
                     <span className="max-w-[220px] truncate text-slate-300">{h.input_value}</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className={h.risk_score >= 60 ? "text-red-300" : h.risk_score >= 30 ? "text-amber-300" : "text-emerald-300"}>
+                    <span className={h.risk_score >= 66 ? "text-red-300" : h.risk_score >= 26 ? "text-amber-300" : "text-emerald-300"}>
                       {h.risk_score}
                     </span>
                     <span className="text-xs text-slate-500">{new Date(h.created_at).toLocaleString()}</span>

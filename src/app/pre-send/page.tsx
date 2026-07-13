@@ -66,7 +66,7 @@ export default function PreSendPage() {
   }
 
   const scoreColor = (score: number) =>
-    score >= 60 ? "text-red-300" : score >= 30 ? "text-amber-300" : "text-emerald-300";
+    score >= 66 ? "text-red-300" : score >= 26 ? "text-amber-300" : "text-emerald-300";
 
   const decisionBadge = (decision: string) =>
     decision === "BLOCK" ? "rs-badge-block" : decision === "REVIEW" ? "rs-badge-review" : "rs-badge-allow";

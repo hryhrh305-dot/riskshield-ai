@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
     }
 
     const local = quickEmailCheck(email);
-    if (local.score >= 60) {
+    if (local.score >= 66) {
       const r = { email, decision: "BLOCK", score: local.score, reasons: local.reasons, blacklisted: false };
       const { record, auditDecision } = attachAuditFields(r, r);
       results.push(record as typeof results[0]); blockedCount++;
@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
       continue;
     }
 
-    const decision = local.score >= 30 ? "REVIEW" : "ALLOW";
+    const decision = local.score >= 26 ? "REVIEW" : "ALLOW";
     const r = { email, decision, score: local.score, reasons: local.reasons, blacklisted: false };
     const { record, auditDecision } = attachAuditFields(r, r);
     results.push(record as typeof results[0]);

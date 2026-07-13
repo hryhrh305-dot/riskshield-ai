@@ -15,7 +15,7 @@ export function createResponse(params: {
   emailDetails?: Record<string, unknown> | null; ipDetails?: Record<string, unknown> | null;
   aiReason?: string; ipRemaining: number; dailyRemaining: number; monthlyRemaining: number;
 }): RiskResponse {
-  const decision = params.score >= 60 ? "BLOCK" : params.score >= 30 ? "REVIEW" : "ALLOW";
+  const decision = params.score >= 66 ? "BLOCK" : params.score >= 26 ? "REVIEW" : "ALLOW";
   return {
     success: true, request_id: crypto.randomUUID(), timestamp: new Date().toISOString(), processing_stage: "sync",
     input: { email: params.email ?? null, ip: params.ip ?? null },

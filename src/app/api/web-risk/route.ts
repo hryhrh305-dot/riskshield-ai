@@ -233,7 +233,7 @@ try {
   if (riskSettings) {
     const emailDetails = riskResult.emailDetails as Record<string, unknown> | null;
     if (riskSettings.block_disposable && emailDetails?.isDisposable) cacheData.decision = "BLOCK";
-    if (riskSettings.block_high_risk && riskResult.score >= 60) cacheData.decision = "BLOCK";
+    if (riskSettings.block_high_risk && riskResult.score >= 66) cacheData.decision = "BLOCK";
     if (riskSettings.review_catch_all && emailDetails?.isCatchAll && cacheData.decision === "ALLOW") cacheData.decision = "REVIEW";
     if (riskSettings.review_new_domain && (cacheData as any).domain_age?.isNew && cacheData.decision === "ALLOW") cacheData.decision = "REVIEW";
   }

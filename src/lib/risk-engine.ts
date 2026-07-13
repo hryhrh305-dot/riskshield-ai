@@ -747,13 +747,13 @@ export async function calculateRiskScore({
   // ============ FINAL SCORE CLAMP (0-100) ============
   riskScore = Math.max(0, Math.min(100, riskScore));
 
-  const decision: "ALLOW" | "REVIEW" | "BLOCK" = riskScore >= 60 ? "BLOCK" : riskScore >= 30 ? "REVIEW" : "ALLOW";
+  const decision: "ALLOW" | "REVIEW" | "BLOCK" = riskScore >= 66 ? "BLOCK" : riskScore >= 26 ? "REVIEW" : "ALLOW";
 
   // ============ BUSINESS IMPACT ============
   const impact: string[] = [];
-  if (riskScore >= 60) {
+  if (riskScore >= 66) {
     impact.push("[CRITICAL] Do NOT send or reply. High risk of bounce, sender reputation damage, or fraud.");
-  } else if (riskScore >= 30) {
+  } else if (riskScore >= 26) {
     impact.push("[CAUTION] Risk signals detected. Manual review recommended before sending.");
   } else {
     impact.push("[SAFE] No significant risk detected. Safe to send.");
