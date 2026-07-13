@@ -209,7 +209,7 @@ function processBatches_(sheet, anchorRange, emails, apiKey, totalCells, skipped
     });
   }
 
-  var totals = { allow: 0, review: 0, block: 0, cached: 0, checked: 0, remaining: "N/A" };
+  var totals = { allow: 0, review: 0, block: 0, cached: 0, checked: 0, remaining: null };
   try {
     for (var waveStart = 0; waveStart < batches.length; waveStart += MAX_PARALLEL_BATCHES) {
       var wave = batches.slice(waveStart, waveStart + MAX_PARALLEL_BATCHES);
@@ -247,7 +247,11 @@ function processBatches_(sheet, anchorRange, emails, apiKey, totalCells, skipped
         totals.block += summary.block || 0;
         totals.cached += result.cached_count || 0;
         totals.checked += result.results.length;
-        if (result.credits && result.credits.remaining != null) totals.remaining = result.credits.remaining;
+        if (result.credits && result.credits.remaining != null) {
+          totals.remaining = totals.remaining === null
+            ? result.credits.remaining
+            : Math.min(totals.remaining, result.credits.remaining);
+        }
       }
     }
     var scanMsg = "Emails scanned: " + totals.checked + "\n" +

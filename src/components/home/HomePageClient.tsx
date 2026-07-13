@@ -133,7 +133,7 @@ export default function HomePageClient() {
               (user ? (
                 <>
                   <Link href="/dashboard" className="rounded-full px-3 py-2 text-sm text-slate-200 transition hover:bg-white/5 hover:text-white">
-                    Dashboard
+                    {user.email || "Dashboard"}
                   </Link>
                   <button onClick={handleSignOut} className="rounded-full p-2 text-slate-400 transition hover:bg-white/5 hover:text-white" title="Sign Out">
                     <LogOut className="h-4 w-4" />
@@ -175,7 +175,7 @@ export default function HomePageClient() {
                 (user ? (
                   <>
                     <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">
-                      Dashboard
+                      {user.email || "Dashboard"}
                     </Link>
                     <button
                       onClick={handleSignOut}
