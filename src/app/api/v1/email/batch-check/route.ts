@@ -116,25 +116,6 @@ export async function POST(req: NextRequest) {
 
   const batchSize = validEmails.length;
 
-  const legacyCreditResult = await consumeLegacyCredits({
-    supabase: getSupabaseAdmin(),
-    userId: keyData.user_id,
-    requiredCredits: batchSize,
-  });
-
-  if (!legacyCreditResult.ok) {
-    const isInsufficient = legacyCreditResult.error === "INSUFFICIENT_CREDITS";
-    return NextResponse.json({
-      error: "Insufficient credits",
-      message: isInsufficient
-        ? "Insufficient credits."
-        : "Failed to process credit. Please try again.",
-      upgradeNeeded: isInsufficient,
-      requiredCredits: legacyCreditResult.requiredCredits,
-      creditsAvailable: legacyCreditResult.creditsAvailable,
-    }, { status: isInsufficient ? 429 : 500 });
-  }
-
   // Check quotas
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
@@ -168,6 +149,26 @@ export async function POST(req: NextRequest) {
       message: "Daily quota exceeded. Remaining: " + Math.max(0, limits.dailyUnits - dailyUsed),
       daily_remaining: Math.max(0, limits.dailyUnits - dailyUsed),
     }, { status: 429 });
+  }
+
+  // Only charge after all non-credit quota checks have accepted the request.
+  const legacyCreditResult = await consumeLegacyCredits({
+    supabase: getSupabaseAdmin(),
+    userId: keyData.user_id,
+    requiredCredits: batchSize,
+  });
+
+  if (!legacyCreditResult.ok) {
+    const isInsufficient = legacyCreditResult.error === "INSUFFICIENT_CREDITS";
+    return NextResponse.json({
+      error: "Insufficient credits",
+      message: isInsufficient
+        ? "Insufficient credits."
+        : "Failed to process credit. Please try again.",
+      upgradeNeeded: isInsufficient,
+      requiredCredits: legacyCreditResult.requiredCredits,
+      creditsAvailable: legacyCreditResult.creditsAvailable,
+    }, { status: isInsufficient ? 429 : 500 });
   }
 
   // Process emails in parallel with concurrency control (avoids 504 timeout on Vercel)
@@ -295,16 +296,19 @@ export async function POST(req: NextRequest) {
     await getSupabaseAdmin().from("usage_ledger").insert(usageRecords);
   }
 
-  // Write scan_history (async)
-  getSupabaseAdmin().from("scan_history").insert(
+  // Record each charged result before returning so dashboard totals cannot silently lag.
+  const { error: scanHistoryError } = await getSupabaseAdmin().from("scan_history").insert(
     results.map((r: any) => ({
       user_id: keyData.user_id,
       scan_type: "email",
       target: r.email,
       risk_score: r.risk_score,
       success: true,
-    }))
-  ).then(() => {}, () => {});
+    })),
+  );
+  if (scanHistoryError) {
+    console.error("[api-v1-email-batch-check] failed to record scan history", scanHistoryError.message);
+  }
 
   // P2-8: Summary - decouple from subjective classification, only show objective stats
   // P2-9: Batch cost summary by risk level

@@ -109,7 +109,6 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [apiKeys, setApiKeys] = useState<ApiKeyRow[]>([]);
   const [checks, setChecks] = useState<CheckRecord[]>([]);
-  const [monthlyUsed, setMonthlyUsed] = useState(0);
   const [riskyCount, setRiskyCount] = useState(0);
   const [blockedCount, setBlockedCount] = useState(0);
   const [copied, setCopied] = useState("");
@@ -338,8 +337,18 @@ export default function DashboardPage() {
       if (p) setProfile(p);
       else setProfile(null);
 
+      const { data: subscriptionRow } = await supabase
+        .from("subscriptions")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      setSubscription((subscriptionRow as SubscriptionRow | null) || null);
+
       const todayStr = new Date().toISOString().split("T")[0] + "T00:00:00Z";
       const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+      const currentCreditCycleStart = subscriptionRow?.current_period_start || startOfMonth;
 
       const [
         ,
@@ -347,21 +356,17 @@ export default function DashboardPage() {
         { count: blockedC },
         { data: keys },
         { data: recentChecks },
-        { data: subscriptionRow },
       ] = await Promise.all([
         supabase.from("scan_history").select("*", { count: "exact", head: true }).eq("user_id", user.id).gte("created_at", todayStr),
-        supabase.from("scan_history").select("*", { count: "exact", head: true }).eq("user_id", user.id).eq("success", true).gte("risk_score", 40).lte("risk_score", 69).gte("created_at", startOfMonth),
-        supabase.from("scan_history").select("*", { count: "exact", head: true }).eq("user_id", user.id).gte("risk_score", 70).gte("created_at", startOfMonth),
+        supabase.from("scan_history").select("*", { count: "exact", head: true }).eq("user_id", user.id).eq("success", true).gte("risk_score", 26).lte("risk_score", 65).gte("created_at", currentCreditCycleStart),
+        supabase.from("scan_history").select("*", { count: "exact", head: true }).eq("user_id", user.id).eq("success", true).gte("risk_score", 66).gte("created_at", currentCreditCycleStart),
         supabase.from("api_keys").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
         supabase.from("scan_history").select("id, scan_type, target, risk_score, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
-        supabase.from("subscriptions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
       ]);
 
-      setMonthlyUsed(p?.total_checks ?? 0);
       setRiskyCount(riskyC ?? 0);
       setBlockedCount(blockedC ?? 0);
       if (keys) setApiKeys(keys.filter((key: ApiKeyRow) => key.status === "active"));
-      setSubscription((subscriptionRow as SubscriptionRow | null) || null);
 
       if (recentChecks) {
         setChecks(
@@ -414,6 +419,7 @@ export default function DashboardPage() {
   const apiEnabled = planInfo.apiAccess;
   const feedbackRemaining = Math.max(0, feedbackDailyLimit - feedbackSentToday);
   const displayCreditsRemaining = Math.min(creditsRemaining, monthlyLimit);
+  const monthlyUsed = Math.max(0, monthlyLimit - displayCreditsRemaining);
   const monthlyRemaining = displayCreditsRemaining;
   const creditsPercent = monthlyLimit > 0 ? Math.min(100, Math.round((displayCreditsRemaining / monthlyLimit) * 100)) : 100;
   const monthlyPercent = creditsPercent;
@@ -536,12 +542,12 @@ export default function DashboardPage() {
           <div className="rs-panel rounded-[24px] p-5">
             <div className="mb-2 flex items-center gap-2 text-emerald-300">
               <Activity className="h-5 w-5" />
-              <span className="text-sm font-semibold text-white">This Month</span>
+              <span className="text-sm font-semibold text-white">Current Credit Cycle</span>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <div className="text-2xl font-semibold text-white">{monthlyUsed.toLocaleString()}</div>
-                <div className="mt-0.5 text-xs text-slate-500">contacts audited</div>
+                <div className="mt-0.5 text-xs text-slate-500">credits used</div>
               </div>
               <div>
                 <div className="text-2xl font-semibold text-amber-300">{riskyCount.toLocaleString()}</div>
@@ -877,7 +883,7 @@ export default function DashboardPage() {
                 <span className="truncate text-slate-100 sm:max-w-[260px]">{c.input_value}</span>
               </div>
               <div className="flex flex-wrap items-center gap-3 sm:justify-end">
-                <span className={c.risk_score >= 60 ? "text-red-300" : c.risk_score >= 30 ? "text-amber-300" : "text-emerald-300"}>Risk: {c.risk_score}</span>
+                <span className={c.risk_score >= 66 ? "text-red-300" : c.risk_score >= 26 ? "text-amber-300" : "text-emerald-300"}>Risk: {c.risk_score}</span>
                 <span className="text-xs text-slate-500">{new Date(c.created_at).toLocaleString()}</span>
               </div>
             </div>

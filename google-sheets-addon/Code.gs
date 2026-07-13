@@ -252,7 +252,7 @@ function processBatches_(sheet, anchorRange, emails, apiKey, totalCells, skipped
     }
     var scanMsg = "Emails scanned: " + totals.checked + "\n" +
       "ALLOW (safe): " + totals.allow + " | REVIEW: " + totals.review + " | BLOCK: " + totals.block + "\n" +
-      "Cached (free): " + totals.cached + "\nCredits remaining: " + totals.remaining;
+      "Cached (charged): " + totals.cached + "\nCredits remaining: " + totals.remaining;
     if (skippedCells > 0) scanMsg += "\n\nSkipped " + skippedCells + " invalid/non-email cells.";
     if (totalCells > 0 && totals.checked < totalCells) scanMsg += "\nDetected: " + totals.checked + " / " + totalCells + " cells";
     ui.alert("Scan Complete", scanMsg, ui.ButtonSet.OK);
@@ -333,7 +333,7 @@ function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCe
       : (result.quota ? (result.quota.monthly_limit - result.quota.monthly_used) : "N/A");
     var scanMsg = "Emails scanned: " + emails.length + "\n" +
       "ALLOW (safe): " + (summary.allow || 0) + " | REVIEW: " + (summary.review || 0) + " | BLOCK: " + (summary.block || 0) + "\n" +
-      "New checks consumed: " + newChecks + " | Cached (free): " + cachedCount + "\n" +
+      "New checks consumed: " + newChecks + " | Cached (charged): " + cachedCount + "\n" +
       "Credits remaining: " + remainingCredits;
     if (typeof skippedCells !== 'undefined' && skippedCells > 0) {
       scanMsg += "\n\nSkipped " + skippedCells + " invalid/non-email cells.";
@@ -438,9 +438,9 @@ function writeResults_(sheet, anchorRange, results, exportColumns, emailPosition
 
     // Color the risk score cell
     var scoreCell = sheet.getRange(rowToWrite, startCol + 1 + riskScoreIndex, 1, 1);
-    if (r.risk_score >= 70) {
+    if (r.risk_score >= 66) {
       scoreCell.setBackground("#FEE2E2");
-    } else if (r.risk_score >= 40) {
+    } else if (r.risk_score >= 26) {
       scoreCell.setBackground("#FEF3C7");
     } else {
       scoreCell.setBackground("#D1FAE5");

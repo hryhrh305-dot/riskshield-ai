@@ -335,6 +335,19 @@ export async function POST(request: NextRequest) {
     await getSupabaseAdmin().from("api_usage").insert({ user_id: user.id, date: today, request_count: results.length, plan });
   }
 
+  const { error: scanHistoryError } = await getSupabaseAdmin().from("scan_history").insert(
+    results.map((result) => ({
+      user_id: user.id,
+      scan_type: "email",
+      target: String(result.email || ""),
+      risk_score: Number(result.risk_score || 0),
+      success: true,
+    })),
+  );
+  if (scanHistoryError) {
+    console.error("[bulk-check] failed to record scan history", scanHistoryError.message);
+  }
+
   const total = results.length;
   const auditSummary = buildListAuditSummary(auditDecisions);
   console.info("[bulk-check] performance", {
