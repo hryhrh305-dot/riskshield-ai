@@ -73,8 +73,10 @@ export async function GET(request: NextRequest) {
     const supabase = await createServiceClient();
     const code = await ensureReferralCode(user.id);
     await issueDueReferralRewards({ supabase, referrerUserId: user.id });
+    const { data: creditSummary, error: creditSummaryError } = await supabase.rpc("get_credit_summary", { p_user_id: user.id });
+    if (creditSummaryError) throw creditSummaryError;
 
-    const [{ count: registeredCount }, { count: pendingCount }, { data: recentAttributions }] = await Promise.all([
+    const [{ count: registeredCount,error:registeredError }, { count: pendingCount,error:pendingError }, { data: recentAttributions,error:recentError }] = await Promise.all([
       supabase
         .from("referral_attributions")
         .select("id", { count: "exact", head: true })
@@ -91,6 +93,7 @@ export async function GET(request: NextRequest) {
         .order("created_at", { ascending: false })
         .limit(5),
     ]);
+    if(registeredError||pendingError||recentError) throw registeredError||pendingError||recentError;
 
     return NextResponse.json({
       code,
@@ -100,6 +103,7 @@ export async function GET(request: NextRequest) {
         pendingCount: pendingCount ?? 0,
       },
       recentAttributions: recentAttributions ?? [],
+      credits: creditSummary,
     });
   } catch (error) {
     console.error("[referrals/me][GET]", error);

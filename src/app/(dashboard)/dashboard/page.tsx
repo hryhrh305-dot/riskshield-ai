@@ -86,6 +86,7 @@ interface ReferralSummary {
     pendingCount: number;
   };
   recentAttributions: ReferralAttributionRow[];
+  credits?: { subscription: number; referral: number; manual: number; total: number; nearestExpiry: string | null };
 }
 
 const defaultSettings = {
@@ -418,10 +419,11 @@ export default function DashboardPage() {
   const creditsRemaining = profile.credits_remaining ?? 0;
   const apiEnabled = planInfo.apiAccess;
   const feedbackRemaining = Math.max(0, feedbackDailyLimit - feedbackSentToday);
-  const displayCreditsRemaining = Math.min(creditsRemaining, monthlyLimit);
-  const monthlyUsed = Math.max(0, monthlyLimit - displayCreditsRemaining);
-  const monthlyRemaining = displayCreditsRemaining;
-  const creditsPercent = monthlyLimit > 0 ? Math.min(100, Math.round((displayCreditsRemaining / monthlyLimit) * 100)) : 100;
+  const subscriptionCreditsRemaining = referralSummary?.credits?.subscription ?? Math.min(creditsRemaining, monthlyLimit);
+  const displayCreditsRemaining = referralSummary?.credits?.total ?? creditsRemaining;
+  const monthlyUsed = Math.max(0, monthlyLimit - subscriptionCreditsRemaining);
+  const monthlyRemaining = subscriptionCreditsRemaining;
+  const creditsPercent = monthlyLimit > 0 ? Math.min(100, Math.round((subscriptionCreditsRemaining / monthlyLimit) * 100)) : 100;
   const monthlyPercent = creditsPercent;
   const usageStatus = monthlyPercent <= 20 ? "critical" : monthlyPercent <= 50 ? "warning" : "healthy";
   const activeApiKeys = apiKeys.filter((key) => key.status === "active");
@@ -523,12 +525,14 @@ export default function DashboardPage() {
             </div>
             <div className="text-3xl font-semibold text-white">
               {displayCreditsRemaining.toLocaleString()}
-              <span className="text-sm font-normal text-slate-500"> / {monthlyLimit.toLocaleString()}</span>
+              <span className="text-sm font-normal text-slate-500"> total usable</span>
             </div>
             <div className="mt-3 h-2 w-full rounded-full bg-white/10">
               <div className="h-2 rounded-full bg-[var(--rs-primary)] transition-all" style={{ width: `${creditsPercent}%` }} />
             </div>
             <div className="mt-1.5 text-xs text-slate-400">
+              <div className="mb-1">Plan {subscriptionCreditsRemaining.toLocaleString()} · Referral {(referralSummary?.credits?.referral ?? 0).toLocaleString()} · Other {(referralSummary?.credits?.manual ?? 0).toLocaleString()}</div>
+              {referralSummary?.credits?.nearestExpiry ? <div className="mb-1">Nearest bonus expiry: {new Date(referralSummary.credits.nearestExpiry).toLocaleDateString()}</div> : null}
               {usageStatus === "healthy" ? (
                 <span className="font-medium text-emerald-300">Sufficient for current usage</span>
               ) : usageStatus === "warning" ? (
@@ -675,6 +679,7 @@ export default function DashboardPage() {
                 <li>No hard monthly cap for legitimate referrals</li>
                 <li>Bonus checks expire after 60 days</li>
                 <li>Rewards are reviewed after a 30-day eligibility period</li>
+                <li>Eligible rewards are added when you next open your Dashboard after the 30-day review period.</li>
                 <li>Rewards are not issued for refunded, disputed, charged back, reversed, self-referred, duplicate, suspiciously related, or fraudulent accounts</li>
                 <li>Bonus checks are not cash, not withdrawable, not transferable, and not refundable</li>
               </ul>

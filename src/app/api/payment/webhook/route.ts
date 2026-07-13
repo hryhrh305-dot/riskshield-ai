@@ -482,6 +482,14 @@ async function revokePaidAccessForBillingIssue(params: {
   });
 }
 
+async function disqualifyPendingReferral(paymentId:string|null|undefined) {
+  if(!paymentId) return;
+  const {error}=await getSupabaseAdmin().from("referral_attributions").update({
+    reward_status:"disqualified",reward_notes:"First payment was refunded, disputed, or reversed.",updated_at:new Date().toISOString(),
+  }).eq("reward_payment_id",paymentId).in("reward_status",["pending_review","manual_review"]);
+  if(error) throw error;
+}
+
 export async function POST(req: NextRequest) {
   try {
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !CREEM_WEBHOOK_SECRET) {
@@ -852,6 +860,7 @@ export async function POST(req: NextRequest) {
         const billingSubject = await findBillingSubjectFromWebhookEvent(event);
 
         if (billingSubject?.userId) {
+          await disqualifyPendingReferral(billingSubject.paymentId);
           await revokePaidAccessForBillingIssue({
             userId: billingSubject.userId,
             subscriptionId: billingSubject.providerSubscriptionId || identifiers.subscriptionId,
@@ -885,6 +894,7 @@ export async function POST(req: NextRequest) {
         const billingSubject = await findBillingSubjectFromWebhookEvent(event);
 
         if (billingSubject?.userId) {
+          await disqualifyPendingReferral(billingSubject.paymentId);
           await revokePaidAccessForBillingIssue({
             userId: billingSubject.userId,
             subscriptionId: billingSubject.providerSubscriptionId || identifiers.subscriptionId,

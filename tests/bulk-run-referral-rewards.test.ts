@@ -7,7 +7,8 @@ const rewardHelper = existsSync(rewardHelperPath) ? readFileSync(rewardHelperPat
 const webhook = readFileSync("src/app/api/payment/webhook/route.ts", "utf8");
 const confirmRedirect = readFileSync("src/app/api/payment/confirm-redirect/route.ts", "utf8");
 const referralSummary = readFileSync("src/app/api/referrals/me/route.ts", "utf8");
-const migrationPath = "supabase/migrations/202607130004_referral_reward_delivery.sql";
+const dashboard = readFileSync("src/app/(dashboard)/dashboard/page.tsx", "utf8");
+const migrationPath = "supabase/migrations/202607130007_referral_reward_grants.sql";
 const migration = existsSync(migrationPath) ? readFileSync(migrationPath, "utf8") : "";
 
 describe("referral reward delivery contract", () => {
@@ -20,7 +21,7 @@ describe("referral reward delivery contract", () => {
 
   it("snapshots only the first successful payment path", () => {
     expect(webhook).toContain("markReferralFirstPayment");
-    expect(confirmRedirect).toContain("markReferralFirstPayment");
+    expect(confirmRedirect).not.toContain("markReferralFirstPayment");
     expect(rewardHelper).toContain('.is("first_paid_at", null)');
     expect(rewardHelper).toContain('"pending_review"');
     expect(rewardHelper).toContain('"manual_review"');
@@ -29,9 +30,13 @@ describe("referral reward delivery contract", () => {
   it("releases due rewards through a service-only atomic function", () => {
     expect(referralSummary).toContain("issueDueReferralRewards");
     expect(migration).toContain("create or replace function public.issue_due_referral_reward");
-    expect(migration).toContain("credits_remaining = credits_remaining + v_reward");
+    expect(migration).toContain("'referral_bonus'");
+    expect(migration).toContain("interval '60 days'");
+    expect(migration).not.toContain("credits_remaining = credits_remaining + v_reward");
     expect(migration).toContain("revoke all on function public.issue_due_referral_reward");
     expect(migration).toContain("grant execute on function public.issue_due_referral_reward");
-    expect(migration).toContain("reward_status = 'disqualified'");
+    expect(migration).toContain("reward_status='disqualified'");
+    expect(referralSummary).toContain('rpc("get_credit_summary"');
+    expect(dashboard).toContain("Eligible rewards are added when you next open your Dashboard after the 30-day review period.");
   });
 });
