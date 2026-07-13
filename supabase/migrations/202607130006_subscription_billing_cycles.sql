@@ -55,10 +55,10 @@ begin
   if not found then raise exception 'SUBSCRIPTION_NOT_FOUND'; end if;
   if exists(select 1 from public.subscriptions where user_id=p_user_id and provider_subscription_id=p_subscription_ref
     and billing_terminal_at is not null and p_starts_at<=billing_terminal_at) then raise exception 'STALE_SUBSCRIPTION_PAID_EVENT'; end if;
-  perform 1 from public.credit_grants where user_id=p_user_id and source_type='subscription' and status='active' for update;
+  perform 1 from public.credit_grants where user_id=p_user_id and source_type in ('subscription','free_cycle') and status='active' for update;
   update public.credit_grants set status='revoked',remaining_amount=0,updated_at=now(),
     metadata=metadata||jsonb_build_object('replacedAt',now(),'replacedByPlan',p_plan)
-    where user_id=p_user_id and source_type='subscription' and status='active'
+    where user_id=p_user_id and source_type in ('subscription','free_cycle') and status='active'
       and starts_at<=now() and (expires_at is null or expires_at>now())
       and (subscription_ref is distinct from p_subscription_ref or metadata->>'plan' is distinct from p_plan);
   v_result:=public.grant_cycle_credits(p_user_id,'contact_audit','subscription',
@@ -113,4 +113,29 @@ grant execute on function public.revoke_subscription_credits(uuid,text,text,text
 revoke all on function public.grant_subscription_cycle_credits(uuid,text,text,integer,timestamptz,timestamptz,text,timestamptz,timestamptz)
   from public,anon,authenticated;
 grant execute on function public.grant_subscription_cycle_credits(uuid,text,text,integer,timestamptz,timestamptz,text,timestamptz,timestamptz)
+  to service_role;
+
+create or replace function public.grant_free_cycle_credits(
+  p_user_id uuid,p_anchor timestamptz,p_starts_at timestamptz,p_expires_at timestamptz,p_fingerprint text
+) returns jsonb language plpgsql security definer set search_path='' as $$
+declare v_result jsonb;
+begin
+  perform public.lock_credit_user(p_user_id);
+  if not exists(select 1 from public.profiles where id=p_user_id and plan='free') then
+    raise exception 'FREE_CYCLE_USER_NOT_FREE';
+  end if;
+  perform 1 from public.credit_grants where user_id=p_user_id and source_type='free_cycle' for update;
+  update public.credit_grants set status='expired',remaining_amount=0,updated_at=now(),
+    metadata=metadata||jsonb_build_object('expiredByCycle',p_starts_at)
+    where user_id=p_user_id and source_type='free_cycle' and status='active'
+      and starts_at is distinct from p_starts_at;
+  v_result:=public.grant_cycle_credits(p_user_id,'contact_audit','free_cycle',
+    'free:'||p_user_id::text||':'||p_starts_at::text,50,p_starts_at,p_expires_at,p_fingerprint,
+    null,null,null,jsonb_build_object('plan','free','anchor',p_anchor));
+  perform public.sync_credit_mirror(p_user_id);
+  return v_result;
+end $$;
+revoke all on function public.grant_free_cycle_credits(uuid,timestamptz,timestamptz,timestamptz,text)
+  from public,anon,authenticated;
+grant execute on function public.grant_free_cycle_credits(uuid,timestamptz,timestamptz,timestamptz,text)
   to service_role;

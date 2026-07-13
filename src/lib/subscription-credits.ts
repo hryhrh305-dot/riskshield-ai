@@ -28,3 +28,15 @@ export async function revokeSubscriptionCredits({supabase,userId,subscriptionId,
   if(error) throw new Error(error.message||"SUBSCRIPTION_CREDIT_REVOKE_FAILED");
   return data;
 }
+
+export async function grantFreeCycle({supabase,userId,anchor,at}:{
+  supabase:CreditAccountingClient;userId:string;anchor:string;at:string;
+}) {
+  const cycle=getMonthlyCycle(anchor,new Date(at));
+  const fingerprint=createHash("sha256").update(JSON.stringify({userId,anchor,cycle,amount:50})).digest("hex");
+  const {data,error}=await supabase.rpc("grant_free_cycle_credits",{
+    p_user_id:userId,p_anchor:anchor,p_starts_at:cycle.start,p_expires_at:cycle.end,p_fingerprint:fingerprint,
+  });
+  if(error) throw new Error(error.message||"FREE_CREDIT_GRANT_FAILED");
+  return Array.isArray(data)?data[0]:data;
+}
