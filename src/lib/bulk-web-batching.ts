@@ -2,7 +2,7 @@ import { buildContactAuditDecision, buildListAuditSummary, type ListAuditSummary
 
 export const WEB_BULK_BATCH_SIZE = 100;
 export const WEB_BULK_MAX_CONTACTS = 5000;
-export const WEB_BULK_CONCURRENCY = 2;
+export const WEB_BULK_CONCURRENCY = 10;
 
 export type WebBulkResult = Record<string, unknown> & {
   email: string;

@@ -20,18 +20,19 @@ describe("web bulk batching", () => {
     expect(() => chunkWebBulkEmails([...emails, "extra@example.com"])).toThrow(/5,000/);
   });
 
-  it("uses at most two requests concurrently and preserves chunk order", async () => {
+  it("uses at most ten requests concurrently and preserves chunk order", async () => {
     let active = 0;
     let maximum = 0;
-    const responses = await runWebBulkBatches([["a"], ["b"], ["c"]], async (chunk) => {
+    const chunks = Array.from({ length: 12 }, (_, index) => [String(index)]);
+    const responses = await runWebBulkBatches(chunks, async (chunk) => {
       active += 1;
       maximum = Math.max(maximum, active);
-      await new Promise((resolve) => setTimeout(resolve, chunk[0] === "a" ? 10 : 1));
+      await new Promise((resolve) => setTimeout(resolve, chunk[0] === "0" ? 10 : 1));
       active -= 1;
       return { results: [{ email: chunk[0], risk_score: 1, risk_level: "ALLOW" }] };
     });
-    expect(maximum).toBe(2);
-    expect(responses.map((response) => response.results?.[0].email)).toEqual(["a", "b", "c"]);
+    expect(maximum).toBe(10);
+    expect(responses.map((response) => response.results?.[0].email)).toEqual(chunks.flat());
   });
 
   it("merges every detailed result and keeps the server export columns", () => {
