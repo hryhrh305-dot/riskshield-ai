@@ -1,4 +1,5 @@
 import { buildContactAuditDecision, buildListAuditSummary, type ListAuditSummary } from "@/lib/list-audit";
+import * as XLSXLib from "xlsx";
 
 export const WEB_BULK_BATCH_SIZE = 100;
 export const WEB_BULK_MAX_CONTACTS = 5000;
@@ -19,9 +20,54 @@ export type WebBulkResponse = {
 };
 
 const EMAIL_PATTERN = /^(?!.*\.\.)(?!\.)[^\s@]+(?<!\.)@(?!\.)[^\s@]+\.[^\s@]{2,}$/i;
+const WEB_BULK_FILE_EXTENSIONS = [".csv", ".txt", ".xlsx", ".xls"];
+
+export type WebBulkFile = {
+  name: string;
+  text(): Promise<string>;
+  arrayBuffer(): Promise<ArrayBuffer>;
+};
+
+type WebBulkDataTransfer = {
+  items?: ArrayLike<{ kind: string; getAsFile(): WebBulkFile | null }>;
+  files?: ArrayLike<WebBulkFile>;
+};
 
 export function extractWebBulkEmails(text: string): string[] {
-  return text.split(/[\s,;]+/).map((email) => email.trim().toLowerCase()).filter((email) => EMAIL_PATTERN.test(email));
+  return text
+    .split(/[\s,;]+/)
+    .map((email) => email.trim().replace(/^[\uFEFF'"<({\[]+|['">)}\]]+$/g, "").toLowerCase())
+    .filter((email) => EMAIL_PATTERN.test(email));
+}
+
+export function getDroppedWebBulkFile(dataTransfer: WebBulkDataTransfer): WebBulkFile | null {
+  for (const item of Array.from(dataTransfer.items || [])) {
+    if (item.kind !== "file") continue;
+    const file = item.getAsFile();
+    if (file) return file;
+  }
+  return dataTransfer.files?.[0] || null;
+}
+
+export async function readWebBulkFileEmails(file: WebBulkFile): Promise<string[]> {
+  const lowerName = file.name.toLowerCase();
+  const extension = lowerName.includes(".") ? lowerName.slice(lowerName.lastIndexOf(".")) : "";
+  if (!WEB_BULK_FILE_EXTENSIONS.includes(extension)) {
+    throw new Error("Unsupported file type. Please upload a .csv, .txt, .xlsx, or .xls file.");
+  }
+
+  let sourceText: string;
+  if (extension === ".xlsx" || extension === ".xls") {
+    const workbook = XLSXLib.read(await file.arrayBuffer(), { type: "array" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    if (!sheet) throw new Error("The spreadsheet does not contain a readable worksheet.");
+    const rows = XLSXLib.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "" });
+    sourceText = rows.flat().map(String).join("\n");
+  } else {
+    sourceText = await file.text();
+  }
+
+  return chunkWebBulkEmails(extractWebBulkEmails(sourceText)).flat();
 }
 
 export function chunkWebBulkEmails(input: string[]): string[][] {

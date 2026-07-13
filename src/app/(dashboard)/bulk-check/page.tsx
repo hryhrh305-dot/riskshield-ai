@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type DragEvent } from "react";
 import * as XLSXLib from "xlsx";
 import Link from "next/link";
 import { Upload, FileText, Download, CheckCircle, AlertTriangle, XCircle, ArrowRight, BarChart3 } from "lucide-react";
 import { buildCsvContent, downloadCsvFile, type CsvColumn } from "@/lib/export/csv";
 import type { AuditEvidence, ListAuditSummary } from "@/lib/list-audit";
 import { AuditReportPreview } from "@/components/audit/AuditReportPreview";
-import { chunkWebBulkEmails, extractWebBulkEmails, mergeWebBulkResponses, runWebBulkBatches } from "@/lib/bulk-web-batching";
+import { chunkWebBulkEmails, extractWebBulkEmails, getDroppedWebBulkFile, mergeWebBulkResponses, readWebBulkFileEmails, runWebBulkBatches, type WebBulkFile } from "@/lib/bulk-web-batching";
 
 interface BulkResult {
   audit_queue?: string;
@@ -222,7 +222,7 @@ export default function BulkCheckPage() {
     setStatusMessage(`Scan complete. ${merged.results.length.toLocaleString()} unique emails checked.`);
   }
 
-  async function handleFile(file: File) {
+  async function handleFile(file: WebBulkFile) {
     setLoading(true);
     setError("");
     setUpgradeNeeded(false);
@@ -231,16 +231,7 @@ export default function BulkCheckPage() {
     setAuditSummary(null);
     setStatusMessage("Reading file...");
     try {
-      let sourceText: string;
-      if (/\.xlsx?$/i.test(file.name)) {
-        const workbook = XLSXLib.read(await file.arrayBuffer(), { type: "array" });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSXLib.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "" });
-        sourceText = rows.flat().map(String).join("\n");
-      } else {
-        sourceText = await file.text();
-      }
-      await scanInBatches(extractWebBulkEmails(sourceText));
+      await scanInBatches(await readWebBulkFileEmails(file));
     } catch (caught) {
       const failure = caught as Error & { upgradeNeeded?: boolean };
       setUpgradeNeeded(!!failure.upgradeNeeded);
@@ -249,6 +240,30 @@ export default function BulkCheckPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleDragOver(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = "copy";
+    setDragOver(true);
+  }
+
+  function handleDragLeave(event: DragEvent<HTMLDivElement>) {
+    if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return;
+    setDragOver(false);
+  }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    setDragOver(false);
+    const file = getDroppedWebBulkFile(event.dataTransfer);
+    if (!file) {
+      setError("No readable file was dropped. Please try again or use Browse Files.");
+      return;
+    }
+    void handleFile(file);
   }
 
   async function handlePaste() {
@@ -433,9 +448,9 @@ export default function BulkCheckPage() {
         <div className="rs-card rs-card-hover mb-6 rounded-[28px] p-6">
           <div
             className={`rounded-[24px] border-2 border-dashed p-8 text-center transition-colors ${dragOver ? "border-white/30 bg-white/10" : "border-white/12 bg-white/[0.025]"}`}
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => { e.preventDefault(); setDragOver(false); const file = e.dataTransfer.files[0]; if (file) { const ext = file.name.toLowerCase().slice(file.name.lastIndexOf(".")); const allowed = [".csv", ".txt", ".xlsx", ".xls"]; if (!ext || !allowed.includes(ext)) { setError("Unsupported file type. Please upload a .csv, .txt, .xlsx, or .xls file."); return; } handleFile(file); } }}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
           >
             <FileText className="mx-auto mb-3 h-10 w-10 text-slate-500" />
             <p className="mb-2 text-sm text-slate-400">Drop a CSV, TXT, or XLSX file here, or</p>
