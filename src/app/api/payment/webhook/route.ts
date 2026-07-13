@@ -17,6 +17,7 @@ import {
   getCreditsForPlan,
   verifyCreemWebhookSignature,
 } from "@/lib/creem";
+import { markReferralFirstPayment } from "@/lib/referral-rewards";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SECRET_KEY || "";
@@ -619,6 +620,7 @@ export async function POST(req: NextRequest) {
         });
 
         const transactionId = event?.object?.last_transaction_id || null;
+        let referralPaymentId: string | null = null;
         if (transactionId) {
           const productMatch = findCreemProductById(productId);
           const { data: existingPayment } = await getSupabaseAdmin()
@@ -628,18 +630,24 @@ export async function POST(req: NextRequest) {
             .maybeSingle();
 
           if (!existingPayment) {
-            await getSupabaseAdmin().from("payments").insert({
-              user_id: userId,
-              provider: "creem",
-              provider_subscription_id: subscriptionId,
-              provider_transaction_id: transactionId,
-              provider_product_id: productId,
-              amount: getCreemPriceForPlan(plan, productMatch?.billingInterval || "monthly"),
-              currency: event?.object?.product?.currency || "USD",
-              status: "completed",
-              plan,
-            });
+            const { data: insertedPayment } = await getSupabaseAdmin()
+              .from("payments")
+              .insert({
+                user_id: userId,
+                provider: "creem",
+                provider_subscription_id: subscriptionId,
+                provider_transaction_id: transactionId,
+                provider_product_id: productId,
+                amount: getCreemPriceForPlan(plan, productMatch?.billingInterval || "monthly"),
+                currency: event?.object?.product?.currency || "USD",
+                status: "completed",
+                plan,
+              })
+              .select("id")
+              .single();
+            referralPaymentId = insertedPayment?.id || null;
           } else {
+            referralPaymentId = existingPayment.id;
             await getSupabaseAdmin()
               .from("payments")
               .update({
@@ -648,6 +656,15 @@ export async function POST(req: NextRequest) {
               })
               .eq("id", existingPayment.id);
           }
+        }
+        if (referralPaymentId) {
+          await markReferralFirstPayment({
+            supabase: getSupabaseAdmin(),
+            referredUserId: userId,
+            plan,
+            paymentId: referralPaymentId,
+            paidAt: event?.object?.current_period_start_date || undefined,
+          });
         }
         break;
       }

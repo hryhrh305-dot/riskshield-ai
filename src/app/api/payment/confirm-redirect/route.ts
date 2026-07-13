@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
 import { findPlanByCreemProductId, getCreditsForPlan, verifyCreemRedirectSignature } from "@/lib/creem";
 import { getPlanRank } from "@/lib/plans";
+import { markReferralFirstPayment } from "@/lib/referral-rewards";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SECRET_KEY || "";
@@ -129,6 +130,13 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", user.id);
+
+    await markReferralFirstPayment({
+      supabase: paymentAdmin,
+      referredUserId: user.id,
+      plan: resolvedPlan,
+      paymentId: paymentRow.id,
+    });
 
     return NextResponse.json({
       success: true,

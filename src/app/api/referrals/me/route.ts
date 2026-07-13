@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
+import { issueDueReferralRewards } from "@/lib/referral-rewards";
 
 type ReferralCodeRow = {
   code: string;
@@ -71,6 +72,7 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createServiceClient();
     const code = await ensureReferralCode(user.id);
+    await issueDueReferralRewards({ supabase, referrerUserId: user.id });
 
     const [{ count: registeredCount }, { count: pendingCount }, { data: recentAttributions }] = await Promise.all([
       supabase
@@ -81,7 +83,7 @@ export async function GET(request: NextRequest) {
         .from("referral_attributions")
         .select("id", { count: "exact", head: true })
         .eq("referrer_user_id", user.id)
-        .eq("reward_status", "not_eligible_yet"),
+        .in("reward_status", ["not_eligible_yet", "pending_review", "manual_review"]),
       supabase
         .from("referral_attributions")
         .select("created_at,status,reward_status")
