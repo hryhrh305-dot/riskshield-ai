@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getPlanRank } from "@/lib/plans";
 import {
   type CreemWebhookEvent,
   BILLING_REVOKE_EVENTS,
@@ -14,10 +13,10 @@ import {
   findCreemProductById,
   findPlanByCreemProductId,
   getCreemPriceForPlan,
-  getCreditsForPlan,
   verifyCreemWebhookSignature,
 } from "@/lib/creem";
 import { markReferralFirstPayment } from "@/lib/referral-rewards";
+import { grantSubscriptionCycle, revokeSubscriptionCredits } from "@/lib/subscription-credits";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SECRET_KEY || "";
@@ -46,11 +45,12 @@ function asIso(value: string | null | undefined): string | null {
 async function getStoredSubscription(subscriptionId: string | null | undefined) {
   if (!subscriptionId) return null;
 
-  const { data } = await getSupabaseAdmin()
+  const { data, error } = await getSupabaseAdmin()
     .from("subscriptions")
     .select("user_id, plan, provider_product_id")
     .eq("provider_subscription_id", subscriptionId)
     .maybeSingle();
+  if (error) throw error;
 
   return data;
 }
@@ -58,13 +58,14 @@ async function getStoredSubscription(subscriptionId: string | null | undefined) 
 async function updateProfileCustomerId(userId: string, customerId: string | null | undefined) {
   if (!customerId) return;
 
-  await getSupabaseAdmin()
+  const { error } = await getSupabaseAdmin()
     .from("profiles")
     .update({
       creem_customer_id: customerId,
       updated_at: new Date().toISOString(),
     })
     .eq("id", userId);
+  if (error) throw error;
 }
 
 async function upsertSubscriptionRecord(params: {
@@ -77,45 +78,61 @@ async function upsertSubscriptionRecord(params: {
   currentPeriodStart?: string | null;
   currentPeriodEnd?: string | null;
   cancelledAt?: string | null;
+  establishAnchor?: boolean;
+  cancelAtPeriodEnd?: boolean;
 }) {
   const admin = getSupabaseAdmin();
-  const { data: existing } = await admin
+  const { data: existing, error: lookupError } = await admin
     .from("subscriptions")
-    .select("id")
+    .select("id, credit_anchor_at")
     .eq("provider_subscription_id", params.subscriptionId)
     .maybeSingle();
+  if (lookupError) throw lookupError;
+  const productMatch = findCreemProductById(params.productId);
+  if (params.establishAnchor && !productMatch) throw new Error("UNKNOWN_SUBSCRIPTION_PRODUCT");
+  const anchor = existing?.credit_anchor_at || (params.establishAnchor ? asIso(params.currentPeriodStart) : null);
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     user_id: params.userId,
     payment_provider: "creem",
-    provider_customer_id: params.customerId || null,
     provider_subscription_id: params.subscriptionId,
-    provider_product_id: params.productId || null,
     plan: params.plan,
     status: params.status,
-    current_period_start: asIso(params.currentPeriodStart),
-    current_period_end: asIso(params.currentPeriodEnd),
-    cancelled_at: asIso(params.cancelledAt),
+    updated_at: new Date().toISOString(),
   };
+  if (params.customerId) payload.provider_customer_id=params.customerId;
+  if (params.productId) payload.provider_product_id=params.productId;
+  if (params.currentPeriodStart) payload.current_period_start=asIso(params.currentPeriodStart);
+  if (params.currentPeriodEnd) payload.current_period_end=asIso(params.currentPeriodEnd);
+  if (params.cancelledAt) payload.cancelled_at=asIso(params.cancelledAt);
+  if (productMatch) payload.billing_interval=productMatch.billingInterval;
+  if (anchor) payload.credit_anchor_at=anchor;
+  if (params.establishAnchor && params.currentPeriodEnd) payload.paid_through=asIso(params.currentPeriodEnd);
+  if (params.cancelAtPeriodEnd!==undefined) payload.cancel_at_period_end=params.cancelAtPeriodEnd;
+  if (params.status!=="active") payload.billing_terminal_at=new Date().toISOString();
 
   if (existing?.id) {
-    await admin.from("subscriptions").update(payload).eq("id", existing.id);
-    return;
+    const { error } = await admin.from("subscriptions").update(payload).eq("id", existing.id);
+    if (error) throw error;
+    return anchor;
   }
 
-  await admin.from("subscriptions").insert(payload);
+  const { error } = await admin.from("subscriptions").insert(payload);
+  if (error) throw error;
+  return anchor;
 }
 
 async function markCheckoutPaymentCompleted(checkoutId: string | null | undefined, orderId?: string | null) {
   if (!checkoutId) return;
 
-  await getSupabaseAdmin()
+  const { error } = await getSupabaseAdmin()
     .from("payments")
     .update({
       status: "completed",
       provider_transaction_id: orderId || null,
     })
     .eq("provider_checkout_id", checkoutId);
+  if (error) throw error;
 }
 
 async function updatePaymentCheckoutContext(params: {
@@ -130,44 +147,11 @@ async function updatePaymentCheckoutContext(params: {
   if (params.productId) payload.provider_product_id = params.productId;
   if (!Object.keys(payload).length) return;
 
-  await getSupabaseAdmin()
+  const { error } = await getSupabaseAdmin()
     .from("payments")
     .update(payload)
     .eq("provider_checkout_id", params.checkoutId);
-}
-
-async function upsertProfileForPaidSubscription(params: {
-  userId: string;
-  plan: string;
-  currentPeriodStart?: string | null;
-  currentPeriodEnd?: string | null;
-  customerId?: string | null;
-}) {
-  const credits = getCreditsForPlan(params.plan);
-  const { data: currentProfile } = await getSupabaseAdmin()
-    .from("profiles")
-    .select("plan, credits_remaining, creem_customer_id")
-    .eq("id", params.userId)
-    .maybeSingle();
-
-  const currentPlan = currentProfile?.plan || "free";
-  const shouldUpgrade = getPlanRank(params.plan) >= getPlanRank(currentPlan);
-  const customerId = params.customerId || currentProfile?.creem_customer_id || null;
-
-  const payload: Record<string, unknown> = {
-    plan: shouldUpgrade ? params.plan : currentPlan,
-    subscription_status: "active",
-    subscription_start: asIso(params.currentPeriodStart) || new Date().toISOString(),
-    subscription_end: asIso(params.currentPeriodEnd),
-    credits_remaining: shouldUpgrade ? credits : currentProfile?.credits_remaining ?? credits,
-    updated_at: new Date().toISOString(),
-  };
-
-  if (customerId) {
-    payload.creem_customer_id = customerId;
-  }
-
-  await getSupabaseAdmin().from("profiles").update(payload).eq("id", params.userId);
+  if (error) throw error;
 }
 
 async function updateProfileSubscriptionState(params: {
@@ -187,14 +171,18 @@ async function updateProfileSubscriptionState(params: {
   if (params.plan) payload.plan = params.plan;
   if (params.customerId) payload.creem_customer_id = params.customerId;
 
-  await getSupabaseAdmin().from("profiles").update(payload).eq("id", params.userId);
+  const { error } = await getSupabaseAdmin().from("profiles").update(payload).eq("id", params.userId);
+  if (error) throw error;
 }
 
 function logWebhookEvent(level: "info" | "warn", label: string, eventType: string, event: CreemWebhookEvent) {
   const logger = level === "warn" ? console.warn : console.info;
+  const identifiers = extractPaymentIdentifiers(event);
   logger(label, {
     eventType,
-    payload: event,
+    subscriptionId: identifiers.subscriptionId || null,
+    checkoutPresent: Boolean(identifiers.checkoutId),
+    transactionPresent: Boolean(identifiers.transactionId),
   });
 }
 
@@ -255,20 +243,22 @@ async function updatePaymentStatusByIdentifiers(
   ].filter(Boolean) as Array<{ column: "provider_transaction_id" | "provider_checkout_id"; value: string }>;
 
   for (const target of queryTargets) {
-    const { data: existing } = await admin
+    const { data: existing, error: lookupError } = await admin
       .from("payments")
       .select("id")
       .eq(target.column, target.value)
       .maybeSingle();
+    if (lookupError) throw lookupError;
 
     if (existing?.id) {
-      await admin
+      const { error } = await admin
         .from("payments")
         .update({
           status,
           provider_transaction_id: identifiers.transactionId || null,
         })
         .eq("id", existing.id);
+      if (error) throw error;
       return true;
     }
   }
@@ -436,19 +426,22 @@ async function updateMatchedSubscriptionState(params: {
   const nowIso = new Date().toISOString();
 
   if (params.subscriptionId) {
-    await admin
+    const { error } = await admin
       .from("subscriptions")
       .update({
         status: params.subscriptionStatus,
         current_period_end: nowIso,
         cancelled_at: nowIso,
+        billing_terminal_at: nowIso,
+        cancel_at_period_end: false,
       })
       .eq("user_id", params.userId)
       .eq("provider_subscription_id", params.subscriptionId);
+    if (error) throw error;
     return;
   }
 
-  const { data: latestSubscription } = await admin
+  const { data: latestSubscription, error: lookupError } = await admin
     .from("subscriptions")
     .select("id")
     .eq("user_id", params.userId)
@@ -456,17 +449,21 @@ async function updateMatchedSubscriptionState(params: {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (lookupError) throw lookupError;
 
   if (!latestSubscription?.id) return;
 
-  await admin
+  const { error } = await admin
     .from("subscriptions")
     .update({
       status: params.subscriptionStatus,
       current_period_end: nowIso,
       cancelled_at: nowIso,
+      billing_terminal_at: nowIso,
+      cancel_at_period_end: false,
     })
     .eq("id", latestSubscription.id);
+  if (error) throw error;
 }
 
 async function revokePaidAccessForBillingIssue(params: {
@@ -477,27 +474,12 @@ async function revokePaidAccessForBillingIssue(params: {
   profileStatus: "cancelled" | "paused";
   subscriptionStatus: "cancelled" | "paused";
 }) {
-  const freeCredits = getCreditsForPlan("free");
-  const nowIso = new Date().toISOString();
+  if (!params.subscriptionId) throw new Error("BILLING_REVERSAL_SUBSCRIPTION_REQUIRED");
 
-  await updateMatchedSubscriptionState({
-    userId: params.userId,
-    subscriptionId: params.subscriptionId,
-    subscriptionStatus: params.subscriptionStatus,
-    productId: params.productId,
+  await revokeSubscriptionCredits({
+    supabase: getSupabaseAdmin(), userId: params.userId,
+    subscriptionId: params.subscriptionId, reason: params.profileStatus, terminalStatus: params.subscriptionStatus,
   });
-
-  await getSupabaseAdmin()
-    .from("profiles")
-    .update({
-      plan: "free",
-      subscription_status: params.profileStatus,
-      subscription_end: nowIso,
-      credits_remaining: freeCredits,
-      ...(params.customerId ? { creem_customer_id: params.customerId } : {}),
-      updated_at: nowIso,
-    })
-    .eq("id", params.userId);
 }
 
 export async function POST(req: NextRequest) {
@@ -579,13 +561,6 @@ export async function POST(req: NextRequest) {
             cancelledAt: event?.object?.canceled_at || null,
           });
 
-          await upsertProfileForPaidSubscription({
-            userId,
-            plan,
-            currentPeriodStart: event?.object?.current_period_start_date || event?.object?.created_at || null,
-            currentPeriodEnd: event?.object?.current_period_end_date || null,
-            customerId,
-          });
         }
         break;
       }
@@ -594,12 +569,22 @@ export async function POST(req: NextRequest) {
         const { userId, plan, subscriptionId, productId } = await resolveSubscriptionContext(event);
         const customerId = extractCustomerId(event);
         if (!userId || !plan || !subscriptionId) break;
+        const transactionId = event?.object?.last_transaction_id || null;
+        if (transactionId) {
+          const { data: priorPayment, error: priorPaymentError } = await getSupabaseAdmin().from("payments")
+            .select("id,status").eq("provider_transaction_id", transactionId).maybeSingle();
+          if (priorPaymentError) throw priorPaymentError;
+          if (priorPayment?.status === "refunded" || priorPayment?.status === "failed") {
+            console.warn("[creem-webhook][stale-paid-after-terminal]", { subscriptionId, transactionPresent: true });
+            break;
+          }
+        }
 
         if (customerId) {
           await updateProfileCustomerId(userId, customerId);
         }
 
-        await upsertSubscriptionRecord({
+        const creditAnchor = await upsertSubscriptionRecord({
           userId,
           plan,
           subscriptionId,
@@ -609,28 +594,29 @@ export async function POST(req: NextRequest) {
           currentPeriodStart: event?.object?.current_period_start_date || null,
           currentPeriodEnd: event?.object?.current_period_end_date || null,
           cancelledAt: event?.object?.canceled_at || null,
+          establishAnchor: true,
+          cancelAtPeriodEnd: false,
         });
 
-        await upsertProfileForPaidSubscription({
-          userId,
-          plan,
-          currentPeriodStart: event?.object?.current_period_start_date || null,
-          currentPeriodEnd: event?.object?.current_period_end_date || null,
-          customerId,
+        const paidAt = event?.object?.current_period_start_date || creditAnchor;
+        if (!creditAnchor || !paidAt) throw new Error("SUBSCRIPTION_CREDIT_ANCHOR_MISSING");
+        await grantSubscriptionCycle({
+          supabase: getSupabaseAdmin(), userId, subscriptionId, plan, anchor: creditAnchor, at: paidAt,
+          paidThrough: event?.object?.current_period_end_date || "",
         });
 
-        const transactionId = event?.object?.last_transaction_id || null;
         let referralPaymentId: string | null = null;
         if (transactionId) {
           const productMatch = findCreemProductById(productId);
-          const { data: existingPayment } = await getSupabaseAdmin()
+          const { data: existingPayment, error: existingPaymentError } = await getSupabaseAdmin()
             .from("payments")
             .select("id")
             .eq("provider_transaction_id", transactionId)
             .maybeSingle();
+          if (existingPaymentError) throw existingPaymentError;
 
           if (!existingPayment) {
-            const { data: insertedPayment } = await getSupabaseAdmin()
+            const { data: insertedPayment, error: insertedPaymentError } = await getSupabaseAdmin()
               .from("payments")
               .insert({
                 user_id: userId,
@@ -645,16 +631,18 @@ export async function POST(req: NextRequest) {
               })
               .select("id")
               .single();
+            if (insertedPaymentError) throw insertedPaymentError;
             referralPaymentId = insertedPayment?.id || null;
           } else {
             referralPaymentId = existingPayment.id;
-            await getSupabaseAdmin()
+            const { error: paymentUpdateError } = await getSupabaseAdmin()
               .from("payments")
               .update({
                 provider_subscription_id: subscriptionId,
                 provider_product_id: productId,
               })
               .eq("id", existingPayment.id);
+            if (paymentUpdateError) throw paymentUpdateError;
           }
         }
         if (referralPaymentId) {
@@ -693,13 +681,8 @@ export async function POST(req: NextRequest) {
         });
 
         if (subscriptionStatus === "active") {
-          await upsertProfileForPaidSubscription({
-            userId,
-            plan: plan || "free",
-            currentPeriodStart: event?.object?.current_period_start_date || null,
-            currentPeriodEnd: event?.object?.current_period_end_date || null,
-            customerId,
-          });
+          await updateProfileSubscriptionState({ userId, status: "active", plan: plan || undefined,
+            subscriptionEnd: event?.object?.current_period_end_date || null, customerId });
         } else {
           await updateProfileSubscriptionState({
             userId,
@@ -731,12 +714,13 @@ export async function POST(req: NextRequest) {
           currentPeriodStart: event?.object?.current_period_start_date || null,
           currentPeriodEnd: event?.object?.current_period_end_date || null,
           cancelledAt: event?.object?.canceled_at || new Date().toISOString(),
+          cancelAtPeriodEnd: false,
         });
 
         await updateProfileSubscriptionState({
           userId,
           status: "cancelled",
-          plan: "free",
+          plan: plan || undefined,
           subscriptionEnd: event?.object?.current_period_end_date || event?.object?.canceled_at || null,
           customerId,
         });
@@ -762,15 +746,11 @@ export async function POST(req: NextRequest) {
           currentPeriodStart: event?.object?.current_period_start_date || null,
           currentPeriodEnd: event?.object?.current_period_end_date || null,
           cancelledAt: event?.object?.canceled_at || new Date().toISOString(),
+          cancelAtPeriodEnd: true,
         });
 
-        await upsertProfileForPaidSubscription({
-          userId,
-          plan: plan || "free",
-          currentPeriodStart: event?.object?.current_period_start_date || null,
-          currentPeriodEnd: event?.object?.current_period_end_date || event?.object?.canceled_at || null,
-          customerId,
-        });
+        await updateProfileSubscriptionState({ userId, status: "active", plan: plan || undefined,
+          subscriptionEnd: event?.object?.current_period_end_date || event?.object?.canceled_at || null, customerId });
         break;
       }
 
@@ -884,7 +864,7 @@ export async function POST(req: NextRequest) {
           console.warn("[creem-webhook][refund.created][unmatched-subject]", {
             eventType,
             candidates: getBillingLookupCandidates(event),
-            metadataEmail: identifiers.metadataEmail,
+            metadataEmailPresent: Boolean(identifiers.metadataEmail),
           });
         }
 
@@ -917,7 +897,7 @@ export async function POST(req: NextRequest) {
           console.warn("[creem-webhook][dispute.created][unmatched-subject]", {
             eventType,
             candidates: getBillingLookupCandidates(event),
-            metadataEmail: identifiers.metadataEmail,
+            metadataEmailPresent: Boolean(identifiers.metadataEmail),
           });
         }
 

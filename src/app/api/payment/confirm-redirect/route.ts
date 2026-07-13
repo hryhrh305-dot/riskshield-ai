@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
-import { findPlanByCreemProductId, getCreditsForPlan, verifyCreemRedirectSignature } from "@/lib/creem";
-import { getPlanRank } from "@/lib/plans";
-import { markReferralFirstPayment } from "@/lib/referral-rewards";
+import { findPlanByCreemProductId, verifyCreemRedirectSignature } from "@/lib/creem";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SECRET_KEY || "";
@@ -78,8 +76,6 @@ export async function POST(request: NextRequest) {
 
     const params = new URLSearchParams(rawQuery);
     const checkoutId = params.get("checkout_id");
-    const orderId = params.get("order_id");
-    const customerId = params.get("customer_id");
     const productId = params.get("product_id");
 
     if (!checkoutId || !productId) {
@@ -87,60 +83,33 @@ export async function POST(request: NextRequest) {
     }
 
     const paymentAdmin = getSupabaseAdmin();
-    const { data: paymentRow } = await paymentAdmin
+    const { data: paymentRow, error: paymentError } = await paymentAdmin
       .from("payments")
       .select("id, plan, status")
       .eq("user_id", user.id)
       .eq("provider", "creem")
       .eq("provider_checkout_id", checkoutId)
       .maybeSingle();
+    if (paymentError) throw paymentError;
 
     if (!paymentRow) {
       return NextResponse.json({ error: "Matching payment record not found." }, { status: 404 });
     }
 
     const resolvedPlan = findPlanByCreemProductId(productId) || paymentRow.plan || "starter";
-    const credits = getCreditsForPlan(resolvedPlan);
-
-    await paymentAdmin
-      .from("payments")
-      .update({
-        status: "completed",
-        provider_transaction_id: orderId || null,
-      })
-      .eq("id", paymentRow.id);
-
-    const { data: currentProfile } = await paymentAdmin
-      .from("profiles")
-      .select("plan, credits_remaining")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    const currentPlan = currentProfile?.plan || "free";
-    const shouldUpgrade = getPlanRank(resolvedPlan) >= getPlanRank(currentPlan);
-
-    await paymentAdmin
-      .from("profiles")
-      .update({
-        plan: shouldUpgrade ? resolvedPlan : currentPlan,
-        subscription_status: "active",
-        subscription_start: new Date().toISOString(),
-        credits_remaining: shouldUpgrade ? credits : currentProfile?.credits_remaining ?? credits,
-        ...(customerId ? { creem_customer_id: customerId } : {}),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", user.id);
-
-    await markReferralFirstPayment({
-      supabase: paymentAdmin,
-      referredUserId: user.id,
-      plan: resolvedPlan,
-      paymentId: paymentRow.id,
-    });
+    if (paymentRow.status !== "completed") {
+      return NextResponse.json({ success: false, pending: true, paymentStatus: paymentRow.status }, { status: 202 });
+    }
+    const { data: profileRow, error: profileError } = await paymentAdmin.from("profiles")
+      .select("plan,subscription_status").eq("id",user.id).maybeSingle();
+    if (profileError) throw profileError;
+    if (profileRow?.subscription_status!=="active" || profileRow?.plan!==resolvedPlan) {
+      return NextResponse.json({ success:false,pending:true,paymentStatus:"completed" },{status:202});
+    }
 
     return NextResponse.json({
       success: true,
-      activatedPlan: shouldUpgrade ? resolvedPlan : currentPlan,
+      activatedPlan: resolvedPlan,
       paymentStatus: "completed",
     });
   } catch (error) {

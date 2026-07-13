@@ -222,7 +222,7 @@ export function getCreemApiBaseUrl(apiKey: string | null | undefined, env: NodeJ
 }
 
 export function getRiskShieldAppUrl(env: NodeJS.ProcessEnv = process.env): string {
-  return (env.NEXT_PUBLIC_APP_URL || "https://www.574269.xyz").replace(/\/+$/, "");
+  return (env.NEXT_PUBLIC_APP_URL || "https://www.secwyn.com").replace(/\/+$/, "");
 }
 
 export function getCreemCheckoutUrls(env: NodeJS.ProcessEnv = process.env) {
