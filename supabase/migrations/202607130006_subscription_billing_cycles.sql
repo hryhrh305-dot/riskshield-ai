@@ -37,7 +37,7 @@ create or replace function public.grant_subscription_cycle_credits(
   p_user_id uuid,p_subscription_ref text,p_plan text,p_amount integer,p_starts_at timestamptz,
   p_expires_at timestamptz,p_fingerprint text,p_anchor timestamptz,p_paid_through timestamptz
 ) returns jsonb language plpgsql security definer set search_path='' as $$
-declare v_result jsonb; v_current_plan text; v_current_start timestamptz; v_current_ref text;
+declare v_result jsonb; v_existing_grant public.credit_grants; v_current_plan text; v_current_start timestamptz; v_current_ref text;
   v_current_rank integer; v_new_rank integer;
 begin
   if p_plan not in ('starter','growth','scale') or p_paid_through is null or p_paid_through<=p_starts_at
@@ -61,9 +61,18 @@ begin
     where user_id=p_user_id and source_type in ('subscription','free_cycle') and status='active'
       and starts_at<=now() and (expires_at is null or expires_at>now())
       and (subscription_ref is distinct from p_subscription_ref or metadata->>'plan' is distinct from p_plan);
-  v_result:=public.grant_cycle_credits(p_user_id,'contact_audit','subscription',
-    'subscription:'||p_subscription_ref||':'||p_starts_at::text||':'||p_plan,p_amount,p_starts_at,p_expires_at,
-    p_fingerprint,p_subscription_ref,p_starts_at,p_expires_at,jsonb_build_object('plan',p_plan,'anchor',p_anchor));
+  select * into v_existing_grant from public.credit_grants where user_id=p_user_id and source_type='subscription'
+    and subscription_ref=p_subscription_ref and billing_period_start=p_starts_at and metadata->>'plan'=p_plan for update;
+  if found then
+    if v_existing_grant.granted_amount<>p_amount or v_existing_grant.expires_at is distinct from p_expires_at then
+      raise exception 'SUBSCRIPTION_CYCLE_CONFLICT';
+    end if;
+    v_result:=jsonb_build_object('grantId',v_existing_grant.id,'granted',0,'replayed',true);
+  else
+    v_result:=public.grant_cycle_credits(p_user_id,'contact_audit','subscription',
+      'subscription:'||p_subscription_ref||':'||p_starts_at::text||':'||p_plan,p_amount,p_starts_at,p_expires_at,
+      p_fingerprint,p_subscription_ref,p_starts_at,p_expires_at,jsonb_build_object('plan',p_plan,'anchor',p_anchor));
+  end if;
   update public.subscriptions set plan=p_plan,status='active',credit_anchor_at=coalesce(credit_anchor_at,p_anchor),
     current_period_start=p_starts_at,paid_through=p_paid_through,billing_terminal_at=null,updated_at=now()
     where user_id=p_user_id and provider_subscription_id=p_subscription_ref;
@@ -118,7 +127,7 @@ grant execute on function public.grant_subscription_cycle_credits(uuid,text,text
 create or replace function public.grant_free_cycle_credits(
   p_user_id uuid,p_anchor timestamptz,p_starts_at timestamptz,p_expires_at timestamptz,p_fingerprint text
 ) returns jsonb language plpgsql security definer set search_path='' as $$
-declare v_result jsonb;
+declare v_result jsonb; v_existing_grant public.credit_grants;
 begin
   perform public.lock_credit_user(p_user_id);
   if not exists(select 1 from public.profiles where id=p_user_id and plan='free') then
@@ -129,9 +138,18 @@ begin
     metadata=metadata||jsonb_build_object('expiredByCycle',p_starts_at)
     where user_id=p_user_id and source_type='free_cycle' and status='active'
       and starts_at is distinct from p_starts_at;
-  v_result:=public.grant_cycle_credits(p_user_id,'contact_audit','free_cycle',
-    'free:'||p_user_id::text||':'||p_starts_at::text,50,p_starts_at,p_expires_at,p_fingerprint,
-    null,null,null,jsonb_build_object('plan','free','anchor',p_anchor));
+  select * into v_existing_grant from public.credit_grants where user_id=p_user_id and source_type='free_cycle'
+    and starts_at=p_starts_at for update;
+  if found then
+    if v_existing_grant.granted_amount<>50 or v_existing_grant.expires_at is distinct from p_expires_at then
+      raise exception 'FREE_CYCLE_CONFLICT';
+    end if;
+    v_result:=jsonb_build_object('grantId',v_existing_grant.id,'granted',0,'replayed',true);
+  else
+    v_result:=public.grant_cycle_credits(p_user_id,'contact_audit','free_cycle',
+      'free:'||p_user_id::text||':'||p_starts_at::text,50,p_starts_at,p_expires_at,p_fingerprint,
+      null,null,null,jsonb_build_object('plan','free','anchor',p_anchor));
+  end if;
   perform public.sync_credit_mirror(p_user_id);
   return v_result;
 end $$;
