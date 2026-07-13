@@ -205,7 +205,7 @@ export async function POST(request: NextRequest) {
   const auditDecisions: Array<ReturnType<typeof buildContactAuditDecision>> = [];
 
   let cleanCount = 0, riskyCount = 0, blockedCount = 0;
-  const BATCH_SIZE = 10;
+  const BATCH_SIZE = 20;
   const startedAt = Date.now();
   let cacheHits = 0;
   let cacheMisses = 0;

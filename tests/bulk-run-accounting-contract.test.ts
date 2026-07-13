@@ -10,6 +10,11 @@ const migration = existsSync(migrationPath) ? readFileSync(migrationPath, "utf8"
 const abuseIndexMigration = readFileSync("supabase/migrations/202607130003_index_abuse_events_api_key.sql", "utf8");
 
 describe("credit accounting and dashboard contract", () => {
+  it("processes twenty contacts concurrently inside each web bulk request", () => {
+    expect(webBulk).toContain("const BATCH_SIZE = 20;");
+    expect(webBulk).not.toContain("const BATCH_SIZE = 10;");
+  });
+
   it("aligns dashboard usage with the current credit balance and locked boundaries", () => {
     expect(dashboard).toContain('gte("risk_score", 26).lte("risk_score", 65)');
     expect(dashboard).toContain('gte("risk_score", 66)');
