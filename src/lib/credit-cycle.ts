@@ -5,6 +5,7 @@ export type MonthlyCreditCycle = {
 };
 
 function parseDate(value: string, errorCode: string): Date {
+  if (!/(?:z|[+-]\d{2}:\d{2})$/i.test(value)) throw new Error(errorCode);
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) throw new Error(errorCode);
   return parsed;
@@ -43,5 +44,6 @@ export function isCycleInsidePaidPeriod(cycleStart: string, paidStart: string, p
   const cycle = parseDate(cycleStart, "INVALID_CYCLE_START");
   const start = parseDate(paidStart, "INVALID_PAID_PERIOD_START");
   const end = parseDate(paidEnd, "INVALID_PAID_PERIOD_END");
+  if (end.getTime() <= start.getTime()) throw new Error("INVALID_PAID_PERIOD");
   return cycle.getTime() >= start.getTime() && cycle.getTime() < end.getTime();
 }
