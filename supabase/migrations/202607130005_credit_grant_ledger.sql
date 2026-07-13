@@ -382,3 +382,217 @@ grant execute on function public.get_credit_summary(uuid),
   public.grant_cycle_credits(uuid,text,text,text,integer,timestamptz,timestamptz,text,text,timestamptz,timestamptz,jsonb),
   public.consume_grant_credits(uuid,text,integer,text,text,jsonb), public.reserve_grant_credits(uuid,uuid,text,integer,text,text),
   public.release_grant_reservation(uuid,uuid,integer,text,text) to service_role;
+
+-- Bulk run ledger cutover. These definitions replace the legacy balance arithmetic
+-- while preserving every public RPC signature used by the application.
+create or replace function public.create_bulk_run(
+  p_user_id uuid,p_source text,p_chunks jsonb,p_idempotency_key text,
+  p_request_fingerprint text,p_policy_version integer default 1
+) returns table(id uuid,replayed boolean,status text,total_contacts integer,chunk_count integer,
+  reserved_credits integer,created_at timestamptz,expires_at timestamptz)
+language plpgsql security definer set search_path='' as $bulk_ledger$
+declare v_existing public.bulk_runs; v_total integer; v_run public.bulk_runs; v_chunk jsonb;
+begin
+  if p_user_id is null or p_source not in ('web','sheets','api')
+    or p_idempotency_key !~ '^[A-Za-z0-9._-]{16,200}$'
+    or p_request_fingerprint !~ '^[0-9a-f]{64}$' or jsonb_typeof(p_chunks)<>'array'
+  then raise exception 'BULK_RUN_INVALID_INPUT'; end if;
+  perform public.lock_credit_user(p_user_id);
+  select * into v_existing from public.bulk_runs br where br.user_id=p_user_id
+    and br.idempotency_key=p_idempotency_key for update;
+  if found then
+    if v_existing.request_fingerprint is distinct from p_request_fingerprint
+      or v_existing.source is distinct from p_source
+      or v_existing.policy_version is distinct from p_policy_version then
+      raise exception 'IDEMPOTENCY_KEY_CONFLICT';
+    end if;
+    return query select v_existing.id,true,v_existing.status,v_existing.total_contacts,
+      (select count(*)::integer from public.bulk_run_chunks bc where bc.run_id=v_existing.id),
+      v_existing.reserved_credits,v_existing.created_at,v_existing.expires_at;
+    return;
+  end if;
+  select coalesce(sum(jsonb_array_length(value->'contacts')),0)::integer into v_total
+    from jsonb_array_elements(p_chunks);
+  if v_total not between 1 and 5000 or exists (
+    select 1 from jsonb_array_elements(p_chunks) with ordinality x(value,ordinal)
+    where jsonb_typeof(value->'contacts')<>'array'
+      or jsonb_array_length(value->'contacts') not between 1 and 50
+      or (value->>'input_fingerprint') !~ '^[0-9a-f]{64}$'
+      or (value->>'chunk_index') !~ '^[0-9]+$'
+      or (value->>'chunk_index')::integer<>ordinal-1
+  ) then raise exception 'BULK_RUN_CONTACT_LIMIT'; end if;
+  if exists (select 1 from (
+    select lower(trim(email.value #>> '{}')) email from jsonb_array_elements(p_chunks) chunk(value)
+    cross join lateral jsonb_array_elements(chunk.value->'contacts') email(value)
+  ) normalized group by email having count(*)>1) then raise exception 'BULK_RUN_DUPLICATE_CONTACT'; end if;
+  select * into v_existing from public.bulk_runs br where br.user_id=p_user_id
+    and br.request_fingerprint=p_request_fingerprint and br.status in ('pending','processing','partial') for update;
+  if found then raise exception 'ACTIVE_DUPLICATE_RUN:%',v_existing.id; end if;
+  insert into public.bulk_runs(user_id,source,idempotency_key,request_fingerprint,status,total_contacts,reserved_credits,policy_version)
+    values(p_user_id,p_source,p_idempotency_key,p_request_fingerprint,'pending',v_total,v_total,p_policy_version)
+    returning * into v_run;
+  for v_chunk in select value from jsonb_array_elements(p_chunks) loop
+    insert into public.bulk_run_chunks(run_id,user_id,chunk_index,idempotency_key,input_fingerprint,contact_count,contacts)
+      values(v_run.id,p_user_id,(v_chunk->>'chunk_index')::integer,
+        v_run.id::text||':'||(v_chunk->>'chunk_index'),v_chunk->>'input_fingerprint',
+        jsonb_array_length(v_chunk->'contacts'),v_chunk->'contacts');
+  end loop;
+  perform public.reserve_grant_credits(p_user_id,v_run.id,'contact_audit',v_total,
+    'bulk-reserve:'||v_run.id::text,p_request_fingerprint);
+  return query select v_run.id,false,v_run.status,v_run.total_contacts,jsonb_array_length(p_chunks),
+    v_run.reserved_credits,v_run.created_at,v_run.expires_at;
+end $bulk_ledger$;
+
+create or replace function public.claim_bulk_run_chunk(
+  p_user_id uuid,p_run_id uuid,p_chunk_index integer,p_lease_seconds integer default 60
+) returns public.bulk_run_chunks language plpgsql security definer set search_path='' as $bulk_claim$
+declare v_run public.bulk_runs; v_chunk public.bulk_run_chunks;
+begin
+  if p_lease_seconds not between 15 and 300 then raise exception 'BULK_RUN_INVALID_LEASE'; end if;
+  perform public.lock_credit_user(p_user_id);
+  select * into v_run from public.bulk_runs where id=p_run_id and user_id=p_user_id for update;
+  if not found then raise exception 'BULK_RUN_NOT_FOUND'; end if;
+  select * into v_chunk from public.bulk_run_chunks where run_id=p_run_id and user_id=p_user_id
+    and chunk_index=p_chunk_index for update;
+  if not found then raise exception 'BULK_RUN_CHUNK_NOT_FOUND'; end if;
+  if v_chunk.status='completed' or v_chunk.status in ('cancelled','expired','failed_terminal') then return v_chunk; end if;
+  if v_chunk.status='processing' and v_chunk.lease_expires_at>now() then return v_chunk; end if;
+  if v_chunk.attempt_count>=2 then
+    update public.bulk_run_chunks set status='failed_terminal',updated_at=now()
+      where id=v_chunk.id returning * into v_chunk;
+    return v_chunk;
+  end if;
+  update public.bulk_run_chunks set status='processing',attempt_count=attempt_count+1,claimed_at=now(),
+    lease_expires_at=now()+make_interval(secs=>p_lease_seconds),claim_token=gen_random_uuid(),updated_at=now()
+    where id=v_chunk.id returning * into v_chunk;
+  update public.bulk_runs set status=case when status='pending' then 'processing' else status end,
+    last_activity_at=now(),updated_at=now() where id=p_run_id;
+  return v_chunk;
+end $bulk_claim$;
+
+create or replace function public.finalize_bulk_run_chunk(
+  p_user_id uuid,p_run_id uuid,p_chunk_index integer,p_claim_token uuid,p_result jsonb
+) returns public.bulk_run_chunks language plpgsql security definer set search_path='' as $bulk_finalize$
+declare v_run public.bulk_runs; v_chunk public.bulk_run_chunks; v_operation public.credit_operations;
+  v_allocation public.credit_reservation_allocations; v_left integer; v_take integer;
+begin
+  perform public.lock_credit_user(p_user_id);
+  select * into v_run from public.bulk_runs where id=p_run_id and user_id=p_user_id for update;
+  if not found then raise exception 'BULK_RUN_NOT_FOUND'; end if;
+  select * into v_chunk from public.bulk_run_chunks where run_id=p_run_id and user_id=p_user_id
+    and chunk_index=p_chunk_index for update;
+  if not found then raise exception 'BULK_RUN_CHUNK_NOT_FOUND'; end if;
+  if v_chunk.status='completed' then return v_chunk; end if;
+  if v_chunk.status<>'processing' or v_chunk.claim_token is distinct from p_claim_token
+    or v_chunk.lease_expires_at<=now() then raise exception 'BULK_RUN_STALE_CLAIM'; end if;
+  insert into public.credit_operations(user_id,operation_type,idempotency_key,request_fingerprint,
+    requested_amount,operation_context)
+    values(p_user_id,'finalize','bulk-finalize:'||p_run_id::text||':'||p_chunk_index,
+      v_chunk.input_fingerprint,v_chunk.contact_count,jsonb_build_object('bulkRunId',p_run_id,'chunkIndex',p_chunk_index))
+    returning * into v_operation;
+  v_left:=v_chunk.contact_count;
+  for v_allocation in select * from public.credit_reservation_allocations
+    where bulk_run_id=p_run_id and user_id=p_user_id
+      and consumed_amount+released_amount<reserved_amount order by created_at,id for update
+  loop
+    exit when v_left=0;
+    v_take:=least(v_left,v_allocation.reserved_amount-v_allocation.consumed_amount-v_allocation.released_amount);
+    insert into public.credit_usage(user_id,operation_id,grant_id,amount,context)
+      values(p_user_id,v_operation.id,v_allocation.grant_id,v_take,
+        jsonb_build_object('reason','bulk_audit','bulkRunId',p_run_id,'chunkIndex',p_chunk_index));
+    update public.credit_reservation_allocations set consumed_amount=consumed_amount+v_take,updated_at=now()
+      where id=v_allocation.id;
+    v_left:=v_left-v_take;
+  end loop;
+  if v_left<>0 then raise exception 'BULK_RESERVATION_INVARIANT_VIOLATION'; end if;
+  update public.credit_operations set result=jsonb_build_object('consumed',v_chunk.contact_count),completed_at=now()
+    where id=v_operation.id;
+  update public.bulk_run_chunks set status='completed',result_payload=p_result,completed_at=now(),
+    lease_expires_at=null,claim_token=null,updated_at=now() where id=v_chunk.id returning * into v_chunk;
+  update public.bulk_runs set completed_contacts=completed_contacts+v_chunk.contact_count,
+    last_activity_at=now(),updated_at=now() where id=p_run_id returning * into v_run;
+  if v_run.completed_contacts=v_run.total_contacts then
+    update public.bulk_runs set status='completed',completed_at=now(),updated_at=now() where id=p_run_id;
+  end if;
+  return v_chunk;
+end $bulk_finalize$;
+
+create or replace function public.fail_bulk_run_chunk(
+  p_user_id uuid,p_run_id uuid,p_chunk_index integer,p_claim_token uuid,p_error text,p_retryable boolean
+) returns public.bulk_run_chunks language plpgsql security definer set search_path='' as $bulk_fail$
+declare v_run public.bulk_runs; v_chunk public.bulk_run_chunks;
+begin
+  perform public.lock_credit_user(p_user_id);
+  select * into v_run from public.bulk_runs where id=p_run_id and user_id=p_user_id for update;
+  if not found then raise exception 'BULK_RUN_NOT_FOUND'; end if;
+  select * into v_chunk from public.bulk_run_chunks where run_id=p_run_id and user_id=p_user_id
+    and chunk_index=p_chunk_index for update;
+  if not found then raise exception 'BULK_RUN_CHUNK_NOT_FOUND'; end if;
+  if v_chunk.status='completed' then raise exception 'BULK_RUN_COMPLETED_CHUNK_CANNOT_RELEASE'; end if;
+  if v_chunk.status in ('cancelled','expired','failed_terminal') then return v_chunk; end if;
+  if v_chunk.claim_token is distinct from p_claim_token then raise exception 'BULK_RUN_STALE_CLAIM'; end if;
+  update public.bulk_run_chunks set status=case when p_retryable and attempt_count<2
+      then 'failed_retryable' else 'failed_terminal' end,
+    last_error=left(coalesce(p_error,'processing failed'),500),lease_expires_at=null,claim_token=null,updated_at=now()
+    where id=v_chunk.id returning * into v_chunk;
+  update public.bulk_runs set failed_contacts=(select coalesce(sum(contact_count),0) from public.bulk_run_chunks
+      where run_id=p_run_id and status='failed_terminal'),status='partial',last_error=v_chunk.last_error,
+    last_activity_at=now(),updated_at=now() where id=p_run_id and status<>'completed';
+  return v_chunk;
+end $bulk_fail$;
+
+create or replace function public.release_bulk_run_unfinished(
+  p_user_id uuid,p_run_id uuid,p_reason text,p_terminal_status text default 'cancelled'
+) returns public.bulk_runs language plpgsql security definer set search_path='' as $bulk_release$
+declare v_run public.bulk_runs; v_release integer;
+begin
+  if p_terminal_status not in ('cancelled','expired') then raise exception 'BULK_RUN_INVALID_TERMINAL_STATUS'; end if;
+  perform public.lock_credit_user(p_user_id);
+  select * into v_run from public.bulk_runs where id=p_run_id and user_id=p_user_id for update;
+  if not found then raise exception 'BULK_RUN_NOT_FOUND'; end if;
+  if v_run.status='completed' then raise exception 'BULK_RUN_COMPLETED'; end if;
+  if v_run.status in ('cancelled','expired') then return v_run; end if;
+  select coalesce(sum(reserved_amount-consumed_amount-released_amount),0)::integer into v_release
+    from public.credit_reservation_allocations where bulk_run_id=p_run_id;
+  if v_release>0 then
+    perform public.release_grant_reservation(p_user_id,p_run_id,v_release,
+      'bulk-release:'||p_run_id::text,v_run.request_fingerprint);
+  end if;
+  update public.bulk_run_chunks set status=p_terminal_status,lease_expires_at=null,claim_token=null,updated_at=now()
+    where run_id=p_run_id and status<>'completed';
+  update public.bulk_runs set status=p_terminal_status,released_credits=released_credits+v_release,
+    failed_contacts=v_release,last_error=left(coalesce(p_reason,p_terminal_status),500),
+    cancelled_at=case when p_terminal_status='cancelled' then now() else cancelled_at end,
+    last_activity_at=now(),updated_at=now() where id=p_run_id returning * into v_run;
+  return v_run;
+end $bulk_release$;
+
+create or replace function public.expire_stale_bulk_runs(p_now timestamptz default now())
+returns integer language plpgsql security definer set search_path='' as $bulk_expire$
+declare v_run record; v_count integer:=0;
+begin
+  for v_run in select id,user_id from public.bulk_runs
+    where status in ('pending','processing','partial') and expires_at<=p_now
+  loop
+    perform public.lock_credit_user(v_run.user_id);
+    if exists (select 1 from public.bulk_runs where id=v_run.id and user_id=v_run.user_id
+      and status in ('pending','processing','partial')) then
+      perform public.release_bulk_run_unfinished(v_run.user_id,v_run.id,'Bulk run expired','expired');
+      v_count:=v_count+1;
+    end if;
+  end loop;
+  return v_count;
+end $bulk_expire$;
+
+revoke all on function public.create_bulk_run(uuid,text,jsonb,text,text,integer),
+  public.claim_bulk_run_chunk(uuid,uuid,integer,integer),
+  public.finalize_bulk_run_chunk(uuid,uuid,integer,uuid,jsonb),
+  public.fail_bulk_run_chunk(uuid,uuid,integer,uuid,text,boolean),
+  public.release_bulk_run_unfinished(uuid,uuid,text,text),
+  public.expire_stale_bulk_runs(timestamptz) from public,anon,authenticated;
+grant execute on function public.create_bulk_run(uuid,text,jsonb,text,text,integer),
+  public.claim_bulk_run_chunk(uuid,uuid,integer,integer),
+  public.finalize_bulk_run_chunk(uuid,uuid,integer,uuid,jsonb),
+  public.fail_bulk_run_chunk(uuid,uuid,integer,uuid,text,boolean),
+  public.release_bulk_run_unfinished(uuid,uuid,text,text),
+  public.expire_stale_bulk_runs(timestamptz) to service_role;
