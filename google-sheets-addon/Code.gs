@@ -20,6 +20,8 @@ function setApiBaseUrl_(url) {
 
 var BATCH_ENDPOINT = "/api/v1/email/batch-check";
 var MAX_BATCH_SIZE = 100;
+var MAX_CONTACTS_PER_SCAN = 5000;
+var MAX_PARALLEL_BATCHES = 20;
 
 // ============ MENU SETUP ============
 function onOpen() {
@@ -137,12 +139,12 @@ function scanSelectedEmails() {
     return;
   }
 
-  if (emails.length > MAX_BATCH_SIZE) {
-    ui.alert("Too Many Emails", "Maximum " + MAX_BATCH_SIZE + " emails per scan. You selected " + emails.length + ". Please select fewer emails.", ui.ButtonSet.OK);
+  if (emails.length > MAX_CONTACTS_PER_SCAN) {
+    ui.alert("Too Many Emails", "Maximum " + MAX_CONTACTS_PER_SCAN + " emails per scan. You selected " + emails.length + ". Please select fewer emails.", ui.ButtonSet.OK);
     return;
   }
 
-  processBatch_(sheet, selection, emails, apiKey, totalCells, skippedCells, skippedSamples, emailPositions);
+  processBatches_(sheet, selection, emails, apiKey, totalCells, skippedCells, skippedSamples, emailPositions);
 }
 
 // ============ SCAN ENTIRE COLUMN ============
@@ -186,18 +188,79 @@ function scanEntireColumn() {
   var confirmResponse = ui.alert("Confirm Scan", confirmMsg, ui.ButtonSet.YES_NO);
   if (confirmResponse !== ui.Button.YES) return;
 
-  var totalScanned = 0;
-  for (var b = 0; b < emails.length; b += MAX_BATCH_SIZE) {
-    var batch = emails.slice(b, Math.min(b + MAX_BATCH_SIZE, emails.length));
-    var batchPositions = emailPositions.slice(b, Math.min(b + MAX_BATCH_SIZE, emails.length));
-    processBatch_(sheet, range.offset(b, 0, batch.length, 1), batch, apiKey, undefined, undefined, undefined, batchPositions);
-    totalScanned += batch.length;
+  if (emails.length > MAX_CONTACTS_PER_SCAN) {
+    ui.alert("Too Many Emails", "Maximum " + MAX_CONTACTS_PER_SCAN + " emails per scan. You selected " + emails.length + ". Please select fewer emails.", ui.ButtonSet.OK);
+    return;
   }
 
-  ui.alert("Scan Complete", "Total emails scanned: " + totalScanned + "\nResults written to adjacent columns.", ui.ButtonSet.OK);
+  processBatches_(sheet, range, emails, apiKey, emails.length, 0, [], emailPositions);
 }
 
 // ============ CORE: BATCH PROCESSING ============
+function processBatches_(sheet, anchorRange, emails, apiKey, totalCells, skippedCells, skippedSamples, emailPositions) {
+  var ui = SpreadsheetApp.getUi();
+  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  var baseUrl = getApiBaseUrl_();
+  var batches = [];
+  for (var offset = 0; offset < emails.length; offset += MAX_BATCH_SIZE) {
+    batches.push({
+      emails: emails.slice(offset, offset + MAX_BATCH_SIZE),
+      positions: emailPositions.slice(offset, offset + MAX_BATCH_SIZE),
+    });
+  }
+
+  var totals = { allow: 0, review: 0, block: 0, cached: 0, checked: 0, remaining: "N/A" };
+  try {
+    for (var waveStart = 0; waveStart < batches.length; waveStart += MAX_PARALLEL_BATCHES) {
+      var wave = batches.slice(waveStart, waveStart + MAX_PARALLEL_BATCHES);
+      var requests = wave.map(function(batch) {
+        return {
+          url: baseUrl + BATCH_ENDPOINT,
+          method: "post",
+          contentType: "application/json",
+          headers: { "x-api-key": apiKey },
+          payload: JSON.stringify({ emails: batch.emails }),
+          muteHttpExceptions: true,
+        };
+      });
+      if (spreadsheet) spreadsheet.toast("Secwyn: scanning batches " + (waveStart + 1) + "-" + Math.min(waveStart + wave.length, batches.length) + " of " + batches.length + "...", "Secwyn", 10);
+      var responses = UrlFetchApp.fetchAll(requests);
+      for (var index = 0; index < responses.length; index++) {
+        var response = responses[index];
+        var responseCode = response.getResponseCode();
+        var responseText = response.getContentText();
+        if (responseCode !== 200) {
+          var message = responseText.substring(0, 300);
+          try { message = JSON.parse(responseText).message || message; } catch (ignore) {}
+          ui.alert("Scan Error", "Batch " + (waveStart + index + 1) + " failed (" + responseCode + ").\n" + message, ui.ButtonSet.OK);
+          return;
+        }
+        var result = JSON.parse(responseText);
+        if (!result.success || !result.results) {
+          ui.alert("Scan Error", "Unexpected response from batch " + (waveStart + index + 1) + ".", ui.ButtonSet.OK);
+          return;
+        }
+        writeResults_(sheet, anchorRange, result.results, result.export_columns || [], wave[index].positions);
+        var summary = result.summary || {};
+        totals.allow += summary.allow || 0;
+        totals.review += summary.review || 0;
+        totals.block += summary.block || 0;
+        totals.cached += result.cached_count || 0;
+        totals.checked += result.results.length;
+        if (result.credits && result.credits.remaining != null) totals.remaining = result.credits.remaining;
+      }
+    }
+    var scanMsg = "Emails scanned: " + totals.checked + "\n" +
+      "ALLOW (safe): " + totals.allow + " | REVIEW: " + totals.review + " | BLOCK: " + totals.block + "\n" +
+      "Cached (free): " + totals.cached + "\nCredits remaining: " + totals.remaining;
+    if (skippedCells > 0) scanMsg += "\n\nSkipped " + skippedCells + " invalid/non-email cells.";
+    if (totalCells > 0 && totals.checked < totalCells) scanMsg += "\nDetected: " + totals.checked + " / " + totalCells + " cells";
+    ui.alert("Scan Complete", scanMsg, ui.ButtonSet.OK);
+  } catch (e) {
+    ui.alert("Connection Error", "Could not reach Secwyn API.\nCheck your network and API Base URL.\n\n" + e.toString(), ui.ButtonSet.OK);
+  }
+}
+
 function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCells, skippedSamples, emailPositions) {
   var ui = SpreadsheetApp.getUi();
   var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
