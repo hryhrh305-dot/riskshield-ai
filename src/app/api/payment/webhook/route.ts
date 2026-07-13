@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import {
   type CreemWebhookEvent,
@@ -17,6 +17,8 @@ import {
 } from "@/lib/creem";
 import { markReferralFirstPayment } from "@/lib/referral-rewards";
 import { grantSubscriptionCycle, revokeSubscriptionCredits } from "@/lib/subscription-credits";
+import { getE8Flags } from "@/lib/e8/flags";
+import { recordSubscriptionEvent } from "@/lib/e8/repository";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SECRET_KEY || "";
@@ -853,6 +855,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (getE8Flags().observability) {
+      after(async () => {
+        try {
+          await Promise.race([
+            recordSubscriptionEvent({ supabase: getSupabaseAdmin(), rawBody: payload, event: event as unknown as Record<string, unknown>, eventType: eventType || "unknown" }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("E8_TIMEOUT")), 500)),
+          ]);
+        } catch {
+          // E8 is a best-effort sidecar and must never alter billing, credits, or referrals.
+        }
+      });
+    }
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error("Webhook error:", error);

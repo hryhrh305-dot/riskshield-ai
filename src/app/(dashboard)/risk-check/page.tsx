@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase";
 import { Shield, Mail, Globe, AlertTriangle, CheckCircle, XCircle, ArrowRight, Zap, History, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { getResultVisibility } from "@/lib/plans";
+import { trackE8Event } from "@/components/e8/AttributionObserver";
 
 interface RiskResult {
   impact?: string[];
@@ -94,6 +95,12 @@ export default function RiskCheckPage() {
     setError("");
     setResult(null);
     setStatusMessage("Running risk checks...");
+    const e8RunId = crypto.randomUUID();
+    try {
+      trackE8Event("free_audit_started", { input_type: email.trim() ? "email" : "ip" }, `single-start:${e8RunId}`);
+    } catch {
+      // E8 never gates or changes a valid contact check.
+    }
 
     try {
       const res = await fetch("/api/web-risk", { credentials: "include", 
@@ -115,6 +122,15 @@ export default function RiskCheckPage() {
 
       setResult(data);
       setStatusMessage("Scan complete.");
+      try {
+        const properties = { input_type: email.trim() ? "email" : "ip" };
+        trackE8Event("contact_check_completed", properties, `single-complete:${e8RunId}`);
+        trackE8Event("free_audit_completed", properties, `free-complete:${e8RunId}`);
+        trackE8Event("report_viewed", properties, `report:${e8RunId}`);
+        trackE8Event("activation_completed", { channel: "single" }, `activation:single:${e8RunId}`);
+      } catch {
+        // Preserve the successful response, result UI, credits, and history.
+      }
       fetchHistory();
     } catch {
       setError("Network error. Please try again.");

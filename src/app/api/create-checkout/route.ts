@@ -10,6 +10,9 @@ import {
   isCreemSelfServePlan,
   normalizeCreemBillingInterval,
 } from "@/lib/creem";
+import { buildCreemCheckoutMetadata, getCreemAttributionMetadata } from "@/lib/e8/creem";
+import { getE8Flags } from "@/lib/e8/flags";
+import { recordProductEvent } from "@/lib/e8/repository";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SECRET_KEY || "";
@@ -88,6 +91,30 @@ export async function POST(req: NextRequest) {
     const checkoutUrls = getCreemCheckoutUrls();
     const apiBaseUrl = getCreemApiBaseUrl(creemApiKey);
     const requestId = crypto.randomUUID();
+    const e8Attribution = await getCreemAttributionMetadata(req, getSupabaseAdmin(), user.id);
+    const baseMetadata = {
+      user_id: user.id,
+      plan: planKey,
+      billing_interval: billingInterval,
+      source: "pricing-page",
+    };
+    const metadata = buildCreemCheckoutMetadata(baseMetadata, e8Attribution, requestId, getE8Flags().creemMetadata);
+
+    if (getE8Flags().observability && e8Attribution) {
+      void recordProductEvent({
+        supabase: getSupabaseAdmin(),
+        attributionId: e8Attribution.attribution_id,
+        userId: user.id,
+        event: {
+          eventName: "checkout_started",
+          anonymousId: e8Attribution.anonymous_id,
+          idempotencyKey: requestId,
+          path: "/pricing",
+          properties: { plan: planKey, billing_interval: billingInterval },
+        },
+        source: "checkout",
+      }).catch(() => undefined);
+    }
 
     const response = await fetch(`${apiBaseUrl}/checkouts`, {
       method: "POST",
@@ -102,12 +129,7 @@ export async function POST(req: NextRequest) {
         customer: {
           email: user.email,
         },
-        metadata: {
-          user_id: user.id,
-          plan: planKey,
-          billing_interval: billingInterval,
-          source: "pricing-page",
-        },
+        metadata,
       }),
     });
 

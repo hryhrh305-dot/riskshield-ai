@@ -8,6 +8,7 @@ import { buildCsvContent, downloadCsvFile, type CsvColumn } from "@/lib/export/c
 import type { AuditEvidence, ListAuditSummary } from "@/lib/list-audit";
 import { AuditReportPreview } from "@/components/audit/AuditReportPreview";
 import { chunkWebBulkEmails, extractWebBulkEmails, getDroppedWebBulkFile, mergeWebBulkResponses, readWebBulkFileEmails, runWebBulkBatches, type WebBulkFile } from "@/lib/bulk-web-batching";
+import { trackE8Event } from "@/components/e8/AttributionObserver";
 
 interface BulkResult {
   audit_queue?: string;
@@ -197,6 +198,7 @@ export default function BulkCheckPage() {
   }
 
   async function scanInBatches(emails: string[]) {
+    const e8RunId = crypto.randomUUID();
     const chunks = chunkWebBulkEmails(emails);
     const responses = await runWebBulkBatches(chunks, async (chunk) => {
       const res = await fetch("/api/bulk-check", {
@@ -220,6 +222,12 @@ export default function BulkCheckPage() {
     setAuditSummary(merged.audit_summary);
     setExportColumns(merged.export_columns.length ? merged.export_columns : exportColumns);
     setStatusMessage(`Scan complete. ${merged.results.length.toLocaleString()} unique emails checked.`);
+    try {
+      trackE8Event("bulk_check_completed", { count: merged.results.length }, `bulk:${e8RunId}`);
+      trackE8Event("activation_completed", { channel: "bulk" }, `activation:bulk:${e8RunId}`);
+    } catch {
+      // E8 must never alter a successful bulk result or its downloads.
+    }
   }
 
   async function handleFile(file: WebBulkFile) {

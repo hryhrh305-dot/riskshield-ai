@@ -5,6 +5,7 @@ import { resendSignupConfirmation, signUp } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { SecwynMark } from "@/components/brand/SecwynMark";
+import { trackE8Event } from "@/components/e8/AttributionObserver";
 
 const REFERRAL_STORAGE_KEY = "secwyn_referral_code";
 const REFERRAL_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
@@ -54,6 +55,7 @@ export default function SignUpPage() {
 
   async function handleSignUp(e: React.FormEvent) {
     e.preventDefault();
+    trackE8Event("signup_started");
     setLoading(true);
     setError("");
     setSuccessMessage("");
@@ -101,6 +103,7 @@ export default function SignUpPage() {
     } else if (data?.session) {
       router.push("/dashboard");
     } else {
+      trackE8Event("signup_verification_pending", { verification_required: true });
       setPendingVerificationEmail(email);
       setSuccessMessage(`Verification email sent to ${email}. Please open your inbox, click the confirmation link, then sign in to continue.`);
       startResendCooldown();

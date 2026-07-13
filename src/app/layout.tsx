@@ -1,6 +1,8 @@
 ﻿import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { AttributionObserver } from "@/components/e8/AttributionObserver";
+import { getE8Flags } from "@/lib/e8/flags";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,13 +43,17 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const e8Enabled = getE8Flags().observability && getE8Flags().attribution;
   return (
     <html
       lang="en"
       suppressHydrationWarning
       className={geistSans.variable + " " + geistMono.variable + " h-full antialiased"}
     >
-      <body className="min-h-full flex flex-col overflow-x-hidden">{children}</body>
+      <body className="min-h-full flex flex-col overflow-x-hidden">
+        {e8Enabled ? <AttributionObserver /> : null}
+        {children}
+      </body>
     </html>
   );
 }
