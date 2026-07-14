@@ -8,7 +8,7 @@ export type LegacyCreemMetadata = { user_id: string; plan: string; billing_inter
 
 export function buildCreemCheckoutMetadata(
   base: LegacyCreemMetadata,
-  attribution: { attribution_id: string; campaign_id?: string; prospect_id?: string; outreach_message_id?: string } | null,
+  attribution: { attribution_id: string; campaign_id?: string } | null,
   requestId: string,
   enabled: boolean,
 ) {
@@ -18,8 +18,6 @@ export function buildCreemCheckoutMetadata(
     checkout_request_id: requestId,
     attribution_id: attribution.attribution_id,
     ...(attribution.campaign_id ? { campaign_id: attribution.campaign_id } : {}),
-    ...(attribution.prospect_id ? { prospect_id: attribution.prospect_id } : {}),
-    ...(attribution.outreach_message_id ? { outreach_message_id: attribution.outreach_message_id } : {}),
   };
 }
 
@@ -48,7 +46,7 @@ export async function getCreemAttributionMetadata(request: NextRequest, supabase
   try {
     const { data, error } = await within(supabase
       .from("acquisition_attribution")
-      .select("id,campaign_id,anonymous_id,prospect_id,message_id")
+      .select("id,campaign_id,anonymous_id")
       .eq("id", id)
       .eq("user_id", userId)
       .maybeSingle(), 500);
@@ -56,8 +54,6 @@ export async function getCreemAttributionMetadata(request: NextRequest, supabase
     return {
       attribution_id: data.id as string,
       campaign_id: (data.campaign_id as string | null) || undefined,
-      prospect_id: (data.prospect_id as string | null) || undefined,
-      outreach_message_id: (data.message_id as string | null) || undefined,
       anonymous_id: data.anonymous_id as string,
     };
   } catch {

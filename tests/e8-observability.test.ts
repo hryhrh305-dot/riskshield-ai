@@ -85,6 +85,29 @@ describe("E8 Creem metadata contract", () => {
     expect(buildCreemCheckoutMetadata(base, null, "request-1", false)).toEqual(base);
     expect(Object.keys(buildCreemCheckoutMetadata(base, null, "request-1", false))).toEqual(["user_id", "plan", "billing_interval", "source"]);
   });
+  it("adds only the approved opaque fields when live metadata is enabled", () => {
+    expect(buildCreemCheckoutMetadata(base, {
+      attribution_id: "550e8400-e29b-41d4-a716-446655440000",
+      campaign_id: "550e8400-e29b-41d4-a716-446655440001",
+    }, "request-1", true)).toEqual({
+      ...base,
+      checkout_request_id: "request-1",
+      attribution_id: "550e8400-e29b-41d4-a716-446655440000",
+      campaign_id: "550e8400-e29b-41d4-a716-446655440001",
+    });
+  });
+  it("keeps the legacy shape when enabled without bound attribution", () => {
+    expect(buildCreemCheckoutMetadata(base, null, "request-1", true)).toEqual(base);
+  });
+  it("never forwards prospect or message identifiers to Creem", () => {
+    const result = buildCreemCheckoutMetadata(base, {
+      attribution_id: "550e8400-e29b-41d4-a716-446655440000",
+      prospect_id: "550e8400-e29b-41d4-a716-446655440002",
+      outreach_message_id: "550e8400-e29b-41d4-a716-446655440003",
+    }, "request-1", true);
+    expect(result).not.toHaveProperty("prospect_id");
+    expect(result).not.toHaveProperty("outreach_message_id");
+  });
   it("classifies paid events by provider period fields, never arrival order", () => {
     expect(classifyCreemSubscriptionPaid({ current_period_start_date: "2026-01-01T00:00:00Z", created_at: "2026-01-01T00:00:00Z" })).toBe("first_payment");
     expect(classifyCreemSubscriptionPaid({ current_period_start_date: "2026-02-01T00:00:00Z", created_at: "2026-01-01T00:00:00Z" })).toBe("renewal");
