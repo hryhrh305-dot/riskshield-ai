@@ -976,10 +976,15 @@ export default function DashboardPage() {
               <Inbox className="h-5 w-5 text-slate-300" />
               Admin Tools
             </h2>
-            <p className="mb-3 text-sm text-slate-400">Review user feedback submitted through the dashboard form.</p>
-            <Link href="/admin/feedback" className="rs-button-primary inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium">
-              Open Feedback Inbox
-            </Link>
+            <p className="mb-3 text-sm text-slate-400">Review user feedback and monitor the read-only E8 observability dashboard.</p>
+            <div className="flex flex-wrap gap-3">
+              <Link href="/admin/feedback" className="rs-button-primary inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium">
+                Open Feedback Inbox
+              </Link>
+              <Link href="/admin/e8" className="rs-button-secondary inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium">
+                <Activity className="h-4 w-4" /> Open E8 Observability
+              </Link>
+            </div>
           </div>
         )}
       </div>

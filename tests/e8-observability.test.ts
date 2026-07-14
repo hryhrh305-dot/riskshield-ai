@@ -233,6 +233,12 @@ describe("E8 integration contracts", () => {
     expect(dashboard).toContain("Needs review");
   });
 
+  it("exposes the read-only E8 dashboard from the existing admin tools", () => {
+    const dashboardHome = readFileSync("src/app/(dashboard)/dashboard/page.tsx", "utf8");
+    expect(dashboardHome).toContain('href="/admin/e8"');
+    expect(dashboardHome).toContain("Open E8 Observability");
+  });
+
   it("replays suppression and autopause after an earlier SES side-effect failure", async () => {
     let emailInsertCalls = 0;
     let suppressionCalls = 0;
