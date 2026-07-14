@@ -18,6 +18,7 @@ import {
 import { markReferralFirstPayment } from "@/lib/referral-rewards";
 import { grantSubscriptionCycle, revokeSubscriptionCredits } from "@/lib/subscription-credits";
 import { getE8Flags } from "@/lib/e8/flags";
+import { safeE8ErrorCode } from "@/lib/e8/creem";
 import { recordSubscriptionEvent } from "@/lib/e8/repository";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co";
@@ -862,8 +863,11 @@ export async function POST(req: NextRequest) {
             recordSubscriptionEvent({ supabase: getSupabaseAdmin(), rawBody: payload, event: event as unknown as Record<string, unknown>, eventType: eventType || "unknown" }),
             new Promise((_, reject) => setTimeout(() => reject(new Error("E8_TIMEOUT")), 500)),
           ]);
-        } catch {
-          // E8 is a best-effort sidecar and must never alter billing, credits, or referrals.
+        } catch (error) {
+          console.warn("[e8-creem][subscription-sidecar-failed]", {
+            eventType: eventType || "unknown",
+            code: safeE8ErrorCode(error),
+          });
         }
       });
     }

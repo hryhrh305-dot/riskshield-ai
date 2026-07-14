@@ -6,6 +6,15 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 
 export type LegacyCreemMetadata = { user_id: string; plan: string; billing_interval: string; source: string };
 
+export function safeE8ErrorCode(error: unknown) {
+  if (error && typeof error === "object" && "code" in error && typeof error.code === "string") {
+    return /^[A-Za-z0-9_:-]{1,64}$/.test(error.code) ? error.code : "unknown";
+  }
+  return error instanceof Error && /^[A-Za-z][A-Za-z0-9]{0,63}$/.test(error.name)
+    ? error.name
+    : "unknown";
+}
+
 export function buildCreemCheckoutMetadata(
   base: LegacyCreemMetadata,
   attribution: { attribution_id: string; campaign_id?: string } | null,

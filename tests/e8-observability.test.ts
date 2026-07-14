@@ -8,7 +8,7 @@ import { snsCanonicalString, validateSnsEnvelope, verifySnsSignatureWithPem } fr
 import { generateKeyPairSync, sign } from "node:crypto";
 import { canonicalActivationKey, createAnonymousSession, createOpaqueLandingKey, verifyAnonymousSession } from "../src/lib/e8/anonymous";
 import { isSameOrigin, safeRate } from "../src/lib/e8/security";
-import { buildCreemCheckoutMetadata, classifyCreemSubscriptionPaid } from "../src/lib/e8/creem";
+import { buildCreemCheckoutMetadata, classifyCreemSubscriptionPaid, safeE8ErrorCode } from "../src/lib/e8/creem";
 import { recordSesEvent, recordSubscriptionEvent } from "../src/lib/e8/repository";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -107,6 +107,11 @@ describe("E8 Creem metadata contract", () => {
     }, "request-1", true);
     expect(result).not.toHaveProperty("prospect_id");
     expect(result).not.toHaveProperty("outreach_message_id");
+  });
+  it("reduces operational errors to a short non-sensitive code", () => {
+    expect(safeE8ErrorCode(Object.assign(new Error("customer@example.com"), { code: "CREEM_REJECTED" }))).toBe("CREEM_REJECTED");
+    expect(safeE8ErrorCode(new TypeError("customer@example.com"))).toBe("TypeError");
+    expect(safeE8ErrorCode("customer@example.com")).toBe("unknown");
   });
   it("classifies paid events by provider period fields, never arrival order", () => {
     expect(classifyCreemSubscriptionPaid({ current_period_start_date: "2026-01-01T00:00:00Z", created_at: "2026-01-01T00:00:00Z" })).toBe("first_payment");
@@ -220,7 +225,11 @@ describe("E8 integration contracts", () => {
     expect(creem).toContain("if (!flags.observability) return null");
     expect(checkout).toContain("buildCreemCheckoutMetadata");
     expect(creem).toContain("checkout_request_id");
-    expect(webhook).toMatch(/recordSubscriptionEvent[\s\S]*catch \{/);
+    expect(webhook).toMatch(/recordSubscriptionEvent[\s\S]*catch (?:\([^)]*\) )?\{/);
+    expect(checkout).toContain('[e8-creem][checkout-rejected]');
+    expect(webhook).toContain('[e8-creem][subscription-sidecar-failed]');
+    expect(checkout).not.toContain('console.warn("[e8-creem][checkout-rejected]", metadata');
+    expect(webhook).not.toContain('console.warn("[e8-creem][subscription-sidecar-failed]", payload');
     expect(webhook).toContain("grantSubscriptionCycle");
     expect(webhook).toContain("markReferralFirstPayment");
   });

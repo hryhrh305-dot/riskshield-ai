@@ -135,6 +135,12 @@ export async function POST(req: NextRequest) {
 
     const data = await response.json();
     if (!response.ok) {
+      if (getE8Flags().creemMetadata && e8Attribution) {
+        console.warn("[e8-creem][checkout-rejected]", {
+          status: response.status,
+          requestId,
+        });
+      }
       const errorMessage =
         data?.message ||
         data?.error ||
