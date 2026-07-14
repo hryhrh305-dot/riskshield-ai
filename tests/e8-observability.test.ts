@@ -447,6 +447,7 @@ describe("E8 migration contract", () => {
     }
     expect(sql).toContain("unique (source, idempotency_key)");
     expect(sql).toContain("revoke all on");
+    expect(sql).toContain("public.subscription_events, public.suppression_list from public, anon, authenticated, service_role");
     expect(sql).toContain("purge_e8_expired_raw_payloads");
     expect(sql).toContain("raw_payload_expires_at");
     expect(sql).not.toContain("grant select, insert, update, delete on public.email_events");

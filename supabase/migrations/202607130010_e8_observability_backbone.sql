@@ -156,7 +156,7 @@ alter table public.suppression_list enable row level security;
 
 revoke all on public.outreach_campaigns, public.outreach_prospects, public.outreach_messages,
   public.email_events, public.acquisition_attribution, public.product_events,
-  public.subscription_events, public.suppression_list from public, anon, authenticated;
+  public.subscription_events, public.suppression_list from public, anon, authenticated, service_role;
 grant select, insert, update on public.outreach_campaigns to service_role;
 grant select, insert, update on public.outreach_prospects to service_role;
 grant select, insert, update on public.outreach_messages to service_role;
