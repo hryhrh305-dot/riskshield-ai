@@ -16,11 +16,13 @@ export async function POST(request: NextRequest) {
   if (!isSameOrigin(request.headers.get("origin"), request.url, process.env.NEXT_PUBLIC_APP_URL)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   if (!allowE8Request(requestRateKey(request.headers, "attribution"), 60)) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   if (Number(request.headers.get("content-length") || 0) > MAX_BODY) return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+  let stage = "read_body";
   try {
     const text = await request.text();
     if (text.length > MAX_BODY) return NextResponse.json({ error: "Payload too large" }, { status: 413 });
     const body = JSON.parse(text) as Record<string, unknown>;
     if (typeof body.path !== "string" || !safeText(body.path, 512) || !body.path.startsWith("/")) return NextResponse.json({ error: "Invalid path" }, { status: 400 });
+    stage = "anonymous_session";
     const anonymousKey = anonymousKeyFromEnv();
     if (!anonymousKey) return NextResponse.json({ error: "Attribution configuration unavailable" }, { status: 503 });
     const existingAnonymous = verifyAnonymousSession(request.cookies.get("secwyn_e8_anon")?.value, anonymousKey);
@@ -28,11 +30,14 @@ export async function POST(request: NextRequest) {
     const keys = cidKeysFromEnv();
     let cid = keys && typeof body.cid === "string" ? verifyCid(body.cid, keys) : null;
     if (cid?.outreachMessageId) {
+      stage = "message_lookup";
       const { data: message, error: messageError } = await getSupabaseAdminClient().from("outreach_messages")
         .select("campaign_id,prospect_id").eq("id", cid.outreachMessageId).maybeSingle();
       if (messageError || !message || message.campaign_id !== cid.campaignId || message.prospect_id !== cid.prospectId) cid = null;
     }
+    stage = "optional_user";
     const user = await getOptionalUser();
+    stage = "attribution_write";
     const row = await recordAttribution({
       supabase: getSupabaseAdminClient(), anonymousId, userId: user?.id,
       campaignId: cid?.campaignId, prospectId: cid?.prospectId, messageId: cid?.outreachMessageId,
@@ -42,11 +47,16 @@ export async function POST(request: NextRequest) {
         content: safeText(body.utm_content), term: safeText(body.utm_term),
       },
     });
+    stage = "cookie_write";
     const response = NextResponse.json({ enabled: true, attributed: Boolean(cid), bound: Boolean(user), landing_key: cid ? createOpaqueLandingKey(cid.jti, anonymousKey) : null });
     response.cookies.set("secwyn_e8_attribution", row.id, { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 30 * 24 * 60 * 60 });
     response.cookies.set("secwyn_e8_anon", createAnonymousSession({ anonymousId }, anonymousKey), { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 30 * 24 * 60 * 60 });
     return response;
-  } catch {
-    return NextResponse.json({ enabled: true, attributed: false });
+  } catch (error) {
+    const code = typeof error === "object" && error && "code" in error && typeof error.code === "string"
+      ? error.code.slice(0, 64)
+      : error instanceof Error ? error.name.slice(0, 64) : "unknown";
+    console.error("E8 attribution session failed", { stage, code });
+    return NextResponse.json({ enabled: true, attributed: false, error: "session_unavailable" }, { status: 503 });
   }
 }

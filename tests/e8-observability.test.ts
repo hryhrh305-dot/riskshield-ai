@@ -420,6 +420,15 @@ describe("E8 integration contracts", () => {
     expect(route).toContain("canonicalActivationKey");
   });
 
+  it("reports attribution setup failures without exposing secrets or pretending success", () => {
+    const route = readFileSync("src/app/api/e8/attribution/session/route.ts", "utf8");
+    expect(route).toContain('console.error("E8 attribution session failed"');
+    expect(route).toContain('error: "session_unavailable"');
+    expect(route).toContain('{ status: 503 }');
+    expect(route).not.toContain("E8_CID_HMAC_KEY:");
+    expect(route).not.toContain("E8_ANON_HMAC_KEY:");
+  });
+
   it("validates CID message relationships and never reuses raw cid material in browser idempotency", () => {
     const route = readFileSync("src/app/api/e8/attribution/session/route.ts", "utf8");
     const repository = readFileSync("src/lib/e8/repository.ts", "utf8");
