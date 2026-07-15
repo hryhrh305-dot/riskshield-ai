@@ -9,7 +9,7 @@ Scope: current public, authentication, product-shell, administrative, metadata, 
 | Surface | Route | Source | E8.6 outcome |
 |---|---|---|---|
 | Homepage | `/` | `src/app/page.tsx`, `src/components/home/HomePageClient.tsx` | Reframed around second-line pre-send risk governance, high-value campaign approval, evidence boundaries, ICPs, workflow, sample audit, FAQ, and one-time 50-credit CTA. |
-| Pricing | `/pricing` | `src/app/(dashboard)/pricing/page.tsx`, layout, `src/lib/plans.ts` | Plan prices and capacities unchanged; plan identity and cache/download explanations clarified. |
+| Pricing | `/pricing` | `src/app/(dashboard)/pricing/page.tsx`, layout, `src/lib/plans.ts` | Plan prices and capacities unchanged; plan identity, cache/download behavior, USD billing, qualified international payment availability, provider conversion, and Creem tax handling clarified. |
 | API documentation | `/docs` | `src/app/docs/page.tsx`, layout | Positioned as the canonical pre-send decision API. Endpoint examples and access rules unchanged. |
 | Google Sheets guide | `/docs/google-sheets` | page, layout, download route | Framed as the same decision workflow in Sheets. Installation and API-key instructions unchanged. |
 | Privacy | `/privacy` | page, layout | Legal wording unchanged; shared theme coverage added. |

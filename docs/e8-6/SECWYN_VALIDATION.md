@@ -92,6 +92,41 @@ Smoke coverage passed for `/`, `/pricing`, `/docs`, `/docs/google-sheets`, `/pre
 - Mobile homepage stacks cards and CTAs correctly; the theme control retains an accessible name while its visible label collapses.
 - Status queues preserve text labels alongside color.
 
+## Pricing FAQ Payment Clarification
+
+**Result: PASS**
+
+- Public copy now states that all Secwyn plans are listed and charged in USD.
+- Eligible European and international customers are told they can generally use supported methods shown by Creem Checkout, without guaranteeing any customer, card, country, or local method.
+- Payment-method availability is qualified by location, billing address, device, product type, and price; issuer and payment-provider limitations remain explicit in the claim register.
+- Customers are told they do not need a U.S. bank card or separate USD account, while provider conversion, exchange rate, and conversion-fee responsibility remain qualified.
+- Applicable checkout taxes are attributed to Creem as Merchant of Record.
+- No EUR product, Secwyn-controlled conversion, local-currency guarantee, or fee-free claim was introduced.
+- Existing Creem product IDs, USD mapping, monthly/yearly checkout logic, prices, capacities, credits, referrals, entitlements, API, and Google Sheets behavior were not changed.
+
+Validation evidence:
+
+| Check | Result | Evidence |
+|---|---|---|
+| Pricing payment contract | PASS | `tests/e8-6-pricing-payment-faq.test.ts`: 4/4 |
+| Full Vitest | PASS | 32 files, 217/217 tests |
+| Production build | PASS | Next.js 16.2.9 compiled and generated 52/52 pages |
+| Targeted lint | PASS | Pricing page, payment FAQ test, and browser verifier: zero errors and warnings |
+| Full lint | KNOWN BASELINE | 111 errors / 40 warnings, unchanged from E8.6 baseline |
+| Full TypeScript | KNOWN BASELINE | 129 errors, unchanged from E8.6 baseline |
+| Browser interaction | PASS | Native disclosure opened, closed, and reopened with the Enter key |
+| Responsive/theme review | PASS | Desktop/mobile in dark/light; FAQ and page cannot be horizontally scrolled |
+| Protected behavior | PASS | No diff in plans, Checkout/API routes, Creem mapping, credits, referrals, entitlements, Supabase, or Google Sheets |
+
+Generated focused evidence:
+
+- `pricing-faq-dark-desktop.png`
+- `pricing-faq-light-desktop.png`
+- `pricing-faq-dark-mobile.png`
+- `pricing-faq-light-mobile.png`
+
+The mobile-only comparison-table containment adjustment preserves the existing internal horizontal table scroll and keeps the sticky first column at `sm` and wider viewports. It does not change table contents or plan behavior.
+
 ## Scope confirmation
 
 No database migration, environment modification, feature flag, payment action, SES action, push, or deployment was performed. E8.7 and E8.8 were not entered.

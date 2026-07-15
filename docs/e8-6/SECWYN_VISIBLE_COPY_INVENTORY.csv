@@ -1,6 +1,6 @@
 surface,route_or_channel,source,e8_6_action,business_logic_changed
 Homepage,/,src/app/page.tsx + src/components/home/HomePageClient.tsx,Positioning and claim-boundary rewrite,no
-Pricing,/pricing,src/app/(dashboard)/pricing/page.tsx,Plan identity and charging explanation clarified,no
+Pricing,/pricing,src/app/(dashboard)/pricing/page.tsx,Plan identity charging and qualified USD international payment explanation clarified,no
 API docs,/docs,src/app/docs/page.tsx,Decision-workflow positioning,no
 Google Sheets guide,/docs/google-sheets,src/app/docs/google-sheets/page.tsx,Canonical decision-workflow positioning,no
 Privacy,/privacy,src/app/privacy/page.tsx,Theme coverage only,no

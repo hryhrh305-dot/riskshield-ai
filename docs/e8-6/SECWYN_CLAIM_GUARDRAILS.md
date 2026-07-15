@@ -13,6 +13,19 @@
 | Signup/form-abuse review | Future | Blueprint direction; no released production workflow | “Developing” / “Future direction” | “Detects signup fraud today” | Home ICP, FAQ | Product | Before public release |
 | Inbox, delivery, revenue, or abuse prevention outcome | Prohibited | No system can establish or warrant these outcomes from current evidence | “Does not guarantee…” | Any positive guarantee | All public pages and outreach | Product + Legal | Every copy release |
 
+## Pricing payment claim register
+
+| Claim | Status | Evidence | Allowed wording | Forbidden wording | Qualification | Affected pages | Owner | Review date |
+|---|---|---|---|---|---|---|---|---|
+| European customers can pay for USD subscriptions | Verified with qualification | Current USD Creem product mapping and Creem checkout/payment-method documentation | Eligible European customers can generally pay using supported methods shown at checkout | All customers or cards are guaranteed; Secwyn supports USD and EUR checkout | Availability depends on location, billing address, device, product type, price, issuer, and payment provider | Pricing FAQ | Product + Billing | 2026-07-15 |
+
+Additional payment guardrails:
+
+- Prices remain USD. A customer's provider may convert the charge and determine its own exchange rate or fee; Secwyn does not set or collect that fee.
+- Creem handles applicable taxes as Merchant of Record and confirms them during checkout.
+- Do not guarantee every European customer, card, country, or local payment method.
+- Do not claim that Secwyn offers EUR products, automatically bills in local currency, controls exchange rates, or guarantees no conversion or bank fee.
+
 ## Approved claim patterns
 
 - “Second-line pre-send risk governance.”

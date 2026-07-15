@@ -646,7 +646,7 @@ export default function PricingPage() {
   }
 
   return (
-    <div className="rs-app min-h-screen">
+    <div className="rs-app relative min-h-screen overflow-x-hidden">
       <header className="border-b border-white/10 bg-black/20 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
           <Link href="/" className="flex items-center gap-3">
@@ -873,7 +873,7 @@ export default function PricingPage() {
             <table className="min-w-[1040px] w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b border-white/10 bg-black/20">
-                  <th className="sticky left-0 z-10 min-w-64 bg-[var(--rs-bg-elevated)] px-5 py-4 text-left font-semibold text-white">
+                  <th className="min-w-64 bg-[var(--rs-bg-elevated)] px-5 py-4 text-left font-semibold text-white sm:sticky sm:left-0 sm:z-10">
                     Capability
                   </th>
                   {planEntries.map(([key, plan]) => (
@@ -899,6 +899,47 @@ export default function PricingPage() {
 
         <section className="mt-6 rounded-[24px] border border-white/10 bg-white/[0.05] px-5 py-4 text-sm text-slate-300">
           Credits are usage units for Secwyn audits. Cached results return faster but still consume one credit because they provide the same usable decision. Downloading an already completed audit does not consume another credit. Starter, Growth, and Scale are recurring subscriptions, activated automatically after the Creem webhook is processed.
+        </section>
+
+        <section id="payment-faq" className="mt-10 scroll-mt-24" aria-labelledby="payment-faq-heading">
+          <div className="mb-5 max-w-3xl">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">Billing FAQ</p>
+            <h2 id="payment-faq-heading" className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-white sm:text-3xl">
+              Paying for Secwyn outside the United States
+            </h2>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <details className="rs-card group rounded-[24px] p-5 sm:p-6">
+              <summary className="flex cursor-pointer list-none items-start justify-between gap-4 text-base font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70">
+                <span>What currency are Secwyn plans billed in?</span>
+                <span aria-hidden="true" className="text-xl leading-none text-slate-400 transition-transform group-open:rotate-45">+</span>
+              </summary>
+              <div className="mt-4 space-y-3 text-sm leading-6 text-slate-300">
+                <p>
+                  All Secwyn plans are listed and charged in U.S. dollars (USD). Customers outside the United States, including customers in Europe, can generally pay using supported international cards and any locally available payment methods shown by Creem at checkout.
+                </p>
+                <p>
+                  Payment-method availability can vary by location, billing address, device, product type, and price. If your card or bank account uses another currency, your payment provider may convert the USD charge and may apply its own exchange rate or conversion fee. Secwyn does not set or collect those conversion fees.
+                </p>
+              </div>
+            </details>
+
+            <details className="rs-card group rounded-[24px] p-5 sm:p-6">
+              <summary className="flex cursor-pointer list-none items-start justify-between gap-4 text-base font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70">
+                <span>Can customers in Europe pay for Secwyn?</span>
+                <span aria-hidden="true" className="text-xl leading-none text-slate-400 transition-transform group-open:rotate-45">+</span>
+              </summary>
+              <div className="mt-4 space-y-3 text-sm leading-6 text-slate-300">
+                <p>
+                  Yes. Secwyn uses USD pricing, but eligible customers in Europe can pay through the payment methods available to them in the Creem checkout. You do not need a U.S. bank card or a separate USD account.
+                </p>
+                <p>
+                  Your bank or payment provider may convert the charge into your account currency. The final exchange rate and any conversion fee are determined by that provider. Available payment methods and applicable taxes are confirmed during checkout. Creem handles applicable taxes as the Merchant of Record.
+                </p>
+              </div>
+            </details>
+          </div>
         </section>
       </main>
 
@@ -935,7 +976,7 @@ function FragmentRows({
       </tr>
       {section.rows.map((row) => (
         <tr key={row.label} className="border-b border-white/8 last:border-0 hover:bg-white/[0.03]">
-          <th className="sticky left-0 z-10 bg-[var(--rs-bg-elevated)] px-5 py-3.5 text-left text-sm font-medium text-slate-200">
+          <th className="bg-[var(--rs-bg-elevated)] px-5 py-3.5 text-left text-sm font-medium text-slate-200 sm:sticky sm:left-0 sm:z-10">
             {row.label}
           </th>
           {planEntries.map(([key]) => (

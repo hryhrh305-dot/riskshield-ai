@@ -4,7 +4,7 @@
 |---|---|---|---|---|
 | Homepage | Why should I care before sending? | Approve high-value campaigns before the first send. | Send/Review/Suppress queues, available signals, traceable reasons, illustrative sample, explicit limitations. | Audit 50 Contacts Free |
 | Homepage sample | What would I receive? | A focused decision queue and evidence-backed next step. | Clearly fictional sample; no fabricated customer, vendor, or performance result. | View a Sample Audit |
-| Pricing | Which operating model fits? | Buy the monthly decision capacity and workflow access you need. | Current prices/capacities, one-time Free allowance, cache charged, download free, roadmap marked. | Start plan / contact sales |
+| Pricing | Which operating model fits, and can I pay outside the United States? | Buy the decision capacity and workflow access you need at the listed USD price. | Current prices/capacities, one-time Free allowance, cache charged, download free, roadmap marked; eligible international customers can generally use supported methods shown by Creem, with availability and provider conversion qualified. | Start plan / contact sales |
 | API docs | Can this enter our workflow? | Integrate the same canonical decision model programmatically. | Current endpoints, authentication, plan access, request/response examples. | Create account / use docs |
 | Sheets guide | Can operators work in a sheet? | Bring the same decision workflow into an existing spreadsheet. | API key, Growth/Scale access, installation steps, current add-on behavior. | Download Code.gs |
 | Login/signup | How do I access it? | Enter or create the Secwyn workspace. | No acquisition overclaim; auth behavior unchanged. | Sign in / create account |
