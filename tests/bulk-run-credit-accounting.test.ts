@@ -4,6 +4,31 @@ import { consumeContactCredits } from "@/lib/credit-accounting";
 import { sortCreditGrantsForConsumption, type CreditGrant } from "@/lib/credits-ledger";
 
 describe("atomic credit accounting adapter", () => {
+  it.each([0, 1, 3])("reconciles an exact %i-credit request", async (amount) => {
+    const rpc = vi.fn().mockResolvedValue({ data: { deducted: amount, remaining: 50 - amount }, error: null });
+    const result = await consumeContactCredits({
+      supabase: { rpc } as never,
+      userId: "user-credit-matrix",
+      amount,
+      reason: "web_bulk_audit",
+      requestId: `matrix-${amount}`,
+      requestFingerprint: { emails: Array.from({ length: amount }, (_, index) => `person${index}@example.com`) },
+    });
+    expect(result).toMatchObject({ ok: true, deducted: amount });
+    expect(rpc).toHaveBeenCalledTimes(amount === 0 ? 0 : 1);
+  });
+
+  it("fails closed without deduction when credits are insufficient", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { message: "INSUFFICIENT_CREDITS" } });
+    await expect(consumeContactCredits({
+      supabase: { rpc } as never,
+      userId: "user-insufficient",
+      amount: 3,
+      reason: "api_audit",
+      requestId: "insufficient-3",
+      requestFingerprint: { emails: ["a@example.com", "b@example.com", "c@example.com"] },
+    })).resolves.toMatchObject({ ok: false, deducted: 0, error: "INSUFFICIENT_CREDITS" });
+  });
   it("deducts multiple credits with one idempotent RPC", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: { deducted: 5, remaining: 45 }, error: null });
     const result = await consumeContactCredits({

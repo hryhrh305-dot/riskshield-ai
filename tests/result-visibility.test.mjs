@@ -115,7 +115,11 @@ test("batch result export fields expand with plan tier", () => {
   const freeColumns = getBatchExportColumnsForPlan("free").map((item) => item.key);
   const scaleColumns = getBatchExportColumnsForPlan("scale").map((item) => item.key);
 
-  assert.deepEqual(freeColumns, ["email", "risk_score", "risk_level"]);
+  assert.deepEqual(freeColumns, [
+    "email", "decision", "confidence", "primary_reason_code", "primary_reason", "recommended_action",
+    "decision_explanation", "mx_status", "mailbox_status", "catch_all_status", "engine_version",
+    "policy_rules_version", "audit_id", "audited_at", "risk_score", "risk_level",
+  ]);
   assert.equal(scaleColumns.includes("risk_factors"), true);
   assert.equal(scaleColumns.includes("dmarc_policy"), true);
   assert.equal(scaleColumns.includes("ai_explanation"), true);

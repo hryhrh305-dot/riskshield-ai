@@ -476,7 +476,7 @@ export default function RiskCheckPage() {
                        emailDetails?.mxStatus === "lookup_failed" ? "Lookup failed" :
                        !emailDetails?.mxChecked ? "Not checked" :
                        emailDetails?.mxStatus === "null_mx" ? "Does not accept mail" :
-                       emailDetails?.hasMX ? "Present" : "Missing -- guaranteed bounce"}
+                       emailDetails?.hasMX ? "Present" : "Missing"}
                     </div>
                     <div className="mt-0.5 text-xs text-slate-500">
                       {emailDetails?.mxStatus === "timed_out" ? "DNS query timed out. Retry later." :

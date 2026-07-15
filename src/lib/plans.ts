@@ -466,6 +466,13 @@ export function getBatchExportColumnsForPlan(plan: string): ExportColumn[] {
     { key: "primary_reason", label: "Primary Reason" },
     { key: "recommended_action", label: "Recommended Action" },
     { key: "decision_explanation", label: "Decision Explanation" },
+    { key: "mx_status", label: "MX Status" },
+    { key: "mailbox_status", label: "Mailbox Status" },
+    { key: "catch_all_status", label: "Catch-all Status" },
+    { key: "engine_version", label: "Engine Version" },
+    { key: "policy_rules_version", label: "Policy / Rules Version" },
+    { key: "audit_id", label: "Audit ID" },
+    { key: "audited_at", label: "Audited At" },
     { key: "risk_score", label: "Base Signal Score" },
     { key: "risk_level", label: "Final Decision (Legacy Alias)" },
   ];
@@ -476,8 +483,7 @@ export function getBatchExportColumnsForPlan(plan: string): ExportColumn[] {
       { key: "recommendation", label: "Recommendation" },
       { key: "disposable", label: "Disposable" },
       { key: "role_based", label: "Role-based" },
-      { key: "catch_all", label: "Catch-all" },
-      { key: "mx_status", label: "MX Status" },
+      { key: "catch_all", label: "Catch-all (Legacy Alias)" },
     );
   }
 

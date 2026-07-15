@@ -1,32 +1,11 @@
 import dns from "dns/promises";
 import { checkBlacklist, autoBlacklistIfHighRisk } from "@/lib/blacklist";
 import { disposableDomainsSet } from "@/lib/disposable-domains";
-import { hasApiAccess, shouldUseAiExplanation } from "@/lib/plans";
 import { applyDecisionIntegrity, classifyMxEvidence, sanitizeDecisionText, type MxEvidenceStatus } from "@/lib/decision-integrity";
 import { isRoleBasedEmail } from "@/lib/email-classification";
 export { canonicalRoleLocalPart, isRoleBasedEmail, roleBasedPrefixes } from "@/lib/email-classification";
 const disposableDomains: Set<string> = disposableDomainsSet;
 
-// NOTE: OpenAI/dns imports are dynamic to prevent Vercel build-time evaluation
-
-let _OpenAI: any = null;
-async function getOpenAI() {
-  if (!_OpenAI) {
-    const mod = await import("openai");
-    _OpenAI = mod.default || mod.OpenAI || mod;
-  }
-  return _OpenAI;
-}
-
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || "";
-let _deepseek: any = null;
-async function getDeepSeek() {
-  if (!_deepseek) {
-    const OpenAI = await getOpenAI();
-    _deepseek = new OpenAI({ apiKey: DEEPSEEK_API_KEY || process.env.DEEPSEEK_API_KEY || "", baseURL: "https://api.deepseek.com" });
-  }
-  return _deepseek;
-}
 // ============ INPUT FIREWALL (SANITIZER) ============
 // Reject garbage input BEFORE scoring ? empty strings, headers, invalid formats, etc.
 
@@ -88,14 +67,11 @@ const domainAgeCache = new Map<string, CacheEntry>();
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
 
 
-// ============ RESULT-LEVEL CACHE (24h TTL, avoids re-consuming credits) ============
+// ============ RESULT-LEVEL CACHE (7-day TTL; cache hits remain billable) ============
 const resultCache = new Map<string, { result: Record<string, unknown>; ts: number }>();
 const RESULT_CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
 const explanationCache = new Map<string, { value: string; ts: number }>();
 const EXPLANATION_CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
-const EXPLANATION_MODEL = process.env.DEEPSEEK_EXPLANATION_MODEL || "deepseek-v4-flash";
-const EXPLANATION_SYSTEM_PROMPT =
-  "You write short risk explanations for email and IP checks. Output exactly one short English sentence. No bullets, no line breaks, no markdown, and no extra advice. Summarize only why the item was flagged.";
 
 export function getCachedResult(key: string): Record<string, unknown> | null {
   const entry = resultCache.get(key);
@@ -604,14 +580,18 @@ export async function calculateRiskScore({
                 if (catchAllResult.checked && catchAllResult.valid) {
                   emailDetails.isCatchAll = true;
                   emailDetails.catchAllDetected = true;
+                  emailDetails.catchAllStatus = "yes";
                   riskScore += 10;
                   reasons.push("Catch-all domain detected - accepts all emails regardless of validity");
-                } else {
+                } else if (catchAllResult.checked) {
                   emailDetails.isCatchAll = false;
                   emailDetails.catchAllDetected = false;
+                  emailDetails.catchAllStatus = "no";
+                } else {
+                  emailDetails.catchAllStatus = "lookup_failed";
                 }
               } catch {
-                // Catch-all check failed silently
+                emailDetails.catchAllStatus = "lookup_failed";
               }
             }
           } catch {
@@ -730,7 +710,7 @@ export async function calculateRiskScore({
   if (emailDetails?.mxStatus === "absent" || emailDetails?.mxStatus === "null_mx") {
     riskScore = Math.max(riskScore, 75);
     if (!reasons.some(r => r.includes("No MX records"))) {
-      reasons.push("No MX records - domain cannot receive email (guaranteed bounce)");
+      reasons.push("No usable MX records - suppress until the domain mail configuration is corrected");
     }
   }
 
@@ -792,7 +772,9 @@ export async function calculateRiskScore({
     isDisposable: emailDetails?.isDisposable === true,
     mxStatus: (emailDetails?.mxStatus as MxEvidenceStatus | undefined) || (shouldCheckMX === false ? "not_tested" : "lookup_failed"),
     mailboxStatus,
-    catchAllStatus: emailDetails?.isCatchAll === true ? "yes" : emailDetails?.isCatchAll === false ? "no" : emailDetails?.smtpChecked ? "unknown" : "not_tested",
+    catchAllStatus: emailDetails?.catchAllStatus === "yes" || emailDetails?.catchAllStatus === "no" || emailDetails?.catchAllStatus === "unknown" || emailDetails?.catchAllStatus === "not_tested" || emailDetails?.catchAllStatus === "lookup_failed"
+      ? emailDetails.catchAllStatus
+      : emailDetails?.isCatchAll === true ? "yes" : emailDetails?.isCatchAll === false ? "no" : emailDetails?.smtpChecked ? "unknown" : "not_tested",
   }) : null;
   const decision: "ALLOW" | "REVIEW" | "BLOCK" = integrityResult?.decision || scoreBasedDecision;
 
@@ -822,7 +804,7 @@ export async function calculateRiskScore({
     impact.push("[MAILBOX DOES NOT EXIST] Domain has no mail server. Your email will be returned as undeliverable. Repeated bounces lower your sender score with Gmail/Outlook.");
   }
   if (emailDetails?.smtpChecked && emailDetails?.permanentRejected) {
-    impact.push("[MAILBOX DISABLED] SMTP server permanently rejected this address. The mailbox has been deleted or disabled ?guaranteed bounce.");
+    impact.push("[MAILBOX REJECTED] SMTP server permanently rejected this address. Suppress it until the address is corrected or replaced.");
   }
   if (emailDetails?.smtpChecked && emailDetails?.mailboxFull) {
     impact.push("[INBOX FULL] Recipient mailbox is over quota. Your email will be rejected until they free up space. Wait a few days before retrying.");
@@ -878,7 +860,7 @@ export async function calculateRiskScore({
   if (emailDetails?.smtpChecked && emailDetails?.permanentRejected) {
     solution.push({
       category: "Mailbox Does Not Exist / Disabled",
-      problem: "The SMTP server confirmed this mailbox does not exist or has been permanently disabled. Emails to this address will always bounce.",
+      problem: "The SMTP server permanently rejected this mailbox, so delivery should not be attempted without correction or replacement.",
       fix: "1) Remove this email from your contact list immediately ?never send to it again. 2) Each bounce damages your sender reputation. 3) If this was a customer inquiry, they may have made a typo ?try common corrections (gmail.com vs gmial.com). 4) Use double opt-in for mailing lists to prevent invalid addresses from entering your database."
     });
   }
@@ -888,7 +870,7 @@ export async function calculateRiskScore({
     solution.push({
       category: "Domain Cannot Receive Email",
       problem: "The domain has no MX (Mail Exchange) records configured. This means the domain literally cannot accept email ?like sending a letter to an address that doesn't exist.",
-      fix: "1) Do NOT send to this domain ?100% guaranteed bounce. 2) The domain owner needs to configure MX records with their DNS provider. 3) If this is a business contact, their email may be misconfigured ?ask them to check with their IT team. 4) Common MX providers: Google Workspace, Microsoft 365, Zoho Mail."
+      fix: "1) Suppress this contact while no usable MX is available. 2) Ask the contact or domain owner to verify the address and mail configuration. 3) Retry only after the domain publishes a usable mail route."
     });
   }
 
@@ -1263,34 +1245,8 @@ export async function getAIExplanation(
     ? "Multiple high-risk signals were detected, so blocking or manual review is recommended."
     : "This check matched clear risk signals, so manual review is recommended before sending.";
 
-  if (!hasApiAccess(plan) || !shouldUseAiExplanation(plan) || !DEEPSEEK_API_KEY) {
-    setCachedExplanation(cacheKey, genericExplanation);
-    return genericExplanation;
-  }
-
-  try {
-    const payload = buildExplanationPayload(riskScore, reasons, email, ip);
-    const completion = await (await getDeepSeek()).chat.completions.create({
-      model: EXPLANATION_MODEL,
-      messages: [
-        { role: "system", content: EXPLANATION_SYSTEM_PROMPT },
-        { role: "user", content: JSON.stringify(payload) },
-      ],
-      max_tokens: 48,
-      temperature: 0,
-      extra_body: {
-        thinking: { type: "disabled" },
-      },
-    } as any);
-
-    const content = completion.choices[0]?.message?.content?.trim()?.replace(/\s+/g, " ") || genericExplanation;
-    const finalContent = /[\u4e00-\u9fff]/.test(content) ? genericExplanation : content;
-    setCachedExplanation(cacheKey, finalContent);
-    return finalContent;
-  } catch {
-    setCachedExplanation(cacheKey, genericExplanation);
-    return genericExplanation;
-  }
+  setCachedExplanation(cacheKey, genericExplanation);
+  return genericExplanation;
 }
 
 // ============ SCORING ENGINE ============

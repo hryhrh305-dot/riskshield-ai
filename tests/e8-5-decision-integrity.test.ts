@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   applyDecisionIntegrity,
   classifyMxEvidence,
+  finalizeInputReconciliation,
   getPlanAuditCta,
+  normalizeScreeningEmail,
   reconcileInputRows,
   sanitizeDecisionText,
 } from "@/lib/decision-integrity";
@@ -10,7 +12,7 @@ import { buildContactAuditDecision, buildListAuditSummary } from "@/lib/list-aud
 import { readFileSync } from "node:fs";
 import { reconcileWebBulkText } from "@/lib/bulk-web-batching";
 import { disposableDomainsSet } from "@/lib/disposable-domains";
-import { plans } from "@/lib/plans";
+import { getBatchExportColumnsForPlan, plans } from "@/lib/plans";
 
 describe("E8.5 decision integrity", () => {
   it("rejects an internal-space row without creating a new address", () => {
@@ -19,6 +21,37 @@ describe("E8.5 decision integrity", () => {
     expect(reconciliation.accepted).toEqual([]);
     expect(reconciliation.rejected).toEqual([
       expect.objectContaining({ rowNumber: 1, originalValue: "space inlocal@example.com", status: "REJECT_BEFORE_SCREENING" }),
+    ]);
+  });
+
+  it("applies only safe normalization and preserves address semantics", () => {
+    expect(normalizeScreeningEmail("  MAILTO:First.Last+tag@SECWYN.COM  ")).toBe("first.last+tag@secwyn.com");
+    expect(normalizeScreeningEmail("space inlocal@example.com")).toBeNull();
+    expect(normalizeScreeningEmail("double@@example.com")).toBeNull();
+    expect(normalizeScreeningEmail("missing-domain@")).toBeNull();
+    expect(normalizeScreeningEmail("@example.com")).toBeNull();
+    expect(normalizeScreeningEmail("first..last@example.com")).toBeNull();
+    expect(normalizeScreeningEmail("用户@例子.公司")).toBe("用户@例子.公司");
+  });
+
+  it("reconciles original, normalized, rejected, duplicate, processed and charged row state", () => {
+    const pending = reconcileInputRows([" bad value ", "FIRST@secwyn.com", "first@SECWYN.com", "second@secwyn.com"]);
+    const completed = finalizeInputReconciliation(pending, { resultsProduced: 2, creditsConsumed: 1 });
+
+    expect(completed).toMatchObject({
+      inputRows: 4,
+      syntaxAccepted: 3,
+      rejectedBeforeScreening: 1,
+      duplicatesRemoved: 1,
+      uniqueValidAddressesProcessed: 2,
+      resultsProduced: 2,
+      creditsConsumed: 1,
+    });
+    expect(completed.rows).toEqual([
+      expect.objectContaining({ originalValue: " bad value ", processed: false, charged: false, rejectionReason: "INVALID_EMAIL_SYNTAX" }),
+      expect.objectContaining({ normalizedValue: "first@secwyn.com", status: "ACCEPTED", processed: true, charged: true, rejectionReason: null }),
+      expect.objectContaining({ normalizedValue: "first@secwyn.com", status: "DUPLICATE", processed: false, charged: false, rejectionReason: "DUPLICATE_NORMALIZED_EMAIL" }),
+      expect.objectContaining({ normalizedValue: "second@secwyn.com", status: "ACCEPTED", processed: true, charged: false, rejectionReason: null }),
     ]);
   });
 
@@ -138,6 +171,63 @@ describe("E8.5 decision integrity", () => {
       primaryReason: "Catch-all mailbox uncertainty",
       catchAllStatus: "yes",
     });
+  });
+
+  it.each(["yes", "no", "unknown", "not_tested", "lookup_failed"] as const)(
+    "preserves the catch-all evidence state %s",
+    (catchAllStatus) => {
+      const result = applyDecisionIntegrity({
+        email: "person@secwyn.com",
+        score: 0,
+        decision: "ALLOW",
+        mxStatus: "present",
+        mailboxStatus: "confirmed",
+        catchAllStatus,
+      });
+      expect(result.catchAllStatus).toBe(catchAllStatus);
+    },
+  );
+
+  it("does not coerce a catch-all lookup failure to No in the canonical adapter", () => {
+    const decision = buildContactAuditDecision({
+      email: "person@secwyn.com",
+      risk_score: 0,
+      risk_level: "ALLOW",
+      details: { hasMX: true, mxChecked: true, mxStatus: "present", smtpChecked: true, smtpValid: true, catchAllStatus: "lookup_failed" },
+    });
+    expect(decision.decision).toBe("ALLOW");
+    expect(decision.decisionExplanation).not.toContain("Catch-all domain");
+  });
+
+  it("keeps deterministic explanations local with zero paid model calls", async () => {
+    const source = readFileSync("src/lib/risk-engine.ts", "utf8");
+    expect(source).not.toContain("chat.completions.create");
+    expect(source).not.toContain("https://api.deepseek.com");
+    const { getAIExplanation } = await import("@/lib/risk-engine");
+    await expect(getAIExplanation("person@example.com", null, 90, ["Disposable email detected"], "scale"))
+      .resolves.toContain("Disposable email detected");
+  });
+
+  it("keeps evidence and audit identity in CSV, XLSX and Sheets export mappings", () => {
+    const keys = getBatchExportColumnsForPlan("growth").map((column) => column.key);
+    expect(keys).toEqual(expect.arrayContaining([
+      "mx_status", "mailbox_status", "catch_all_status", "engine_version", "policy_rules_version", "audit_id", "audited_at",
+    ]));
+    const sheets = readFileSync("google-sheets-addon/Code.gs", "utf8");
+    expect(sheets).toContain('key === "catch_all_status"');
+    expect(sheets).toContain('result.catch_all_status === "lookup_failed"');
+    expect(sheets).toContain('key === "mailbox_status"');
+    const bulkPage = readFileSync("src/app/(dashboard)/bulk-check/page.tsx", "utf8");
+    expect(bulkPage).toContain("XLSXLib.writeFile");
+    expect(bulkPage).toContain("downloadCsvFile");
+    expect(bulkPage).not.toMatch(/function download(?:XLSX|AuditCsv|RiskSummaryCsv)[\s\S]{0,500}consumeLegacyCredits/);
+  });
+
+  it("does not present missing MX as a guaranteed mailbox outcome", () => {
+    const page = readFileSync("src/app/(dashboard)/risk-check/page.tsx", "utf8");
+    expect(page).not.toContain('"Missing -- guaranteed bounce"');
+    const bulkPage = readFileSync("src/app/(dashboard)/bulk-check/page.tsx", "utf8");
+    expect(bulkPage).toContain('["Syntax accepted", inputReconciliation.syntaxAccepted]');
   });
 
   it("uses a truthful plan CTA for Business", () => {

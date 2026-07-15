@@ -116,6 +116,8 @@ describe("E8.6 cross-surface decision parity", () => {
       role_based: false,
       catch_all_status: "not_tested",
       mx_status: "present",
+      policy_rules_version: "secwyn-signal-snapshot-v1",
+      audit_id: `audit:person@secwyn.com:${SNAPSHOT_AT}`,
       audited_at: SNAPSHOT_AT,
     });
   });

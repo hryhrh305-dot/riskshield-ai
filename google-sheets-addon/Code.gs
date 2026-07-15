@@ -462,11 +462,18 @@ function readExportValue_(result, key) {
     if (result.role_based == null) return "Unknown";
     return result.role_based ? "Yes" : "No";
   }
-  if (key === "catch_all") {
+  if (key === "catch_all" || key === "catch_all_status") {
     if (result.catch_all_status === "yes" || result.catch_all === true) return "Yes";
     if (result.catch_all_status === "no" || result.catch_all === false) return "No";
     if (result.catch_all_status === "not_tested") return "Not tested";
+    if (result.catch_all_status === "lookup_failed") return "Lookup failed";
     return "Unknown";
+  }
+  if (key === "mailbox_status") {
+    if (result.mailbox_status === "confirmed") return "Confirmed";
+    if (result.mailbox_status === "rejected") return "Rejected";
+    if (result.mailbox_status === "not_tested") return "Not tested";
+    return "Unconfirmed";
   }
   if (key === "decision_explanation") return result.decision_explanation || "";
   if (key === "cached") return result.cached ? "Yes" : "No";

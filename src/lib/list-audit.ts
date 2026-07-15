@@ -1,4 +1,4 @@
-import { applyDecisionIntegrity, isReservedOrTestDomain, type MxEvidenceStatus } from "@/lib/decision-integrity";
+import { applyDecisionIntegrity, isReservedOrTestDomain, type CatchAllStatus, type MxEvidenceStatus } from "@/lib/decision-integrity";
 import { disposableDomainsSet } from "@/lib/disposable-domains";
 import { isRoleBasedEmail } from "@/lib/email-classification";
 
@@ -508,6 +508,10 @@ export function buildContactAuditDecision(input: Record<string, unknown>): Conta
   const smtpValid = readDetailsField(emailDetails, "smtpValid") === true;
   const mailboxStatus = smtpChecked ? (smtpValid ? "confirmed" : "rejected") : "unconfirmed";
   const catchAllValue = readDetailsField(emailDetails, "isCatchAll");
+  const rawCatchAllStatus = readDetailsField(emailDetails, "catchAllStatus") ?? input.catch_all_status;
+  const catchAllStatus: CatchAllStatus = ["yes", "no", "unknown", "not_tested", "lookup_failed"].includes(String(rawCatchAllStatus))
+    ? rawCatchAllStatus as CatchAllStatus
+    : catchAllValue === true ? "yes" : catchAllValue === false ? "no" : smtpChecked ? "unknown" : "not_tested";
   const integrity = applyDecisionIntegrity({
     email: normalizedEmail || email,
     score: riskScore,
@@ -515,7 +519,7 @@ export function buildContactAuditDecision(input: Record<string, unknown>): Conta
     isDisposable,
     mxStatus,
     mailboxStatus,
-    catchAllStatus: catchAllValue === true ? "yes" : catchAllValue === false ? "no" : smtpChecked ? "unknown" : "not_tested",
+    catchAllStatus,
   });
   const queue = integrity.queue;
 

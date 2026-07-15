@@ -15,7 +15,7 @@ import {
 } from "@/lib/plans";
 import { consumeLegacyCredits, getUniqueBillableEmails } from "@/lib/legacy-credits";
 import { buildCreditRequestId } from "@/lib/credit-accounting";
-import { reconcileInputRows, splitScreeningTextRows, type InputReconciliation } from "@/lib/decision-integrity";
+import { finalizeInputReconciliation, reconcileInputRows, splitScreeningTextRows, type InputReconciliation } from "@/lib/decision-integrity";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SECRET_KEY || "");
@@ -395,11 +395,9 @@ export async function POST(request: NextRequest) {
       creditsAvailable: legacyCreditResult.creditsAvailable,
       remaining: legacyCreditResult.creditsRemaining,
     },
-    input_reconciliation: inputReconciliation ? {
-      ...inputReconciliation,
-      resultsProduced: results.length,
-      creditsConsumed: legacyCreditResult.deducted,
-    } : undefined,
+    input_reconciliation: inputReconciliation
+      ? finalizeInputReconciliation(inputReconciliation, { resultsProduced: results.length, creditsConsumed: legacyCreditResult.deducted })
+      : undefined,
     summary: {
       total,
       clean: cleanCount,

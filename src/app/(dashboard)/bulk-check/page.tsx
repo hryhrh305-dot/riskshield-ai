@@ -9,7 +9,7 @@ import type { AuditEvidence, ListAuditSummary } from "@/lib/list-audit";
 import { AuditReportPreview } from "@/components/audit/AuditReportPreview";
 import { chunkWebBulkEmails, getDroppedWebBulkFile, mergeWebBulkResponses, readWebBulkFileInput, reconcileWebBulkText, runWebBulkBatches, type WebBulkFile } from "@/lib/bulk-web-batching";
 import { trackE8Event } from "@/components/e8/AttributionObserver";
-import { getPlanAuditCta, statusLabel, type InputReconciliation } from "@/lib/decision-integrity";
+import { finalizeInputReconciliation, getPlanAuditCta, statusLabel, type InputReconciliation } from "@/lib/decision-integrity";
 
 interface BulkResult extends Record<string, unknown> {
   audit_queue?: string;
@@ -252,7 +252,10 @@ export default function BulkCheckPage() {
     setSummary(merged.summary);
     setAuditSummary(merged.audit_summary);
     setResultPlan(merged.plan || "");
-    setInputReconciliation({ ...reconciliation, resultsProduced: merged.results.length, creditsConsumed: merged.creditsDeducted });
+    setInputReconciliation(finalizeInputReconciliation(reconciliation, {
+      resultsProduced: merged.results.length,
+      creditsConsumed: merged.creditsDeducted,
+    }));
     setExportColumns(merged.export_columns.length ? merged.export_columns : exportColumns);
     setStatusMessage(`Scan complete. ${merged.results.length.toLocaleString()} unique emails checked.`);
     try {
@@ -460,6 +463,7 @@ export default function BulkCheckPage() {
   const suppressCount = results?.filter((result) => normalizeAuditQueue(result) === "suppress").length ?? 0;
   const visibleExportColumns = exportColumns.filter((column) => {
     if (column.key === "risk_level" && exportColumns.some((item) => item.key === "decision")) return false;
+    if (["engine_version", "policy_rules_version", "audit_id", "audited_at"].includes(column.key)) return false;
     if (["recommendation", "solution_summary", "ai_explanation", "dkim_selector", "domain_age_days"].includes(column.key)) {
       return !!results?.some((result) => readExportValue(result, column.key) !== "");
     }
@@ -574,9 +578,10 @@ sales@domain.com`}</pre>
         {inputReconciliation && (
           <div className="rs-card mb-6 rounded-[28px] p-5">
             <h2 className="text-sm font-semibold text-white">Input reconciliation</h2>
-            <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 lg:grid-cols-6">
+            <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 xl:grid-cols-7">
               {[
                 ["Input rows", inputReconciliation.inputRows],
+                ["Syntax accepted", inputReconciliation.syntaxAccepted],
                 ["Unique processed", inputReconciliation.uniqueValidAddressesProcessed],
                 ["Rejected", inputReconciliation.rejectedBeforeScreening],
                 ["Duplicates", inputReconciliation.duplicatesRemoved],

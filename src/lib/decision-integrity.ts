@@ -1,17 +1,24 @@
 export type Decision = "ALLOW" | "REVIEW" | "BLOCK";
 export type MxEvidenceStatus = "present" | "absent" | "null_mx" | "lookup_failed" | "timed_out" | "not_tested";
 export type MailboxEvidenceStatus = "confirmed" | "rejected" | "unconfirmed" | "not_tested";
-export type CatchAllStatus = "yes" | "no" | "unknown" | "not_tested";
+export type CatchAllStatus = "yes" | "no" | "unknown" | "not_tested" | "lookup_failed";
 
 export type ReconciledInputRow = {
   rowNumber: number;
   originalValue: string;
   normalizedValue: string | null;
   status: "ACCEPTED" | "REJECT_BEFORE_SCREENING" | "DUPLICATE";
+  accepted: boolean;
+  rejected: boolean;
+  duplicate: boolean;
+  processed: boolean;
+  charged: boolean;
+  rejectionReason: "INVALID_EMAIL_SYNTAX" | "DUPLICATE_NORMALIZED_EMAIL" | null;
 };
 
 export type InputReconciliation = {
   inputRows: number;
+  syntaxAccepted: number;
   uniqueValidAddressesProcessed: number;
   rejectedBeforeScreening: number;
   duplicatesRemoved: number;
@@ -39,7 +46,7 @@ const COMMON_PROVIDER_TYPOS: Record<string, string> = {
 };
 
 export function normalizeScreeningEmail(value: string): string | null {
-  const trimmed = value.trim();
+  const trimmed = value.trim().replace(/^mailto:/iu, "").trim();
   if (!trimmed || trimmed.startsWith("#") || /\s/u.test(trimmed) || !EMAIL_REGEX.test(trimmed)) return null;
   const at = trimmed.lastIndexOf("@");
   if (at <= 0 || at === trimmed.length - 1) return null;
@@ -61,7 +68,22 @@ export function reconcileInputRows(values: string[]): InputReconciliation {
     if (!normalizedValue) status = "REJECT_BEFORE_SCREENING";
     else if (seen.has(normalizedValue)) status = "DUPLICATE";
 
-    const row = { rowNumber: index + 1, originalValue, normalizedValue, status };
+    const row: ReconciledInputRow = {
+      rowNumber: index + 1,
+      originalValue,
+      normalizedValue,
+      status,
+      accepted: status === "ACCEPTED",
+      rejected: status === "REJECT_BEFORE_SCREENING",
+      duplicate: status === "DUPLICATE",
+      processed: false,
+      charged: false,
+      rejectionReason: status === "REJECT_BEFORE_SCREENING"
+        ? "INVALID_EMAIL_SYNTAX"
+        : status === "DUPLICATE"
+          ? "DUPLICATE_NORMALIZED_EMAIL"
+          : null,
+    };
     rows.push(row);
     if (status === "ACCEPTED" && normalizedValue) {
       seen.add(normalizedValue);
@@ -73,6 +95,7 @@ export function reconcileInputRows(values: string[]): InputReconciliation {
 
   return {
     inputRows: values.length,
+    syntaxAccepted: rows.filter((row) => row.normalizedValue !== null).length,
     uniqueValidAddressesProcessed: accepted.length,
     rejectedBeforeScreening: rejected.length,
     duplicatesRemoved: rows.filter((row) => row.status === "DUPLICATE").length,
@@ -81,6 +104,28 @@ export function reconcileInputRows(values: string[]): InputReconciliation {
     accepted,
     rejected,
     rows,
+  };
+}
+
+export function finalizeInputReconciliation(
+  reconciliation: InputReconciliation,
+  outcome: { resultsProduced: number; creditsConsumed: number },
+): InputReconciliation {
+  const resultsProduced = Math.max(0, Math.min(reconciliation.accepted.length, Math.trunc(outcome.resultsProduced)));
+  const creditsConsumed = Math.max(0, Math.min(reconciliation.accepted.length, Math.trunc(outcome.creditsConsumed)));
+  let acceptedIndex = 0;
+  const rows = reconciliation.rows.map((row) => {
+    if (row.status !== "ACCEPTED") return { ...row, processed: false, charged: false };
+    const index = acceptedIndex++;
+    return { ...row, processed: index < resultsProduced, charged: index < creditsConsumed };
+  });
+
+  return {
+    ...reconciliation,
+    rows,
+    uniqueValidAddressesProcessed: resultsProduced,
+    resultsProduced,
+    creditsConsumed,
   };
 }
 
