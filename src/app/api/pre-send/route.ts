@@ -33,6 +33,15 @@ export async function GET(request: NextRequest) {
 
   const campaignId = request.nextUrl.searchParams.get("campaign_id");
   if (campaignId) {
+    const { data: ownedCampaign } = await getSupabaseAdmin()
+      .from("pre_send_checks")
+      .select("id")
+      .eq("id", campaignId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!ownedCampaign) {
+      return NextResponse.json({ error: "CAMPAIGN_NOT_FOUND" }, { status: 404 });
+    }
     const { data: results } = await getSupabaseAdmin()
       .from("pre_send_results")
       .select("id, email, risk_score, decision, reasons")

@@ -4,9 +4,10 @@ import { useState, type DragEvent } from "react";
 import * as XLSXLib from "xlsx";
 import Link from "next/link";
 import { Upload, FileText, Download, CheckCircle, AlertTriangle, XCircle, ArrowRight, BarChart3 } from "lucide-react";
-import { buildCsvContent, downloadCsvFile, type CsvColumn } from "@/lib/export/csv";
+import { buildCsvContent, downloadCsvFile, sanitizeSpreadsheetCell, type CsvColumn } from "@/lib/export/csv";
 import type { AuditEvidence, ListAuditSummary } from "@/lib/list-audit";
 import { AuditReportPreview } from "@/components/audit/AuditReportPreview";
+import { buildAuditReportModel, buildClientReportHtml } from "@/lib/audit/report-format";
 import { chunkWebBulkEmails, getDroppedWebBulkFile, mergeWebBulkResponses, readWebBulkFileInput, reconcileWebBulkText, runWebBulkBatches, type WebBulkFile } from "@/lib/bulk-web-batching";
 import { trackE8Event } from "@/components/e8/AttributionObserver";
 import { finalizeInputReconciliation, getPlanAuditCta, statusLabel, type InputReconciliation } from "@/lib/decision-integrity";
@@ -47,6 +48,12 @@ interface BulkResult extends Record<string, unknown> {
   dmarc_policy?: string | null;
   dkim_selector?: string | null;
   mx_records?: string | null;
+  normalized_email?: string | null;
+  primary_reason_code?: string | null;
+  engine_version?: string | null;
+  policy_rules_version?: string | null;
+  audit_id?: string | null;
+  audited_at?: string | null;
 }
 
 interface ExportColumn {
@@ -85,6 +92,9 @@ export default function BulkCheckPage() {
   const [dragOver, setDragOver] = useState(false);
   const [inputReconciliation, setInputReconciliation] = useState<InputReconciliation | null>(null);
   const [resultPlan, setResultPlan] = useState("");
+  const [decisionFilter, setDecisionFilter] = useState<"all" | AuditQueue>("all");
+  const [resultSearch, setResultSearch] = useState("");
+  const [visibleResultLimit, setVisibleResultLimit] = useState(250);
   const [exportColumns, setExportColumns] = useState<ExportColumn[]>([
     { key: "email", label: "Email" },
     { key: "decision", label: "Final Decision" },
@@ -144,7 +154,7 @@ export default function BulkCheckPage() {
     const decision = result.risk_level || result.decision || "";
 
     if (column.key === "email") {
-      const priority = new Set(["email", "decision", "confidence", "primary_reason", "recommended_action"]);
+      const priority = new Set(["email", "decision", "risk_score", "confidence", "primary_reason", "recommended_action", "mailbox_status"]);
       const technicalColumns = visibleExportColumns.filter((item) => !priority.has(item.key));
       return (
         <div>
@@ -249,6 +259,9 @@ export default function BulkCheckPage() {
     });
     const merged = mergeWebBulkResponses(responses);
     setResults(merged.results as BulkResult[]);
+    setDecisionFilter("all");
+    setResultSearch("");
+    setVisibleResultLimit(250);
     setSummary(merged.summary);
     setAuditSummary(merged.audit_summary);
     setResultPlan(merged.plan || "");
@@ -338,14 +351,14 @@ export default function BulkCheckPage() {
     if (!results || results.length === 0) return;
     setXlsxDownloading(true);
     try {
-      const data: Array<Array<string | number>> = [exportColumns.map((column) => column.label)];
+      const data: Array<Array<string | number>> = [exportColumns.map((column) => sanitizeSpreadsheetCell(column.label))];
       for (const result of results) {
-        data.push(exportColumns.map((column) => readExportValue(result, column.key)));
+        data.push(exportColumns.map((column) => sanitizeSpreadsheetCell(readExportValue(result, column.key))));
       }
       const ws = XLSXLib.utils.aoa_to_sheet(data);
       const wb = XLSXLib.utils.book_new();
       XLSXLib.utils.book_append_sheet(wb, ws, "Secwyn Results");
-      XLSXLib.writeFile(wb, "secwyn-results.xlsx");
+      XLSXLib.writeFile(wb, "secwyn-contact-audit-results.xlsx");
     } catch (e) {
       console.error("XLSX failed:", e);
     } finally {
@@ -364,19 +377,13 @@ export default function BulkCheckPage() {
             return level === "REVIEW" || level === "BLOCK";
           });
 
-    const header = exportColumns.map((column) => `"${column.label.replace(/"/g, "\"\"")}"`).join(",");
-    const rows = filtered.map((result) => exportColumns.map((column) => {
-      const value = String(readExportValue(result, column.key)).replace(/"/g, "\"\"");
-      return `"${value}"`;
-    }).join(","));
-    const csv = header + "\n" + rows.join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${filter}_list.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const columns: Array<CsvColumn<BulkResult>> = exportColumns.map((column) => ({
+      key: column.key,
+      label: column.label,
+      format: (row) => readExportValue(row, column.key),
+    }));
+    const filename = filter === "all" ? "secwyn-contact-audit-results.csv" : filter === "clean" ? "secwyn-send-list.csv" : "secwyn-review-and-suppress-list.csv";
+    downloadCsvFile(filename, buildCsvContent(filtered, columns));
   }
 
   function getAuditResults(queue: AuditQueue) {
@@ -443,24 +450,40 @@ export default function BulkCheckPage() {
       { key: "sendRate", label: "Send Rate", format: (row) => row.sendRate },
       { key: "reviewRate", label: "Review Rate", format: (row) => row.reviewRate },
       { key: "suppressRate", label: "Suppress Rate", format: (row) => row.suppressRate },
-      { key: "campaignReadinessScore", label: "Campaign Readiness Score" },
-      { key: "launchStatus", label: "Launch Status" },
       { key: "listAcceptance", label: "List Acceptance" },
       { key: "topDecisionDrivers", label: "Top Decision Drivers", format: (row) => row.topDecisionDrivers.map((item) => `${item.reasonCode} (${item.count})`).join("; ") },
-      { key: "campaignSendsAvoided", label: "Campaign Sends Avoided", format: (row) => row.estimatedWastePrevented.campaignSendsAvoided },
-      { key: "estimatedReviewMinutes", label: "Estimated Review Minutes", format: (row) => row.estimatedWastePrevented.estimatedReviewMinutes },
-      { key: "sdrHourlyCostUsd", label: "Assumed SDR Hourly Cost USD", format: (row) => row.estimatedWastePrevented.sdrHourlyCostUsd },
-      { key: "estimatedOperationalWasteAvoidedUsd", label: "Estimated Operational Waste Avoided USD", format: (row) => row.estimatedWastePrevented.estimatedOperationalWasteAvoidedUsd },
-      { key: "formula", label: "Estimate Formula", format: (row) => row.estimatedWastePrevented.formula },
       { key: "clientRiskBrief", label: "Client Risk Brief" },
     ]);
 
-    downloadCsvFile("risk_summary.csv", csv);
+    downloadCsvFile("secwyn-campaign-audit-summary.csv", csv);
+  }
+
+  function downloadReportHtml() {
+    if (!auditSummary || !results) return;
+    const html = buildClientReportHtml(buildAuditReportModel({ summary: auditSummary, results, reconciliation: inputReconciliation }));
+    const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "secwyn-campaign-contact-risk-audit.html";
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function printReport() {
+    window.print();
   }
 
   const sendCount = results?.filter((result) => normalizeAuditQueue(result) === "send").length ?? 0;
   const reviewCount = results?.filter((result) => normalizeAuditQueue(result) === "review").length ?? 0;
   const suppressCount = results?.filter((result) => normalizeAuditQueue(result) === "suppress").length ?? 0;
+  const filteredResults = (results || []).filter((result) => {
+    const matchesDecision = decisionFilter === "all" || normalizeAuditQueue(result) === decisionFilter;
+    const query = resultSearch.trim().toLowerCase();
+    const matchesSearch = !query || [result.email, result.primary_reason, result.recommended_action, result.decision, result.risk_level]
+      .some((value) => String(value || "").toLowerCase().includes(query));
+    return matchesDecision && matchesSearch;
+  });
+  const visibleResults = filteredResults.slice(0, visibleResultLimit);
   const visibleExportColumns = exportColumns.filter((column) => {
     if (column.key === "risk_level" && exportColumns.some((item) => item.key === "decision")) return false;
     if (["engine_version", "policy_rules_version", "audit_id", "audited_at"].includes(column.key)) return false;
@@ -487,7 +510,7 @@ export default function BulkCheckPage() {
           </div>
           <h1 className="rs-title-settle text-3xl font-semibold text-white sm:text-4xl">Pre-send List Audit</h1>
           <p className="rs-fade-up rs-fade-up-delay-1 mx-auto mt-3 max-w-2xl text-slate-400">
-            Upload or paste a lead list to generate Send / Review / Suppress queues, a Campaign Readiness Score, CSV exports, and a client-ready audit report.
+            Upload or paste a lead list to generate Send / Review / Suppress queues, evidence-backed actions, CSV/XLSX exports, and a client-ready audit report.
           </p>
           <Link href="/pricing" className="rs-link-arrow mt-3 inline-flex items-center gap-1 text-sm text-slate-300 hover:text-white">
             Need API access for workflow automation? <span className="underline">View Plans</span>
@@ -536,7 +559,7 @@ sales@domain.com`}</pre>
               {loading ? "Scanning..." : "Check All Emails"}
             </button>
             {statusMessage && (
-              <p className="mt-2 text-center text-xs text-slate-500">{statusMessage}</p>
+              <p role="status" aria-live="polite" className="mt-2 text-center text-xs text-slate-500">{statusMessage}</p>
             )}
           </div>
 
@@ -602,7 +625,7 @@ sales@domain.com`}</pre>
                 </div>
                 <h2 className="mt-3 text-lg font-semibold text-white">Review-ready bulk report</h2>
                 <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">
-                  Use the report below as the single source of truth for launch status, readiness, queue breakdown, and client-facing recommendations.
+                  Use the report below to reconcile input, review the decision distribution, work each queue, and deliver evidence-backed next steps.
                 </p>
               </div>
               <div className="w-full max-w-2xl rounded-[24px] border border-white/10 bg-black/20 p-4">
@@ -652,17 +675,17 @@ sales@domain.com`}</pre>
         {auditSummary && hasClientReadyReport && (
           <AuditReportPreview
             summary={auditSummary}
-            totalContacts={auditSummary.total}
-            clientName="Client"
-            campaignName="Outbound Campaign"
-            plan={resultPlan}
+            results={results || []}
+            reconciliation={inputReconciliation}
+            onDownloadHtml={downloadReportHtml}
+            onPrint={printReport}
           />
         )}
 
         {auditSummary && !hasClientReadyReport && (
           <section className="rs-card mb-6 rounded-[28px] p-6">
             <div className="text-xs font-medium uppercase tracking-[0.22em] text-slate-500">Basic List Audit Summary</div>
-            <p className="mt-2 text-sm text-slate-400">Starter includes the core queue breakdown and basic CSV/XLSX exports. Client-ready Campaign Readiness and List Acceptance reports start on Growth.</p>
+            <p className="mt-2 text-sm text-slate-400">Starter includes the core queue breakdown and basic CSV/XLSX exports. The downloadable Secwyn HTML/print report and separate client-delivery queue pack start on Growth.</p>
             <div className="mt-4 grid grid-cols-3 gap-3">
               <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.08] p-3 text-emerald-100"><div className="text-[11px] uppercase tracking-[0.18em]">Send</div><div className="mt-1 text-xl font-semibold">{auditSummary.sendCount}</div></div>
               <div className="rounded-2xl border border-amber-500/15 bg-amber-500/[0.08] p-3 text-amber-100"><div className="text-[11px] uppercase tracking-[0.18em]">Review</div><div className="mt-1 text-xl font-semibold">{auditSummary.reviewCount}</div></div>
@@ -685,23 +708,35 @@ sales@domain.com`}</pre>
                   Open Technical evidence on mobile for additional signals
                 </div>
               </div>
+              <div className="no-print mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div aria-label="Decision tabs" className="flex flex-wrap gap-2">
+                  {(["all", "send", "review", "suppress"] as const).map((filter) => {
+                    const count = filter === "all" ? results.length : filter === "send" ? sendCount : filter === "review" ? reviewCount : suppressCount;
+                    return <button key={filter} type="button" aria-pressed={decisionFilter === filter} onClick={() => { setDecisionFilter(filter); setVisibleResultLimit(250); }} className={`rounded-full border px-3 py-2 text-xs font-medium capitalize ${decisionFilter === filter ? "border-white/30 bg-white/12 text-white" : "border-white/10 bg-white/[0.03] text-slate-400 hover:text-white"}`}>{filter} ({count.toLocaleString()})</button>;
+                  })}
+                </div>
+                <label className="relative block w-full lg:max-w-xs">
+                  <span className="sr-only">Search contacts</span>
+                  <input value={resultSearch} onChange={(event) => { setResultSearch(event.target.value); setVisibleResultLimit(250); }} placeholder="Search contacts" className="rs-input w-full px-4 py-2.5 text-sm" />
+                </label>
+              </div>
             </div>
             <div className="max-h-[600px] overflow-x-auto overflow-y-auto overscroll-contain">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-black/70 backdrop-blur-xl">
                   <tr>
                     {visibleExportColumns.map((column) => (
-                      <th key={column.key} className={`${["email", "decision", "confidence", "primary_reason", "recommended_action"].includes(column.key) ? "" : "hidden"} min-w-[120px] whitespace-nowrap border-b border-white/8 px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.22em] text-slate-500`}>
+                      <th key={column.key} className={`${["email", "decision", "risk_score", "confidence", "primary_reason", "recommended_action", "mailbox_status"].includes(column.key) ? "" : "hidden"} min-w-[120px] whitespace-nowrap border-b border-white/8 px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.22em] text-slate-500`}>
                         {column.label}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {results.map((result, index) => (
+                  {visibleResults.map((result, index) => (
                     <tr key={index} className="border-t border-white/8 transition hover:bg-white/[0.03]">
                       {visibleExportColumns.map((column) => (
-                        <td key={column.key} className={`${["email", "decision", "confidence", "primary_reason", "recommended_action"].includes(column.key) ? "" : "hidden"} px-4 py-3 text-xs align-top leading-5`}>
+                        <td key={column.key} className={`${["email", "decision", "risk_score", "confidence", "primary_reason", "recommended_action", "mailbox_status"].includes(column.key) ? "" : "hidden"} px-4 py-3 text-xs align-top leading-5`}>
                           {renderCell(result, column)}
                         </td>
                       ))}
@@ -710,6 +745,8 @@ sales@domain.com`}</pre>
                 </tbody>
               </table>
             </div>
+            {filteredResults.length === 0 && <div className="border-t border-white/8 px-5 py-8 text-center text-sm text-slate-500">No contacts match this queue or search.</div>}
+            {visibleResults.length < filteredResults.length && <div className="no-print border-t border-white/8 p-4 text-center"><button type="button" onClick={() => setVisibleResultLimit((value) => value + 250)} className="rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm text-slate-200 hover:bg-white/10">Show 250 more ({(filteredResults.length - visibleResults.length).toLocaleString()} remaining)</button></div>}
           </div>
         )}
 

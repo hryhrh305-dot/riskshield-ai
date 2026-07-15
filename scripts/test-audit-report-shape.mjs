@@ -23,7 +23,7 @@ const transpiled = ts.transpileModule(source, {
 fs.writeFileSync(tempFile, transpiled, "utf8");
 
 const require = createRequire(import.meta.url);
-const { formatAuditReport } = require(tempFile);
+const { buildAuditReportModel, buildClientReportHtml } = require(tempFile);
 
 const summary = {
   total: 10,
@@ -55,19 +55,21 @@ const summary = {
   clientRiskBrief: "This list is not recommended for full-volume sending as-is.",
 };
 
-const report = formatAuditReport(summary, new Date("2026-06-27T10:30:00Z"));
+const results = [
+  { email: "review@example.com", decision: "REVIEW", risk_score: 40, primary_reason_code: "MAILBOX_UNCONFIRMED", primary_reason: "Mailbox unconfirmed", recommended_action: "Review this contact before launch.", mx_status: "present", mailbox_status: "unconfirmed", catch_all_status: "not_tested", audit_id: "audit-1", audited_at: "2026-06-27T10:00:00Z", engine_version: "engine-v1", policy_rules_version: "policy-v1" },
+];
+const report = buildAuditReportModel({ summary, results, generatedAt: new Date("2026-06-27T10:30:00Z") });
+const html = buildClientReportHtml(report);
 
-assert.equal(report.launchStatusLabel, "Launch with Caution");
-assert.equal(report.listAcceptanceLabel, "Accept After Cleanup");
-assert.equal(report.sendLabel, "4 (40%)");
-assert.equal(report.reviewLabel, "3 (30%)");
-assert.equal(report.suppressLabel, "3 (30%)");
-assert.equal(report.readinessLabel, "61/100");
-assert.ok(report.generatedAtLabel.length > 0);
-assert.ok(report.summaryLine.includes("launch with caution"));
-assert.ok(report.topRiskReasonText.includes("Disposable or temporary domain"));
-assert.ok(report.wasteSnapshot.includes("risky sends prevented"));
-assert.ok(report.wasteSnapshot.includes("$2.55"));
+assert.equal(report.title, "Campaign Contact Risk Audit");
+assert.equal(report.distribution.reduce((sum, item) => sum + item.count, 0), 1);
+assert.equal(report.metadata.auditId, "audit-1");
+assert.match(report.summaryLine, /unique (contact was|contacts were) audited/);
+assert.ok(html.includes("Input Reconciliation"));
+assert.ok(html.includes("Evidence Coverage"));
+assert.ok(html.includes("@media print"));
+assert.ok(!html.includes("Waste Prevented"));
+assert.ok(!html.includes("Campaign Readiness Score"));
 
 console.log("=== Audit Report Preview Shape ===");
 console.log(JSON.stringify(report, null, 2));

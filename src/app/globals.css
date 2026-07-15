@@ -344,6 +344,76 @@ body {
   }
 }
 
+@media print {
+  @page {
+    size: auto;
+    margin: 14mm;
+  }
+
+  body {
+    background: #fff !important;
+    color: #101a2b !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .secwyn-print-report,
+  .secwyn-print-report * {
+    visibility: visible !important;
+  }
+
+  .secwyn-print-report {
+    position: absolute !important;
+    inset: 0 auto auto 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+    color: #101a2b !important;
+    box-shadow: none !important;
+  }
+
+  .secwyn-print-report [class*="text-white"],
+  .secwyn-print-report [class*="text-slate"],
+  .secwyn-print-report [class*="text-emerald"],
+  .secwyn-print-report [class*="text-amber"],
+  .secwyn-print-report [class*="text-red"] {
+    color: #101a2b !important;
+  }
+
+  .secwyn-print-report [class*="bg-black"],
+  .secwyn-print-report [class*="bg-white"],
+  .secwyn-print-report [class*="bg-emerald"],
+  .secwyn-print-report [class*="bg-amber"],
+  .secwyn-print-report [class*="bg-red"] {
+    background: #fff !important;
+  }
+
+  .secwyn-print-report [class*="border-"] {
+    border-color: #d8dee7 !important;
+  }
+
+  .secwyn-print-report .report-keep,
+  .secwyn-print-report .report-section {
+    break-inside: avoid;
+  }
+
+  .secwyn-print-report thead {
+    display: table-header-group;
+  }
+
+  .secwyn-print-report tr {
+    break-inside: avoid;
+  }
+
+  .secwyn-print-report .no-print {
+    display: none !important;
+  }
+}
+
 @supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
   .rs-card,
   .rs-card-strong {

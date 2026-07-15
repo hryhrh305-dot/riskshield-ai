@@ -28,6 +28,7 @@ export default function PreSendPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, CampaignResult[]>>({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   async function loadCampaigns() {
     try {
@@ -35,8 +36,8 @@ export default function PreSendPage() {
       if (res.ok) {
         const data = await res.json();
         setCampaigns(data.campaigns || []);
-      }
-    } catch {} finally {
+      } else setError("Audit history could not be loaded.");
+    } catch { setError("Audit history could not be loaded."); } finally {
       setLoading(false);
     }
   }
@@ -60,8 +61,8 @@ export default function PreSendPage() {
         if (res.ok) {
           const data = await res.json();
           setResults((prev) => ({ ...prev, [campaignId]: data.results || [] }));
-        }
-      } catch {}
+        } else setError("The saved contact results could not be loaded.");
+      } catch { setError("The saved contact results could not be loaded."); }
     }
   }
 
@@ -101,6 +102,8 @@ export default function PreSendPage() {
           </div>
         )}
 
+        {error && <div role="alert" className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div>}
+
         {!loading && campaigns.length === 0 && (
           <div className="rs-card rounded-[28px] p-12 text-center">
             <BarChart3 className="mx-auto mb-3 h-10 w-10 text-slate-600" />
@@ -116,6 +119,7 @@ export default function PreSendPage() {
             <section key={campaign.id} className="rs-card rs-card-hover rounded-[28px] overflow-hidden">
               <button
                 onClick={() => toggleExpand(campaign.id)}
+                aria-expanded={expandedId === campaign.id}
                 className="flex w-full flex-col gap-4 p-5 text-left sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">

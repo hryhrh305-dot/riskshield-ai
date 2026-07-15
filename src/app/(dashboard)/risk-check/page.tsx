@@ -25,6 +25,12 @@ interface RiskResult {
   primary_reason?: string | null;
   recommended_action?: string | null;
   confidence?: number | null;
+  audit_id?: string | null;
+  audited_at?: string | null;
+  engine_version?: string | null;
+  policy_rules_version?: string | null;
+  decision_limitation?: string | null;
+  evidence_state?: { mx?: string; mailbox?: string; catch_all?: string } | null;
   credits: {
     remaining: number;
     success: boolean;
@@ -338,7 +344,7 @@ export default function RiskCheckPage() {
                 <div className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-500">Lead Quality</div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <div className="text-xs text-slate-500">Email Trust</div>
+                    <div className="text-xs text-slate-500">Email Evidence</div>
                     <div className="text-sm font-semibold text-slate-100">
                       {emailDetails ? (
                         emailDetails.isDisposable ? "Disposable" :
@@ -372,7 +378,7 @@ export default function RiskCheckPage() {
                       {ipDetails ? (
                         ipDetails.isProxy ? "Proxy/VPN" :
                         ipDetails.isHosting ? "Datacenter" :
-                        "Low Risk"
+                        "No proxy or hosting signal"
                       ) : "N/A"}
                     </div>
                   </div>
@@ -482,7 +488,7 @@ export default function RiskCheckPage() {
                       {emailDetails?.mxStatus === "timed_out" ? "DNS query timed out. Retry later." :
                        emailDetails?.mxStatus === "lookup_failed" ? "DNS lookup failed. Retry later." :
                        !emailDetails?.mxChecked ? "Not tested." :
-                       emailDetails?.hasMX ? "The domain can receive email." :
+                       emailDetails?.hasMX ? "The domain publishes a mail server; this does not confirm the mailbox." :
                        "No usable MX was found. Do not send until the address is corrected."}
                     </div>
                   </div>
@@ -604,6 +610,26 @@ export default function RiskCheckPage() {
                 <p className="text-sm text-slate-200">{result.decision_explanation}</p>
               </div>
             )}
+
+            <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <section className="rounded-2xl border border-white/10 bg-white/[0.035] p-4" aria-labelledby="single-evidence-boundary">
+                <h3 id="single-evidence-boundary" className="text-sm font-medium text-slate-200">Evidence boundary</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  Domain evidence is not proof that this mailbox exists, will accept a message, or will place a message in the inbox. Unknown, not-tested, and failed signals remain limitations.
+                </p>
+                {result.decision_limitation && <p className="mt-2 text-xs leading-5 text-slate-500">{result.decision_limitation}</p>}
+              </section>
+              <section className="rounded-2xl border border-white/10 bg-white/[0.035] p-4" aria-labelledby="single-audit-metadata">
+                <h3 id="single-audit-metadata" className="text-sm font-medium text-slate-200">Audit metadata</h3>
+                <dl className="mt-2 space-y-1 text-xs leading-5 text-slate-400">
+                  <div><dt className="inline text-slate-500">Audit ID: </dt><dd className="inline break-all">{result.audit_id || "Not available"}</dd></div>
+                  <div><dt className="inline text-slate-500">Audited at: </dt><dd className="inline">{result.audited_at || "Not available"}</dd></div>
+                  <div><dt className="inline text-slate-500">Engine version: </dt><dd className="inline">{result.engine_version || "Not available"}</dd></div>
+                  <div><dt className="inline text-slate-500">Policy version: </dt><dd className="inline">{result.policy_rules_version || "Not available"}</dd></div>
+                  <div><dt className="inline text-slate-500">Evidence state: </dt><dd className="inline">MX {result.evidence_state?.mx || "unknown"} · Mailbox {result.evidence_state?.mailbox || "unknown"} · Catch-all {result.evidence_state?.catch_all || "unknown"}</dd></div>
+                </dl>
+              </section>
+            </div>
 
             <button
               onClick={() => setShowDetails(!showDetails)}

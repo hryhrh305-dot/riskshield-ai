@@ -20,8 +20,14 @@ function stringifyCsvValue(value: unknown): string {
   return String(value);
 }
 
+export function sanitizeSpreadsheetCell(value: unknown): string {
+  const text = stringifyCsvValue(value);
+  const firstMeaningfulCharacter = text.match(/^[\t\r\n ]*([^\t\r\n ])/u)?.[1] || "";
+  return ["=", "+", "-", "@"].includes(firstMeaningfulCharacter) ? `'${text}` : text;
+}
+
 function escapeCsvCell(value: unknown): string {
-  const text = stringifyCsvValue(value).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const text = sanitizeSpreadsheetCell(value).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   return `"${text.replace(/"/g, "\"\"")}"`;
 }
 

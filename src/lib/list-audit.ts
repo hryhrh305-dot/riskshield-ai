@@ -644,7 +644,7 @@ export function buildTopRiskReasons(decisions: ContactAuditDecision[]): Array<{ 
   const counts = new Map<string, number>();
   for (const decision of decisions) {
     const code = decision.primaryReasonCode;
-    if (!code || code === "UNKNOWN_RISK") continue;
+    if (!code || code === "UNKNOWN_RISK" || decision.queue === "send" || getReasonLabel(code).severity === "positive") continue;
     counts.set(code, (counts.get(code) || 0) + 1);
   }
 

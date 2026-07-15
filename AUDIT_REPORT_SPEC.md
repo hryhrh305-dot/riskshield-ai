@@ -1,85 +1,64 @@
-# RiskShield AI Client-ready Audit Report Spec
+# Secwyn Client-ready Audit Report Specification
 
 ## Purpose
 
-This report is the customer-facing deliverable for agencies and outbound teams. It should turn a list audit into something a client can review, approve, and export.
+The Secwyn report is a professional, Secwyn-branded record of an already completed contact audit. It helps an operator or client understand the decision distribution, reconcile the input, work the required actions, inspect evidence limitations, and retain or print the result.
+
+It is not a certificate, human audit, legal opinion, delivery guarantee, inbox guarantee, white-label document, or estimate of revenue/savings.
+
+## Source of truth
+
+The report must be derived from the same in-memory canonical contact results, list summary, and input reconciliation returned for the completed Web audit. It must not create a second scoring model, recompute contact decisions, call an LLM, call a paid vendor, or change Credits.
 
 ## Required report sections
 
-The report must include:
+1. Secwyn cover/header
+2. Executive audit summary using actual Send/Review/Suppress counts
+3. Input reconciliation
+4. Decision distribution and queue meaning
+5. Required Actions derived from recorded `recommended_action` values
+6. Top Risk Drivers derived only from negative primary reasons
+7. Evidence Coverage
+8. Contact-level Results
+9. Methodology
+10. Evidence Limitations
+11. Audit Metadata
+12. Secwyn support information
 
-1. Client name
-2. Campaign name
-3. Upload date / audit date
-4. Total contacts
-5. Launch Status
-6. Campaign Readiness Score
-7. Send / Review / Suppress breakdown
-8. Top Risk Reasons
-9. Estimated Waste Prevented
-10. Recommended Workflow
-11. Client Risk Brief
-12. Export links
+## Required facts
 
-## Required export artifacts
+- Input rows, syntax accepted, rejected, duplicates, unique processed, results produced and audit Credits consumed
+- Send, Review and Suppress count and percentage
+- Email, final decision, base signal score, primary reason and recommended action
+- MX, mailbox and catch-all states without coercing unknown/failed/not-tested to No
+- Engine version, policy/rules version, audit ID and audit time when actually present
+- A separate report-generation timestamp
 
-The report should link to:
+## Artifacts
 
-- `send_queue.csv`
-- `review_queue.csv`
-- `suppression_list.csv`
-- `risk_summary.csv`
+- On-screen report
+- Downloadable self-contained HTML report
+- Browser Print / Save PDF path
+- Full CSV and XLSX result exports
+- Separate Send, Review and Suppress CSV queues
+- Campaign audit summary CSV
 
-## Report content guidance
+All report views, generations, prints and repeated downloads consume zero additional contact Credits.
 
-### Launch Status
+## Truth and safety boundaries
 
-Show one of:
+- Domain evidence is not mailbox evidence.
+- Mailbox evidence is not inbox placement or delivery evidence.
+- Send means current evidence supports controlled campaign use, not zero risk.
+- Review means uncertainty, failure or judgment remains.
+- Suppress means a recorded blocking condition applies to the current campaign.
+- Do not display potential savings, bounces prevented, revenue preserved, protected domains, compliance status or other unmeasured outcomes.
+- Do not invent client, campaign, reviewer, approver, workspace or human-verification metadata.
+- Escape every inserted HTML value and neutralize spreadsheet formula markers in CSV/XLSX contexts.
 
-- `ready_to_launch`
-- `launch_with_caution`
-- `do_not_launch`
+## Scale and presentation
 
-### Campaign Readiness Score
-
-Use a simple score that can be explained to clients and internal stakeholders.
-
-### Send / Review / Suppress breakdown
-
-Show count and percentage by queue.
-
-### Top Risk Reasons
-
-List the most important risk drivers, not every low-signal detail.
-
-### Estimated Waste Prevented
-
-Estimate how much unnecessary sending, review time, or client risk was avoided by running the audit.
-
-### Recommended Workflow
-
-Explain the next operational step:
-
-- launch now
-- cleanup first
-- enrich first
-- suppress risky records
-
-### Client Risk Brief
-
-Provide a short, client-ready summary in plain language.
-
-## Tone
-
-The report should read like an agency deliverable:
-
-- credible
-- concise
-- client-safe
-- action-oriented
-- easy to forward
-
-## Output principle
-
-The goal is not to over-explain the model. The goal is to give the customer a report they can confidently use to launch or pause a campaign.
-
+- The on-screen report may preview a bounded number of contacts while stating the exact shown/total count.
+- CSV, XLSX and downloaded HTML retain the complete completed result set.
+- The report must remain readable in Secwyn dark and light themes, on mobile, and in an ink-conscious light print layout.
+- Print hides navigation and interactive controls, repeats table headers where supported, and avoids splitting key cards where practical.

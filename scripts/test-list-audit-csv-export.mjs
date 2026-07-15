@@ -32,7 +32,7 @@ const results = [
     confidence: 92,
     primary_reason: "Mail server present",
     recommended_action: "Launch as-is",
-    business_impact: "Low expected waste",
+    business_impact: "No blocking signal recorded",
     decision: "ALLOW",
     risk_score: 12,
     risk_level: "ALLOW",
@@ -58,7 +58,7 @@ const results = [
     confidence: 88,
     primary_reason: "Disposable or temporary domain",
     recommended_action: "Suppress this contact",
-    business_impact: "High waste risk",
+    business_impact: "Blocking signal recorded",
     decision: "BLOCK",
     risk_score: 91,
     risk_level: "BLOCK",
@@ -84,7 +84,7 @@ const results = [
     confidence: 95,
     primary_reason: "Established domain",
     recommended_action: "Launch as-is",
-    business_impact: "Low expected waste",
+    business_impact: "No blocking signal recorded",
     decision: "ALLOW",
     risk_score: 9,
     risk_level: "ALLOW",
@@ -97,7 +97,7 @@ const results = [
     confidence: 84,
     primary_reason: "No valid mail server",
     recommended_action: "Suppress this contact",
-    business_impact: "High waste risk",
+    business_impact: "Blocking signal recorded",
     decision: "BLOCK",
     risk_score: 88,
     risk_level: "BLOCK",
@@ -123,7 +123,7 @@ const results = [
     confidence: 90,
     primary_reason: "Mail server present",
     recommended_action: "Launch as-is",
-    business_impact: "Low expected waste",
+    business_impact: "No blocking signal recorded",
     decision: "ALLOW",
     risk_score: 11,
     risk_level: "ALLOW",
@@ -166,26 +166,11 @@ const auditSummary = {
   sendRate: 0.3,
   reviewRate: 0.4,
   suppressRate: 0.3,
-  campaignReadinessScore: 48,
-  launchStatus: "launch_with_caution",
-  listAcceptance: "accept_after_cleanup",
   topRiskReasons: [
     { reasonCode: "DISPOSABLE_DOMAIN", count: 2, label: "Disposable or temporary domain" },
     { reasonCode: "FREE_EMAIL_PROVIDER", count: 1, label: "Free email provider" },
   ],
-  estimatedWastePrevented: {
-    riskySendsPrevented: 3,
-    estimatedSendingCreditsSaved: 3,
-    estimatedSdrTimeSavedHours: 0.08,
-    estimatedWasteSavedUsd: 2.55,
-  },
-  recommendedWorkflow: [
-    "Do not launch this list as-is.",
-    "Remove Suppress contacts first.",
-    "Enrich or replace Review contacts.",
-    "Re-audit the list before sending.",
-  ],
-  clientRiskBrief: "This list should not be launched as-is.",
+  requiredActions: "Remove 3 Suppress contacts; review 4 Review contacts",
 };
 
 const columnsByQueue = {
@@ -234,15 +219,8 @@ const columnsByQueue = {
     { key: "sendRate", label: "Send Rate" },
     { key: "reviewRate", label: "Review Rate" },
     { key: "suppressRate", label: "Suppress Rate" },
-    { key: "campaignReadinessScore", label: "Campaign Readiness Score" },
-    { key: "launchStatus", label: "Launch Status" },
-    { key: "listAcceptance", label: "List Acceptance" },
     { key: "topRiskReasons", label: "Top Risk Reasons" },
-    { key: "riskySendsPrevented", label: "Risky Sends Prevented" },
-    { key: "estimatedSendingCreditsSaved", label: "Estimated Sending Credits Saved" },
-    { key: "estimatedSdrTimeSavedHours", label: "Estimated SDR Time Saved Hours" },
-    { key: "estimatedWasteSavedUsd", label: "Estimated Waste Saved USD" },
-    { key: "clientRiskBrief", label: "Client Risk Brief" },
+    { key: "requiredActions", label: "Required Actions" },
   ],
 };
 
@@ -264,8 +242,9 @@ assert.ok(!sendCsv.includes("review1@acme.com"));
 assert.ok(!sendCsv.includes("suppress1@tempmail.com"));
 assert.ok(reviewCsv.includes("Evidence Summary"));
 assert.ok(suppressCsv.includes("Evidence Summary"));
-assert.ok(summaryCsv.includes("Campaign Readiness Score"));
-assert.ok(summaryCsv.includes("Client Risk Brief"));
+assert.ok(summaryCsv.includes("Required Actions"));
+assert.ok(!summaryCsv.includes("Campaign Readiness Score"));
+assert.ok(!summaryCsv.includes("Estimated Waste Saved USD"));
 assert.ok(!sendCsv.includes("[object Object]"));
 assert.ok(!reviewCsv.includes("[object Object]"));
 assert.ok(!suppressCsv.includes("[object Object]"));
