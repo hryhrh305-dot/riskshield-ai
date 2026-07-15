@@ -114,6 +114,8 @@ function scanSelectedEmails() {
   var values = selection.getValues();
   var totalCells = 0;
   var skippedCells = 0;
+  var duplicateCells = 0;
+  var seenEmails = {};
   var skippedSamples = [];
   
   for (var i = 0; i < values.length; i++) {
@@ -123,8 +125,13 @@ function scanSelectedEmails() {
       totalCells++;
       var val = raw.toLowerCase();
       if (val && /^(?!.*\.\.)(?!\.)[^\s@]+(?<!\.)@(?!\.)[^\s@]+\.[^\s@]{2,}$/i.test(val)) {
-        emails.push(val);
-        emailPositions.push({ row: startRow + i, col: startCol + j });
+        if (seenEmails[val]) {
+          duplicateCells++;
+        } else {
+          seenEmails[val] = true;
+          emails.push(val);
+          emailPositions.push({ row: startRow + i, col: startCol + j });
+        }
       } else {
         skippedCells++;
         if (skippedSamples.length < 3) skippedSamples.push(raw);
@@ -144,7 +151,7 @@ function scanSelectedEmails() {
     return;
   }
 
-  processBatches_(sheet, selection, emails, apiKey, totalCells, skippedCells, skippedSamples, emailPositions);
+  processBatches_(sheet, selection, emails, apiKey, totalCells, skippedCells, skippedSamples, emailPositions, duplicateCells);
 }
 
 // ============ SCAN ENTIRE COLUMN ============
@@ -169,12 +176,19 @@ function scanEntireColumn() {
   var values = range.getValues();
   var emails = [];
   var emailPositions = [];
+  var seenEmails = {};
+  var duplicateCells = 0;
   
   for (var i = 0; i < values.length; i++) {
     var val = String(values[i][0]).trim().toLowerCase();
     if (val && /^(?!.*\.\.)(?!\.)[^\s@]+(?<!\.)@(?!\.)[^\s@]+\.[^\s@]{2,}$/i.test(val)) {
-      emails.push(val);
-      emailPositions.push({ row: i + 2, col: col }); // row starts at 2 (skip header)
+      if (seenEmails[val]) {
+        duplicateCells++;
+      } else {
+        seenEmails[val] = true;
+        emails.push(val);
+        emailPositions.push({ row: i + 2, col: col }); // row starts at 2 (skip header)
+      }
     }
   }
 
@@ -193,7 +207,7 @@ function scanEntireColumn() {
     return;
   }
 
-  processBatches_(sheet, range, emails, apiKey, emails.length, 0, [], emailPositions);
+  processBatches_(sheet, range, emails, apiKey, emails.length + duplicateCells, 0, [], emailPositions, duplicateCells);
 }
 
 // ============ CORE: BATCH PROCESSING ============
@@ -227,7 +241,7 @@ function fetchAllWithRetry_(requests) {
   }
 }
 
-function processBatches_(sheet, anchorRange, emails, apiKey, totalCells, skippedCells, skippedSamples, emailPositions) {
+function processBatches_(sheet, anchorRange, emails, apiKey, totalCells, skippedCells, skippedSamples, emailPositions, duplicateCells) {
   var ui = SpreadsheetApp.getUi();
   var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   var baseUrl = getApiBaseUrl_();
@@ -291,6 +305,7 @@ function processBatches_(sheet, anchorRange, emails, apiKey, totalCells, skipped
       "ALLOW (safe): " + totals.allow + " | REVIEW: " + totals.review + " | BLOCK: " + totals.block + "\n" +
       "Cached (charged): " + totals.cached + "\nCredits remaining: " + totals.remaining;
     if (skippedCells > 0) scanMsg += "\n\nSkipped " + skippedCells + " invalid/non-email cells.";
+    if (duplicateCells > 0) scanMsg += "\nDuplicates removed: " + duplicateCells;
     if (totalCells > 0 && totals.checked < totalCells) scanMsg += "\nDetected: " + totals.checked + " / " + totalCells + " cells";
     completePendingScan_(pendingScan);
     ui.alert("Scan Complete", scanMsg, ui.ButtonSet.OK);
@@ -426,6 +441,11 @@ function readExportValue_(result, key) {
     return "";
   }
   if (key === "mx_status") {
+    if (result.mx_status === "lookup_failed") return "Lookup failed";
+    if (result.mx_status === "timed_out") return "Timed out";
+    if (result.mx_status === "null_mx") return "Does not accept mail";
+    if (result.mx_status === "present") return "Present";
+    if (result.mx_status === "absent") return "Missing";
     if (!result.mxChecked) return "Not checked";
     return result.hasMX ? "Present" : "Missing";
   }
@@ -436,7 +456,13 @@ function readExportValue_(result, key) {
   if (key === "health_score") return result.health_score != null ? result.health_score : "";
   if (key === "disposable") return result.disposable ? "Yes" : "No";
   if (key === "role_based") return result.role_based ? "Yes" : "No";
-  if (key === "catch_all") return result.catch_all ? "Yes" : "No";
+  if (key === "catch_all") {
+    if (result.catch_all_status === "yes" || result.catch_all === true) return "Yes";
+    if (result.catch_all_status === "no" || result.catch_all === false) return "No";
+    if (result.catch_all_status === "not_tested") return "Not tested";
+    return "Unknown";
+  }
+  if (key === "decision_explanation") return result.decision_explanation || "";
   if (key === "cached") return result.cached ? "Yes" : "No";
 
   var value = result[key];
@@ -480,9 +506,10 @@ function writeResults_(sheet, anchorRange, results, exportColumns, emailPosition
 
     // Color the risk score cell
     var scoreCell = sheet.getRange(rowToWrite, startCol + 1 + riskScoreIndex, 1, 1);
-    if (r.risk_score >= 66) {
+    var decision = String(r.decision || r.risk_level || "").toUpperCase();
+    if (decision === "BLOCK" || r.risk_score >= 66) {
       scoreCell.setBackground("#FEE2E2");
-    } else if (r.risk_score >= 26) {
+    } else if (decision === "REVIEW" || r.risk_score >= 26) {
       scoreCell.setBackground("#FEF3C7");
     } else {
       scoreCell.setBackground("#D1FAE5");

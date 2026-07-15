@@ -1,3 +1,5 @@
+import { applyDecisionIntegrity, isReservedOrTestDomain, type MxEvidenceStatus } from "@/lib/decision-integrity";
+
 export type AuditQueue = "send" | "review" | "suppress";
 
 export type LaunchStatus =
@@ -22,7 +24,7 @@ export type AuditEvidence = {
 export type ContactAuditDecision = {
   email: string;
   normalizedEmail: string;
-  decision: string;
+  decision: "ALLOW" | "REVIEW" | "BLOCK";
   queue: AuditQueue;
   legacyDecision?: string;
   riskScore?: number;
@@ -32,9 +34,11 @@ export type ContactAuditDecision = {
   recommendedAction: string;
   businessImpact: string;
   evidence: AuditEvidence[];
+  decisionExplanation: string;
 };
 
 export type ListAuditSummary = {
+  [key: string]: unknown;
   total: number;
   sendCount: number;
   reviewCount: number;
@@ -93,7 +97,27 @@ const AUDIT_REASON_LABELS: Record<string, AuditReasonLabel> = {
   DOMAIN_ESTABLISHED: { code: "DOMAIN_ESTABLISHED", label: "Established domain age", severity: "positive" },
   PERSONAL_EMAIL_PATTERN: { code: "PERSONAL_EMAIL_PATTERN", label: "Personal email pattern", severity: "positive" },
   UNKNOWN_RISK: { code: "UNKNOWN_RISK", label: "Uncertain risk signal", severity: "low" },
+  NULL_MX: { code: "NULL_MX", label: "Domain explicitly does not accept mail", severity: "high" },
+  RESERVED_TEST_DOMAIN: { code: "RESERVED_TEST_DOMAIN", label: "Reserved or test domain", severity: "high" },
+  MAILBOX_UNCONFIRMED: { code: "MAILBOX_UNCONFIRMED", label: "Mailbox unconfirmed", severity: "medium" },
+  MX_LOOKUP_FAILED: { code: "MX_LOOKUP_FAILED", label: "MX lookup failed", severity: "medium" },
+  POSSIBLE_TYPO: { code: "POSSIBLE_TYPO", label: "Possible email typo", severity: "medium" },
 };
+
+const TOP_RISK_REASON_CODES = new Set([
+  "INVALID_SYNTAX",
+  "DISPOSABLE_DOMAIN",
+  "ROLE_BASED_EMAIL",
+  "NO_MX",
+  "NULL_MX",
+  "RESERVED_TEST_DOMAIN",
+  "POSSIBLE_TYPO",
+  "MAILBOX_UNCONFIRMED",
+  "MX_LOOKUP_FAILED",
+  "CATCH_ALL_DOMAIN",
+  "BLACKLIST_HIT",
+  "SMTP_FAILURE",
+]);
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -121,6 +145,20 @@ function toText(value: unknown): string {
 
 function inferReasonCodeFromText(raw: string): string {
   const text = raw.toLowerCase();
+
+  if (
+    text.includes("null mx") ||
+    text.includes("explicitly does not accept mail")
+  ) return "NULL_MX";
+
+  if (
+    text.includes("reserved or test domain") ||
+    text.includes("reserved/test domain")
+  ) return "RESERVED_TEST_DOMAIN";
+
+  if (text.includes("mailbox unconfirmed")) return "MAILBOX_UNCONFIRMED";
+  if (text.includes("possible domain typo") || text.includes("correct typo")) return "POSSIBLE_TYPO";
+  if (text.includes("mx lookup failed") || text.includes("mx lookup timed out")) return "MX_LOOKUP_FAILED";
 
   if (
     text.includes("invalid email format") ||
@@ -297,7 +335,7 @@ function inferEvidenceFromReason(reason: string): AuditEvidence | null {
   };
 }
 
-function buildEvidenceFromRawInput(input: Record<string, unknown>, queue: AuditQueue, reasonCodes: string[]): AuditEvidence[] {
+function buildEvidenceFromRawInput(input: Record<string, unknown>): AuditEvidence[] {
   const evidence: AuditEvidence[] = [];
   const seen = new Set<string>();
   const rawReasons = [
@@ -368,17 +406,6 @@ function buildEvidenceFromRawInput(input: Record<string, unknown>, queue: AuditQ
     } else if (!Number.isNaN(ageDays) && ageDays > 0 && ageDays < 90) {
       addEvidence(evidence, seen, "DOMAIN_TOO_NEW", "medium", "Domain is very new.");
     }
-  }
-
-  if (reasonCodes.length === 0 && evidence.length === 0) {
-    addEvidence(evidence, seen, "UNKNOWN_RISK", "low", "No strong signal was extracted from the legacy result.");
-  }
-
-  // Keep a small queue-specific hint in evidence for downstream UX.
-  if (queue === "send") {
-    addEvidence(evidence, seen, "PERSONAL_EMAIL_PATTERN", "positive", "Safe-to-send segment.");
-  } else if (queue === "review") {
-    addEvidence(evidence, seen, "LOW_CONFIDENCE", "medium", "Review before launch.");
   }
 
   return evidence;
@@ -460,29 +487,67 @@ export function buildContactAuditDecision(input: Record<string, unknown>): Conta
     input.launch_status ||
     "",
   ).trim();
-  const queue = normalizeAuditQueue(legacyDecision);
   const riskScore = Number(input.riskScore ?? input.risk_score ?? input.score ?? 0) || 0;
+  const details = (input.details as { email?: Record<string, unknown> | null } | undefined) || undefined;
+  const emailDetails = details?.email || (input.details as Record<string, unknown> | undefined) || {};
+  const domain = normalizedEmail.includes("@") ? normalizedEmail.slice(normalizedEmail.lastIndexOf("@") + 1) : "";
+  const isDisposable = readDetailsField(emailDetails, "isDisposable") === true || input.disposable === true;
+  const hasMX = readDetailsField(emailDetails, "hasMX") ?? input.hasMX;
+  const mxChecked = readDetailsField(emailDetails, "mxChecked") === true || input.mxChecked === true;
+  const rawMxStatus = readDetailsField(emailDetails, "mxStatus") || input.mx_status;
+  const mxStatus: MxEvidenceStatus = typeof rawMxStatus === "string"
+    ? rawMxStatus as MxEvidenceStatus
+    : hasMX === true ? "present" : hasMX === false && mxChecked ? "absent" : "not_tested";
+  const smtpChecked = readDetailsField(emailDetails, "smtpChecked") === true;
+  const smtpValid = readDetailsField(emailDetails, "smtpValid") === true;
+  const mailboxStatus = smtpChecked ? (smtpValid ? "confirmed" : "rejected") : "unconfirmed";
+  const catchAllValue = readDetailsField(emailDetails, "isCatchAll");
+  const integrity = applyDecisionIntegrity({
+    email: normalizedEmail || email,
+    score: riskScore,
+    decision: legacyDecision ? (normalizeAuditQueue(legacyDecision) === "send" ? "ALLOW" : normalizeAuditQueue(legacyDecision) === "review" ? "REVIEW" : "BLOCK") : undefined,
+    isDisposable,
+    mxStatus,
+    mailboxStatus,
+    catchAllStatus: catchAllValue === true ? "yes" : catchAllValue === false ? "no" : smtpChecked ? "unknown" : "not_tested",
+  });
+  const queue = integrity.queue;
 
   const rawReasonTexts = [
     ...(Array.isArray(input.reasons) ? input.reasons.map(toText) : []),
     ...(Array.isArray(input.risk_factors) ? input.risk_factors.map(toText) : []),
     ...(Array.isArray(input.impact) ? input.impact.map(toText) : []),
   ].filter(Boolean);
+  const integrityReasonCodes = [
+    ...(isDisposable ? ["DISPOSABLE_DOMAIN"] : []),
+    ...(domain && isReservedOrTestDomain(domain) ? ["RESERVED_TEST_DOMAIN"] : []),
+    ...(mxStatus === "null_mx" ? ["NULL_MX"] : []),
+    ...(mxStatus === "absent" ? ["NO_MX"] : []),
+    ...(mxStatus === "lookup_failed" || mxStatus === "timed_out" ? ["MX_LOOKUP_FAILED"] : []),
+    ...(mailboxStatus === "unconfirmed" && !isDisposable && !isReservedOrTestDomain(domain) && mxStatus !== "absent" && mxStatus !== "null_mx" ? ["MAILBOX_UNCONFIRMED"] : []),
+    ...(integrity.suggestedEmail ? ["POSSIBLE_TYPO"] : []),
+  ];
   const reasonCodes = [...new Set([
-    ...normalizeReasonCodes(rawReasonTexts),
-    ...(queue === "send" ? ["PERSONAL_EMAIL_PATTERN"] : []),
+    ...integrityReasonCodes,
+    ...(Array.isArray(input.reason_codes) ? input.reason_codes.map(String).filter((code) => code !== "UNKNOWN_RISK" && code !== "DOMAIN_AUTH_WEAK") : []),
+    ...normalizeReasonCodes(rawReasonTexts).filter((code) => code !== "UNKNOWN_RISK" && code !== "DOMAIN_AUTH_WEAK"),
   ])];
 
-  const evidence = buildEvidenceFromRawInput(input, queue, reasonCodes);
-  const primaryReason = choosePrimaryReason(evidence, reasonCodes, queue);
-  const recommendedAction = buildRecommendedAction(queue, primaryReason);
+  const evidence = buildEvidenceFromRawInput(input);
+  for (const code of integrityReasonCodes) {
+    const meta = getReasonLabel(code);
+    addEvidence(evidence, new Set(evidence.map((item) => item.signal)), code, meta.severity, integrity.primaryReason);
+  }
+  const primaryReason = integrity.primaryReason || choosePrimaryReason(evidence, reasonCodes, queue);
+  const recommendedAction = integrity.recommendedAction || buildRecommendedAction(queue, primaryReason);
   const businessImpact = buildBusinessImpact(queue, primaryReason);
-  const confidence = computeConfidence({ queue, evidence, riskScore });
+  const computedConfidence = computeConfidence({ queue, evidence, riskScore });
+  const confidence = integrity.confidence === "high" ? Math.max(85, computedConfidence) : integrity.confidence === "low" ? Math.min(55, computedConfidence) : computedConfidence;
 
   return {
     email,
     normalizedEmail,
-    decision: legacyDecision || (queue === "send" ? "ALLOW" : queue === "review" ? "REVIEW" : "BLOCK"),
+    decision: integrity.decision,
     queue,
     legacyDecision: legacyDecision || undefined,
     riskScore: Number.isFinite(riskScore) ? riskScore : undefined,
@@ -492,6 +557,7 @@ export function buildContactAuditDecision(input: Record<string, unknown>): Conta
     recommendedAction,
     businessImpact,
     evidence,
+    decisionExplanation: integrity.decisionExplanation,
   };
 }
 
@@ -560,7 +626,7 @@ export function buildTopRiskReasons(decisions: ContactAuditDecision[]): Array<{ 
   for (const decision of decisions) {
     for (const code of decision.reasonCodes) {
       const meta = getReasonLabel(code);
-      if (meta.severity === "positive") continue;
+      if (meta.severity === "positive" || !TOP_RISK_REASON_CODES.has(code)) continue;
       counts.set(code, (counts.get(code) || 0) + 1);
     }
   }
@@ -674,4 +740,3 @@ export function buildListAuditSummary(decisions: ContactAuditDecision[]): ListAu
     clientRiskBrief,
   };
 }
-

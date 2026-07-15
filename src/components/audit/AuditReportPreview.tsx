@@ -4,12 +4,14 @@ import { ArrowRight, BadgeInfo, BarChart3, FileText, ShieldCheck, TriangleAlert 
 import Link from "next/link";
 import type { ListAuditSummary } from "@/lib/list-audit";
 import { formatAuditReport } from "@/lib/audit/report-format";
+import { getPlanAuditCta } from "@/lib/decision-integrity";
 
 type AuditReportPreviewProps = {
   summary: ListAuditSummary;
   totalContacts: number;
   clientName?: string;
   campaignName?: string;
+  plan?: string;
 };
 
 function StatCard({
@@ -46,9 +48,11 @@ export function AuditReportPreview({
   totalContacts,
   clientName = "Client",
   campaignName = "Outbound Campaign",
+  plan = "",
 }: AuditReportPreviewProps) {
   const report = formatAuditReport(summary);
   const wastePrevented = summary.estimatedWastePrevented.riskySendsPrevented;
+  const auditCta = getPlanAuditCta(plan);
 
   return (
     <section className="rs-card rs-card-hover mb-6 overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-white/[0.045] to-black/[0.2]">
@@ -206,8 +210,8 @@ export function AuditReportPreview({
               <p className="mt-2 text-sm leading-6 text-slate-400">
                 Use the export buttons above to download the Send Queue, Review Queue, Suppression List, and Risk Summary.
               </p>
-              <Link href="/pricing" className="rs-link-arrow mt-4 inline-flex items-center gap-1 text-sm text-white hover:text-slate-200">
-                Upgrade for bulk screening and reports <ArrowRight className="h-4 w-4" />
+              <Link href={auditCta.href} className="rs-link-arrow mt-4 inline-flex items-center gap-1 text-sm text-white hover:text-slate-200">
+                {auditCta.label} <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
           </div>

@@ -24,10 +24,24 @@ describe("web bulk batching", () => {
     const batching = readFileSync("src/lib/bulk-web-batching.ts", "utf8");
     expect(page).toContain("runWebBulkBatches(chunks");
     expect(page).toContain("mergeWebBulkResponses(responses)");
-    expect(page).toContain("readWebBulkFileEmails(file)");
+    expect(page).toContain("readWebBulkFileInput(file)");
+    expect(page).toContain("reconcileWebBulkText(text)");
     expect(batching).toContain('import * as XLSXLib from "xlsx"');
     expect(batching).toContain("XLSXLib.read(await file.arrayBuffer()");
     expect(page).not.toContain('fetch("/api/bulk-runs"');
+  });
+
+  it("rejects internal-space mutation and reconciles duplicates", () => {
+    const reconciliation = webBulk.reconcileWebBulkText([
+      "space inlocal@example.com",
+      "FIRST@example.com",
+      "first@example.com",
+    ].join("\n"));
+
+    expect(reconciliation.accepted).toEqual(["first@example.com"]);
+    expect(reconciliation.rejectedBeforeScreening).toBe(1);
+    expect(reconciliation.duplicatesRemoved).toBe(1);
+    expect(reconciliation.rows[0]).toMatchObject({ originalValue: "space inlocal@example.com", status: "REJECT_BEFORE_SCREENING" });
   });
 
   it("deduplicates and splits 5,000 contacts into 100-contact requests", () => {
@@ -111,13 +125,17 @@ describe("web bulk batching", () => {
   it("merges every detailed result and keeps the server export columns", () => {
     const exportColumns = [{ key: "email", label: "Email" }, { key: "recommendation", label: "Recommendation" }];
     const merged = mergeWebBulkResponses([
-      { export_columns: exportColumns, results: [{ email: "a@example.com", risk_score: 10, risk_level: "ALLOW", recommendation: "Send" }] },
-      { export_columns: exportColumns, results: [{ email: "b@example.com", risk_score: 70, risk_level: "BLOCK", recommendation: "Suppress", risk_factors: ["No MX"] }] },
+      { export_columns: exportColumns, results: [{ email: "a@secwyn.com", risk_score: 10, risk_level: "ALLOW", recommendation: "Send", details: { smtpChecked: true, smtpValid: true, hasMX: true, mxChecked: true, mxStatus: "present" } }] },
+      { export_columns: exportColumns, results: [{ email: "b@company.invalid", risk_score: 70, risk_level: "BLOCK", recommendation: "Suppress", risk_factors: ["No MX"] }] },
     ]);
     expect(merged.results).toHaveLength(2);
     expect(merged.results[1]).toMatchObject({ recommendation: "Suppress", risk_factors: ["No MX"] });
     expect(merged.export_columns).toEqual(exportColumns);
     expect(merged.summary).toMatchObject({ total: 2, clean: 1, risky: 0, blocked: 1 });
     expect(merged.audit_summary?.total).toBe(2);
+    expect(merged.audit_summary?.sendCount + merged.audit_summary.reviewCount + merged.audit_summary.suppressCount).toBe(2);
+    expect(merged.summary.clean).toBe(merged.audit_summary.sendCount);
+    expect(merged.summary.risky).toBe(merged.audit_summary.reviewCount);
+    expect(merged.summary.blocked).toBe(merged.audit_summary.suppressCount);
   });
 });

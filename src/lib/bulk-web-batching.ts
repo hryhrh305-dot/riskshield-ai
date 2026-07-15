@@ -1,4 +1,5 @@
 import { buildContactAuditDecision, buildListAuditSummary, type ListAuditSummary } from "@/lib/list-audit";
+import { reconcileInputRows, splitScreeningTextRows, type InputReconciliation } from "@/lib/decision-integrity";
 import * as XLSXLib from "xlsx";
 
 export const WEB_BULK_BATCH_SIZE = 100;
@@ -17,6 +18,8 @@ export type WebBulkResponse = {
   export_columns?: Array<{ key: string; label: string }>;
   summary?: Record<string, number>;
   audit_summary?: ListAuditSummary;
+  plan?: string;
+  credits?: { deducted?: number; remaining?: number };
 };
 
 const EMAIL_PATTERN = /^(?!.*\.\.)(?!\.)[^\s@]+(?<!\.)@(?!\.)[^\s@]+\.[^\s@]{2,}$/i;
@@ -34,10 +37,11 @@ type WebBulkDataTransfer = {
 };
 
 export function extractWebBulkEmails(text: string): string[] {
-  return text
-    .split(/[\s,;]+/)
-    .map((email) => email.trim().replace(/^[\uFEFF'"<({\[]+|['">)}\]]+$/g, "").toLowerCase())
-    .filter((email) => EMAIL_PATTERN.test(email));
+  return reconcileWebBulkText(text).accepted;
+}
+
+export function reconcileWebBulkText(text: string): InputReconciliation {
+  return reconcileInputRows(splitScreeningTextRows(text));
 }
 
 export function getDroppedWebBulkFile(dataTransfer: WebBulkDataTransfer): WebBulkFile | null {
@@ -50,24 +54,31 @@ export function getDroppedWebBulkFile(dataTransfer: WebBulkDataTransfer): WebBul
 }
 
 export async function readWebBulkFileEmails(file: WebBulkFile): Promise<string[]> {
+  return (await readWebBulkFileInput(file)).accepted;
+}
+
+export async function readWebBulkFileInput(file: WebBulkFile): Promise<InputReconciliation> {
   const lowerName = file.name.toLowerCase();
   const extension = lowerName.includes(".") ? lowerName.slice(lowerName.lastIndexOf(".")) : "";
   if (!WEB_BULK_FILE_EXTENSIONS.includes(extension)) {
     throw new Error("Unsupported file type. Please upload a .csv, .txt, .xlsx, or .xls file.");
   }
 
-  let sourceText: string;
+  let sourceRows: string[];
   if (extension === ".xlsx" || extension === ".xls") {
     const workbook = XLSXLib.read(await file.arrayBuffer(), { type: "array" });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     if (!sheet) throw new Error("The spreadsheet does not contain a readable worksheet.");
     const rows = XLSXLib.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "" });
-    sourceText = rows.flat().map(String).join("\n");
+    sourceRows = rows.flat().map(String).filter((value) => value.trim().length > 0);
   } else {
-    sourceText = await file.text();
+    sourceRows = splitScreeningTextRows(await file.text());
   }
 
-  return chunkWebBulkEmails(extractWebBulkEmails(sourceText)).flat();
+  const reconciliation = reconcileInputRows(sourceRows);
+  if (reconciliation.accepted.length > WEB_BULK_MAX_CONTACTS) throw new Error("Maximum 5,000 unique emails per scan.");
+  if (reconciliation.accepted.length === 0) throw new Error("No valid emails found.");
+  return reconciliation;
 }
 
 export function chunkWebBulkEmails(input: string[]): string[][] {
@@ -99,8 +110,21 @@ export async function runWebBulkBatches<T>(
   return responses;
 }
 
-export function mergeWebBulkResponses(responses: WebBulkResponse[]): Required<Pick<WebBulkResponse, "results" | "export_columns" | "summary">> & { audit_summary: ListAuditSummary } {
-  const results = responses.flatMap((response) => response.results || []);
+export function mergeWebBulkResponses(responses: WebBulkResponse[]): Required<Pick<WebBulkResponse, "results" | "export_columns" | "summary">> & { audit_summary: ListAuditSummary; plan?: string; creditsDeducted: number } {
+  const decisions = responses.flatMap((response) => response.results || []).map((result) => ({ result, audit: buildContactAuditDecision(result) }));
+  const results = decisions.map(({ result, audit }) => ({
+    ...result,
+    decision: audit.decision,
+    risk_level: audit.decision,
+    audit_queue: audit.queue,
+    reason_codes: audit.reasonCodes,
+    primary_reason: audit.primaryReason,
+    recommended_action: audit.recommendedAction,
+    business_impact: audit.businessImpact,
+    confidence: audit.confidence,
+    evidence: audit.evidence,
+    decision_explanation: audit.decisionExplanation,
+  }));
   const exportColumns = responses.find((response) => response.export_columns?.length)?.export_columns || [];
   let clean = 0;
   let risky = 0;
@@ -125,6 +149,8 @@ export function mergeWebBulkResponses(responses: WebBulkResponse[]): Required<Pi
       blocked_pct: total ? Math.round((blocked / total) * 100) : 0,
       estimated_waste_pct: total ? Math.round((blocked / total) * 100) : 0,
     },
-    audit_summary: buildListAuditSummary(results.map((result) => buildContactAuditDecision(result))),
+    audit_summary: buildListAuditSummary(decisions.map(({ audit }) => audit)),
+    plan: responses.find((response) => response.plan)?.plan,
+    creditsDeducted: responses.reduce((sum, response) => sum + Number(response.credits?.deducted || 0), 0),
   };
 }

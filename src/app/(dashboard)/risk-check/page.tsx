@@ -20,6 +20,7 @@ interface RiskResult {
     ip?: Record<string, unknown> | null;
   };
   ai_explanation?: string | null;
+  decision_explanation?: string | null;
   credits: {
     remaining: number;
     success: boolean;
@@ -55,7 +56,7 @@ export default function RiskCheckPage() {
   const supabase = createClient();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
+    supabase.auth.getSession().then((response: { data: { session: { user: { email?: string } } | null } }) => setUser(response.data.session?.user ?? null));
     fetchHistory();
   }, []);
 
@@ -147,7 +148,7 @@ export default function RiskCheckPage() {
     d === "BLOCK" ? <XCircle className="w-5 h-5 text-red-300" /> : d === "REVIEW" ? <AlertTriangle className="w-5 h-5 text-amber-300" /> : <CheckCircle className="w-5 h-5 text-emerald-300" />;
 
   const scoreColor = (s: number) =>
-    s >= 60 ? "text-red-300" : s >= 30 ? "text-amber-300" : "text-emerald-300";
+    s >= 66 ? "text-red-300" : s >= 26 ? "text-amber-300" : "text-emerald-300";
 
   const emailDetails = result?.details?.email as Record<string, any> | null | undefined;
   const ipDetails = result?.details?.ip as Record<string, any> | null | undefined;
@@ -177,7 +178,7 @@ export default function RiskCheckPage() {
     },
     {
       label: "Mail server (MX)",
-      value: !emailDetails.mxChecked ? "Not checked" : emailDetails.hasMX ? "Present" : "Missing",
+      value: emailDetails.mxStatus === "timed_out" ? "Timed out" : emailDetails.mxStatus === "lookup_failed" ? "Lookup failed" : !emailDetails.mxChecked ? "Not checked" : emailDetails.mxStatus === "null_mx" ? "Does not accept mail" : emailDetails.hasMX ? "Present" : "Missing",
       tone: !emailDetails.mxChecked ? "text-slate-500" : emailDetails.hasMX ? "text-emerald-300" : "text-red-300",
       helper: !emailDetails.mxChecked
         ? "Mail-server verification was not available for this check."
@@ -415,13 +416,11 @@ export default function RiskCheckPage() {
                   <div>
                     <div className="mb-0.5 text-xs text-slate-500">Inbox Probability</div>
                     <div className={`font-semibold text-sm ${
-                      emailDetails?.inboxProbability === "high" ? "text-emerald-300" :
-                      emailDetails?.inboxProbability === "medium" ? "text-amber-300" :
-                      emailDetails?.inboxProbability === "low" ? "text-orange-300" : "text-red-300"
+                      emailDetails?.inboxProbability === "confirmed" ? "text-emerald-300" :
+                      emailDetails?.inboxProbability === "none" ? "text-red-300" : "text-slate-400"
                     }`}>
-                      {emailDetails?.inboxProbability === "high" ? "High" :
-                       emailDetails?.inboxProbability === "medium" ? "Medium" :
-                       emailDetails?.inboxProbability === "low" ? "Low" : "None / Will Bounce"}
+                      {emailDetails?.inboxProbability === "confirmed" ? "Mailbox confirmed" :
+                       emailDetails?.inboxProbability === "none" ? "Will not accept mail" : "Mailbox unconfirmed"}
                     </div>
                   </div>
                   <div>
@@ -435,27 +434,29 @@ export default function RiskCheckPage() {
                     <div className={`font-semibold text-xs ${
                       (emailDetails?.senderReputationRisk || "").includes("CRITICAL") ? "text-red-300" :
                       (emailDetails?.senderReputationRisk || "").includes("HIGH") ? "text-red-400" :
-                      (emailDetails?.senderReputationRisk || "").includes("MEDIUM") ? "text-amber-300" : "text-emerald-300"
+                      (emailDetails?.senderReputationRisk || "").includes("MEDIUM") ? "text-amber-300" : "text-slate-400"
                     }`}>
-                      {emailDetails?.senderReputationRisk || "LOW"}
+                      {emailDetails?.senderReputationRisk || "Unknown"}
                     </div>
                   </div>
                   <div>
                     <div className="mb-0.5 text-xs text-slate-500">MX Records</div>
                     <div className={`font-semibold text-sm ${
                       !emailDetails?.mxChecked ? "text-slate-500" :
-                      emailDetails?.domainExists === false ? "text-red-300" :
                       emailDetails?.hasMX ? "text-emerald-300" : "text-red-300"
                     }`}>
-                      {!emailDetails?.mxChecked ? "Not checked" :
-                       emailDetails?.domainExists === false ? "Domain does not exist" :
+                      {emailDetails?.mxStatus === "timed_out" ? "Timed out" :
+                       emailDetails?.mxStatus === "lookup_failed" ? "Lookup failed" :
+                       !emailDetails?.mxChecked ? "Not checked" :
+                       emailDetails?.mxStatus === "null_mx" ? "Does not accept mail" :
                        emailDetails?.hasMX ? "Present" : "Missing -- guaranteed bounce"}
                     </div>
                     <div className="mt-0.5 text-xs text-slate-500">
-                      {!emailDetails?.mxChecked ? "DNS query failed." :
-                       emailDetails?.domainExists === false ? "This domain does not exist. 100% guaranteed bounce." :
+                      {emailDetails?.mxStatus === "timed_out" ? "DNS query timed out. Retry later." :
+                       emailDetails?.mxStatus === "lookup_failed" ? "DNS lookup failed. Retry later." :
+                       !emailDetails?.mxChecked ? "Not tested." :
                        emailDetails?.hasMX ? "The domain can receive email." :
-                       "No mail server configured. Sending will always bounce."}
+                       "No usable MX was found. Do not send until the address is corrected."}
                     </div>
                   </div>
                 </div>
@@ -564,9 +565,16 @@ export default function RiskCheckPage() {
             {result.ai_explanation && (
               <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.035] p-3">
                 <div className="mb-1 flex items-center gap-2 text-xs font-medium text-slate-300">
-                  <Zap className="h-3 w-3" /> AI Analysis
+                  <Zap className="h-3 w-3" /> Additional Analysis
                 </div>
                 <p className="text-sm text-slate-200">{result.ai_explanation}</p>
+              </div>
+            )}
+
+            {result.decision_explanation && (
+              <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.035] p-3">
+                <div className="mb-1 text-xs font-medium text-slate-300">Decision Explanation</div>
+                <p className="text-sm text-slate-200">{result.decision_explanation}</p>
               </div>
             )}
 

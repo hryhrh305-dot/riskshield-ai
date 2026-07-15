@@ -21,6 +21,9 @@ describe("Google Sheets detailed batch contract", () => {
     expect(script).toContain("Maximum " + '" + MAX_CONTACTS_PER_SCAN + "' + " emails per scan");
     expect(script).toContain("writeResults_(sheet, anchorRange, result.results, result.export_columns || []");
     expect(script).toContain("sheet.getRange(rowToWrite, startCol + 1, 1, rowValues.length).setValues([rowValues])");
+    expect(script).toContain('if (result.catch_all_status === "not_tested") return "Not tested"');
+    expect(script).toContain('if (result.mx_status === "lookup_failed") return "Lookup failed"');
+    expect(script).toContain("Duplicates removed: ");
   });
 
   it("retries one transient DNS failure without changing the request batch", () => {

@@ -2,6 +2,7 @@ import dns from "dns/promises";
 import { checkBlacklist, autoBlacklistIfHighRisk } from "@/lib/blacklist";
 import { disposableDomainsSet } from "@/lib/disposable-domains";
 import { hasApiAccess, shouldUseAiExplanation } from "@/lib/plans";
+import { applyDecisionIntegrity, classifyMxEvidence, sanitizeDecisionText, type MxEvidenceStatus } from "@/lib/decision-integrity";
 const disposableDomains: Set<string> = disposableDomainsSet;
 
 // NOTE: OpenAI/dns imports are dynamic to prevent Vercel build-time evaluation
@@ -227,12 +228,13 @@ export async function lookupIP(ip: string): Promise<Record<string, unknown> | nu
 
 // ============ DNS HELPERS ============
 
-export async function checkMXRecord(domain: string): Promise<{ hasMX: boolean; mxRecords: string[]; mxChecked: boolean; domainExists?: boolean }> {
+export async function checkMXRecord(domain: string): Promise<{ hasMX: boolean; mxRecords: string[]; mxChecked: boolean; domainExists?: boolean; mxStatus: MxEvidenceStatus }> {
   const cached = dnsCache.get("mx:" + domain);
   if (cached && Date.now() - cached.ts < CACHE_TTL) {
-    return cached.data as { hasMX: boolean; mxRecords: string[]; mxChecked: boolean };
+    return cached.data as { hasMX: boolean; mxRecords: string[]; mxChecked: boolean; domainExists?: boolean; mxStatus: MxEvidenceStatus };
   }
   const dnsServers = [["114.114.114.114"], ["223.5.5.5"], ["8.8.8.8", "1.1.1.1"]];
+  const errorCodes: string[] = [];
   for (const servers of dnsServers) {
     try {
       const resolver = new dns.Resolver();
@@ -241,20 +243,33 @@ export async function checkMXRecord(domain: string): Promise<{ hasMX: boolean; m
         resolver.resolveMx(domain),
         new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 3000))
       ]);
-      const result = { hasMX: records.length > 0, mxRecords: records.map(r => r.exchange), mxChecked: true, domainExists: true };
+      const mxStatus = classifyMxEvidence({ records });
+      const result = { hasMX: mxStatus === "present", mxRecords: records.map(r => r.exchange), mxChecked: true, domainExists: true, mxStatus };
       dnsCache.set("mx:" + domain, { data: result as unknown as Record<string, unknown>, ts: Date.now() });
       return result;
-    } catch { /* try next */ }
+    } catch (error) {
+      const code = String((error as NodeJS.ErrnoException)?.code || (error as Error)?.message || "lookup_failed");
+      errorCodes.push(code);
+    }
   }
-  const result = { hasMX: false, mxRecords: [] as string[], mxChecked: true, domainExists: false };
+  const terminalCode = errorCodes.find((code) => /ENODATA|ENOTFOUND|ENONAME|NXDOMAIN/i.test(code))
+    || (errorCodes.every((code) => /TIMEOUT/i.test(code)) ? "ETIMEOUT" : errorCodes.at(-1) || "lookup_failed");
+  const mxStatus = classifyMxEvidence({ records: [], errorCode: terminalCode });
+  const result = {
+    hasMX: false,
+    mxRecords: [] as string[],
+    mxChecked: mxStatus === "absent",
+    domainExists: mxStatus !== "absent" ? undefined : false,
+    mxStatus,
+  };
   dnsCache.set("mx:" + domain, { data: result as unknown as Record<string, unknown>, ts: Date.now() });
   return result;
 }
 
-export async function checkSPFRecord(domain: string): Promise<{ hasSPF: boolean; spfRecord: string; spfChecked: boolean }> {
+export async function checkSPFRecord(domain: string): Promise<{ hasSPF: boolean; spfRecord: string; spfChecked: boolean; spfStatus: "present" | "absent" | "lookup_failed" }> {
   const cached = dnsCache.get("spf:" + domain);
   if (cached && Date.now() - cached.ts < CACHE_TTL) {
-    return cached.data as { hasSPF: boolean; spfRecord: string; spfChecked: boolean };
+    return cached.data as { hasSPF: boolean; spfRecord: string; spfChecked: boolean; spfStatus: "present" | "absent" | "lookup_failed" };
   }
   const dnsServers = [["114.114.114.114"], ["223.5.5.5"], ["8.8.8.8", "1.1.1.1"]];
   for (const servers of dnsServers) {
@@ -268,19 +283,19 @@ export async function checkSPFRecord(domain: string): Promise<{ hasSPF: boolean;
       const allText = records.flatMap(r => r.join("")).join(" ").toLowerCase();
       const hasSPF = allText.includes("v=spf1");
       const spfRecord = records.map(r => r.join("")).find(t => t.toLowerCase().includes("v=spf1")) || "";
-      const result = { hasSPF, spfRecord, spfChecked: true };
+      const result = { hasSPF, spfRecord, spfChecked: true, spfStatus: hasSPF ? "present" as const : "absent" as const };
       dnsCache.set("spf:" + domain, { data: result as unknown as Record<string, unknown>, ts: Date.now() });
       return result;
     } catch { /* try next */ }
   }
-  return { hasSPF: false, spfRecord: "", spfChecked: false };
+  return { hasSPF: false, spfRecord: "", spfChecked: false, spfStatus: "lookup_failed" };
 }
 
-export async function checkDMARCRecord(domain: string): Promise<{ hasDMARC: boolean; dmarcRecord: string; dmarcChecked: boolean; dmarcPolicy: string }> {
+export async function checkDMARCRecord(domain: string): Promise<{ hasDMARC: boolean; dmarcRecord: string; dmarcChecked: boolean; dmarcPolicy: string; dmarcStatus: "present" | "absent" | "lookup_failed" }> {
   const dmarcDomain = "_dmarc." + domain;
   const cached = dnsCache.get("dmarc:" + domain);
   if (cached && Date.now() - cached.ts < CACHE_TTL) {
-    return cached.data as { hasDMARC: boolean; dmarcRecord: string; dmarcChecked: boolean; dmarcPolicy: string };
+    return cached.data as { hasDMARC: boolean; dmarcRecord: string; dmarcChecked: boolean; dmarcPolicy: string; dmarcStatus: "present" | "absent" | "lookup_failed" };
   }
   const dnsServers = [["114.114.114.114"], ["223.5.5.5"], ["8.8.8.8", "1.1.1.1"]];
   for (const servers of dnsServers) {
@@ -297,25 +312,26 @@ export async function checkDMARCRecord(domain: string): Promise<{ hasDMARC: bool
       let dmarcPolicy = "none";
       if (dmarcRecord.includes("p=reject")) dmarcPolicy = "reject";
       else if (dmarcRecord.includes("p=quarantine")) dmarcPolicy = "quarantine";
-      const result = { hasDMARC, dmarcRecord, dmarcChecked: true, dmarcPolicy };
+      const result = { hasDMARC, dmarcRecord, dmarcChecked: true, dmarcPolicy, dmarcStatus: hasDMARC ? "present" as const : "absent" as const };
       dnsCache.set("dmarc:" + domain, { data: result as unknown as Record<string, unknown>, ts: Date.now() });
       return result;
     } catch { /* try next */ }
   }
-  return { hasDMARC: false, dmarcRecord: "", dmarcChecked: false, dmarcPolicy: "none" };
+  return { hasDMARC: false, dmarcRecord: "", dmarcChecked: false, dmarcPolicy: "none", dmarcStatus: "lookup_failed" };
 }
 
 // ============ DKIM RECORD CHECK ============
 
 export async function checkDKIMRecord(domain: string): Promise<{
-  hasDKIM: boolean; dkimRecord: string; dkimChecked: boolean; dkimSelector: string;
+  hasDKIM: boolean; dkimRecord: string; dkimChecked: boolean; dkimSelector: string; dkimStatus: "present" | "absent" | "lookup_failed";
 }> {
   const cached = dnsCache.get("dkim:" + domain);
   if (cached && Date.now() - cached.ts < CACHE_TTL) {
-    return cached.data as { hasDKIM: boolean; dkimRecord: string; dkimChecked: boolean; dkimSelector: string };
+    return cached.data as { hasDKIM: boolean; dkimRecord: string; dkimChecked: boolean; dkimSelector: string; dkimStatus: "present" | "absent" | "lookup_failed" };
   }
   const selectors = ["default", "google", "selector1", "selector2", "dkim", "s1", "s2", "k1", "mandrill", "sendgrid", "mail", "email"];
   const dnsServers = [["114.114.114.114"], ["223.5.5.5"], ["8.8.8.8", "1.1.1.1"]];
+  let definitiveNegative = false;
   for (const servers of dnsServers) {
     for (const selector of selectors) {
       try {
@@ -329,14 +345,17 @@ export async function checkDKIMRecord(domain: string): Promise<{
         const allText = records.flatMap(r => r.join("")).join(" ").toLowerCase();
         if (allText.includes("v=dkim1")) {
           const dkimRecord = records.map(r => r.join("")).find(t => t.toLowerCase().includes("v=dkim1")) || "";
-          const result = { hasDKIM: true, dkimRecord, dkimChecked: true, dkimSelector: selector };
+          const result = { hasDKIM: true, dkimRecord, dkimChecked: true, dkimSelector: selector, dkimStatus: "present" as const };
           dnsCache.set("dkim:" + domain, { data: result as unknown as Record<string, unknown>, ts: Date.now() });
           return result;
         }
-      } catch { /* try next selector */ }
+      } catch (error) {
+        const code = String((error as NodeJS.ErrnoException)?.code || "").toUpperCase();
+        if (["ENODATA", "ENOTFOUND", "ENONAME", "NXDOMAIN"].some((value) => code.includes(value))) definitiveNegative = true;
+      }
     }
   }
-  const result = { hasDKIM: false, dkimRecord: "", dkimChecked: true, dkimSelector: "" };
+  const result = { hasDKIM: false, dkimRecord: "", dkimChecked: definitiveNegative, dkimSelector: "", dkimStatus: definitiveNegative ? "absent" as const : "lookup_failed" as const };
   dnsCache.set("dkim:" + domain, { data: result as unknown as Record<string, unknown>, ts: Date.now() });
   return result;
 }
@@ -363,8 +382,16 @@ export async function calculateRiskScore({
   blacklistHits: string[];
   impact: string[];
   solution: { category: string; problem: string; fix: string }[];
+  risk_factors: string[];
+  recommendation: string;
+  decision_explanation: string;
+  estimated_waste_cost: number;
+  confidence: "high" | "medium" | "low";
+  checksPerformed: string[];
+  checksSkipped: string[];
 }> {
   let riskScore = 0;
+  let recipientDomainPostureAdjustment = 0;
   const reasons: string[] = [];
   const blacklistHits: string[] = [];
   let emailDetails: Record<string, unknown> | null = null;
@@ -478,17 +505,17 @@ export async function calculateRiskScore({
         emailDetails.hasMX = mx.hasMX;
         emailDetails.mxRecords = mx.mxRecords;
         emailDetails.mxChecked = mx.mxChecked;
+        emailDetails.mxStatus = mx.mxStatus;
+        emailDetails.domainExists = mx.domainExists;
 
-        if (mx.mxChecked && !mx.hasMX) {
+        if (mx.mxStatus === "absent" || mx.mxStatus === "null_mx") {
           riskScore += 30;
-          reasons.push("No MX records - domain cannot receive email (mailbox does not exist)");
-        } else if (mx.mxChecked && mx.hasMX) {
+          reasons.push(mx.mxStatus === "null_mx" ? "Null MX - domain explicitly does not accept mail" : "No MX records - domain cannot receive email");
+        } else if (mx.mxStatus === "present") {
           riskScore -= 10;
           reasons.push("Valid MX records found - domain can receive email");
-        } else if (!mx.mxChecked) {
-          // DNS query failed - don't penalize, but note the uncertainty
-          riskScore += 0;
-          reasons.push("MX lookup failed - could not verify mail server (network limitation, not a risk signal)");
+        } else {
+          reasons.push(mx.mxStatus === "timed_out" ? "MX lookup timed out - retry later" : "MX lookup failed - retry later");
         }
 
         const [spf, dmarc, dkim] = await Promise.all([spfPromise, dmarcPromise, dkimPromise]);
@@ -496,39 +523,49 @@ export async function calculateRiskScore({
         // ---- 2b: SPF Record Check ----
         emailDetails.hasSPF = spf.hasSPF;
         emailDetails.spfChecked = spf.spfChecked;
+        emailDetails.spfStatus = spf.spfStatus;
         if (spf.spfChecked && !spf.hasSPF) {
           riskScore += 5;
-          reasons.push("Missing SPF record ?domain lacks sender authentication");
+          recipientDomainPostureAdjustment += 5;
+          reasons.push("Recipient-domain technical posture: SPF record not found");
         } else if (spf.spfChecked && spf.hasSPF) {
           riskScore -= 5;
-          reasons.push("SPF record present - domain has sender authentication");
+          recipientDomainPostureAdjustment -= 5;
+          reasons.push("Recipient-domain technical posture: SPF record present");
         }
 
         // ---- 2c: DMARC Record Check ----
         emailDetails.hasDMARC = dmarc.hasDMARC;
         emailDetails.dmarcChecked = dmarc.dmarcChecked;
         emailDetails.dmarcPolicy = dmarc.dmarcPolicy;
+        emailDetails.dmarcStatus = dmarc.dmarcStatus;
         if (dmarc.dmarcChecked && !dmarc.hasDMARC) {
           riskScore += 5;
-          reasons.push("Missing DMARC record ?domain vulnerable to spoofing");
+          recipientDomainPostureAdjustment += 5;
+          reasons.push("Recipient-domain technical posture: DMARC record not found");
         } else if (dmarc.dmarcChecked && dmarc.hasDMARC) {
           riskScore -= 5;
-          reasons.push("DMARC record present - domain protected against spoofing");
+          recipientDomainPostureAdjustment -= 5;
+          reasons.push("Recipient-domain technical posture: DMARC record present");
         }
         if (dmarc.dmarcPolicy === "reject") {
           riskScore -= 5; // strict DMARC is good
+          recipientDomainPostureAdjustment -= 5;
         }
 
         // ---- 2d: DKIM Record Check ----
         emailDetails.hasDKIM = dkim.hasDKIM;
         emailDetails.dkimChecked = dkim.dkimChecked;
         emailDetails.dkimSelector = dkim.dkimSelector;
+        emailDetails.dkimStatus = dkim.dkimStatus;
         if (dkim.dkimChecked && !dkim.hasDKIM) {
           riskScore += 5;
-          reasons.push("Missing DKIM record - email signing not configured for this domain");
+          recipientDomainPostureAdjustment += 5;
+          reasons.push("Recipient-domain technical posture: DKIM record not found");
         } else if (dkim.dkimChecked && dkim.hasDKIM) {
           riskScore -= 5;
-          reasons.push("DKIM record present - email signing configured (" + dkim.dkimSelector + " selector)");
+          recipientDomainPostureAdjustment -= 5;
+          reasons.push("Recipient-domain technical posture: DKIM record present (" + dkim.dkimSelector + " selector)");
         }
 
         // ---- 2e: SMTP Mailbox Existence Check (deep validation) ----
@@ -584,45 +621,39 @@ export async function calculateRiskScore({
       }
 
       // ---- 2e: Email deliverability assessment ----
-      emailDetails.inboxProbability = "high";
-      if (emailDetails.hasMX === false && emailDetails.mxChecked) {
+      emailDetails.inboxProbability = "unknown";
+      emailDetails.estimatedBounceRate = "unknown";
+      if (emailDetails.mxStatus === "absent" || emailDetails.mxStatus === "null_mx") {
         emailDetails.inboxProbability = "none";
-        emailDetails.estimatedBounceRate = "100% (guaranteed bounce ?domain has no mail server)";
+        emailDetails.estimatedBounceRate = "high (domain does not accept mail)";
       } else if (emailDetails.isDisposable) {
         emailDetails.inboxProbability = "none";
-        emailDetails.estimatedBounceRate = ">90% (disposable ?expires within minutes)";
+        emailDetails.estimatedBounceRate = "high (disposable mailbox)";
       } else if (emailDetails.smtpChecked && emailDetails.permanentRejected) {
         emailDetails.inboxProbability = "none";
-        emailDetails.estimatedBounceRate = "100% (mailbox rejected permanently)";
+        emailDetails.estimatedBounceRate = "high (mailbox rejected permanently)";
       } else if (emailDetails.smtpChecked && emailDetails.mailboxFull) {
         emailDetails.inboxProbability = "none";
-        emailDetails.estimatedBounceRate = "100% (inbox full ?cannot accept new mail)";
+        emailDetails.estimatedBounceRate = "high (inbox full)";
       } else if (emailDetails.smtpChecked && emailDetails.tempRejected) {
-        emailDetails.inboxProbability = "low";
-        emailDetails.estimatedBounceRate = "50-70% (temporary delivery issues)";
-      } else if (!emailDetails.hasSPF && emailDetails.spfChecked && !emailDetails.hasDMARC && emailDetails.dmarcChecked) {
-        emailDetails.inboxProbability = "low";
-        emailDetails.estimatedBounceRate = "30-60% (no SPF or DMARC)";
-      } else if (!emailDetails.hasSPF && emailDetails.spfChecked) {
-        emailDetails.inboxProbability = "medium";
-        emailDetails.estimatedBounceRate = "20-40% (missing SPF)";
-      } else {
-        emailDetails.estimatedBounceRate = "<5% (normal)";
+        emailDetails.inboxProbability = "unknown";
+        emailDetails.estimatedBounceRate = "unknown (temporary rejection)";
+      } else if (emailDetails.smtpChecked && emailDetails.smtpValid) {
+        emailDetails.inboxProbability = "confirmed";
+        emailDetails.estimatedBounceRate = "not estimated";
       }
 
       // ---- 2f: Sender reputation risk ----
-      if (emailDetails.hasMX === false && emailDetails.mxChecked) {
-        emailDetails.senderReputationRisk = "CRITICAL ?sending to non-existent domains damages your sender reputation score";
+      if (emailDetails.mxStatus === "absent" || emailDetails.mxStatus === "null_mx") {
+        emailDetails.senderReputationRisk = "HIGH - domain does not accept mail";
       } else if (emailDetails.isDisposable) {
-        emailDetails.senderReputationRisk = "HIGH ?disposable addresses cause bounced emails; ESPs (Gmail/Outlook) may throttle or blacklist your sending IP";
+        emailDetails.senderReputationRisk = "HIGH - disposable mailbox";
       } else if (emailDetails.smtpChecked && emailDetails.permanentRejected) {
-        emailDetails.senderReputationRisk = "HIGH ?repeatedly sending to invalid mailboxes damages your sender reputation";
+        emailDetails.senderReputationRisk = "HIGH - mailbox rejected";
       } else if (emailDetails.smtpChecked && emailDetails.mailboxFull) {
-        emailDetails.senderReputationRisk = "MEDIUM ?bounced emails from full inboxes still count against your reputation";
-      } else if (!emailDetails.hasSPF && emailDetails.spfChecked) {
-        emailDetails.senderReputationRisk = "MEDIUM ?recipient domain lacks authentication; your emails may be flagged as spam";
+        emailDetails.senderReputationRisk = "MEDIUM - mailbox full";
       } else {
-        emailDetails.senderReputationRisk = "LOW ?normal sending will not harm your reputation";
+        emailDetails.senderReputationRisk = "Unknown - mailbox-level evidence unavailable";
       }
     }
   }
@@ -690,10 +721,13 @@ export async function calculateRiskScore({
 
   // ============ CATEGORY 4: COMPREHENSIVE SCORING & SOLUTION MAPPING ============
 
+  // Preserve the legacy per-signal point values while making recipient-domain
+  // authentication posture neutral to the contact-level outbound decision.
+  riskScore -= recipientDomainPostureAdjustment;
   riskScore = Math.max(0, Math.min(riskScore, 100));
 
   // P0-3: No MX records = hard fail. Domain cannot receive any email.
-  if (emailDetails?.hasMX === false && emailDetails?.mxChecked) {
+  if (emailDetails?.mxStatus === "absent" || emailDetails?.mxStatus === "null_mx") {
     riskScore = Math.max(riskScore, 75);
     if (!reasons.some(r => r.includes("No MX records"))) {
       reasons.push("No MX records - domain cannot receive email (guaranteed bounce)");
@@ -747,16 +781,37 @@ export async function calculateRiskScore({
   // ============ FINAL SCORE CLAMP (0-100) ============
   riskScore = Math.max(0, Math.min(100, riskScore));
 
-  const decision: "ALLOW" | "REVIEW" | "BLOCK" = riskScore >= 66 ? "BLOCK" : riskScore >= 26 ? "REVIEW" : "ALLOW";
+  const scoreBasedDecision: "ALLOW" | "REVIEW" | "BLOCK" = riskScore >= 66 ? "BLOCK" : riskScore >= 26 ? "REVIEW" : "ALLOW";
+  const mailboxStatus = emailDetails?.smtpChecked
+    ? (emailDetails?.smtpValid && !emailDetails?.permanentRejected ? "confirmed" : "rejected")
+    : "unconfirmed";
+  const integrityResult = email ? applyDecisionIntegrity({
+    email,
+    score: riskScore,
+    decision: scoreBasedDecision,
+    isDisposable: emailDetails?.isDisposable === true,
+    mxStatus: (emailDetails?.mxStatus as MxEvidenceStatus | undefined) || (shouldCheckMX === false ? "not_tested" : "lookup_failed"),
+    mailboxStatus,
+    catchAllStatus: emailDetails?.isCatchAll === true ? "yes" : emailDetails?.isCatchAll === false ? "no" : emailDetails?.smtpChecked ? "unknown" : "not_tested",
+  }) : null;
+  const decision: "ALLOW" | "REVIEW" | "BLOCK" = integrityResult?.decision || scoreBasedDecision;
+
+  if (emailDetails && integrityResult) {
+    emailDetails.mailboxStatus = mailboxStatus;
+    emailDetails.catchAllStatus = integrityResult.catchAllStatus;
+    emailDetails.inboxProbability = integrityResult.inboxProbability;
+    emailDetails.estimatedBounceRate = integrityResult.estimatedBounceRate;
+    emailDetails.decisionExplanation = integrityResult.decisionExplanation;
+  }
 
   // ============ BUSINESS IMPACT ============
   const impact: string[] = [];
-  if (riskScore >= 66) {
+  if (decision === "BLOCK") {
     impact.push("[CRITICAL] Do NOT send or reply. High risk of bounce, sender reputation damage, or fraud.");
-  } else if (riskScore >= 26) {
+  } else if (decision === "REVIEW") {
     impact.push("[CAUTION] Risk signals detected. Manual review recommended before sending.");
   } else {
-    impact.push("[SAFE] No significant risk detected. Safe to send.");
+    impact.push("[SEND] No blocking signal was detected in the completed checks.");
   }
 
   // Email-related impacts
@@ -787,9 +842,7 @@ export async function calculateRiskScore({
     impact.push("[NOT A REAL PERSON] Datacenter IP detected. Real customers do not send inquiries from server IPs. Likely automated bot or scraper.");
   }
 
-  if (reasons.length === 0) {
-    impact.push("[ALL CLEAR] No risk signals detected. This email/IP appears legitimate. You can proceed with confidence.");
-  }
+  if (integrityResult?.limitation) impact.push("[LIMITATION] " + integrityResult.limitation);
 
   // ============ SOLUTIONS (ACTIONABLE FIXES FOR EACH PROBLEM) ============
   const solution: { category: string; problem: string; fix: string }[] = [];
@@ -867,20 +920,11 @@ export async function calculateRiskScore({
     });
   }
 
-  // Solution 9: Weak domain security (no SPF/DMARC)
-  if ((emailDetails?.hasSPF === false && emailDetails?.spfChecked) || (emailDetails?.hasDMARC === false && emailDetails?.dmarcChecked)) {
-    solution.push({
-      category: "Weak Domain Security",
-      problem: "The recipient's domain lacks SPF and/or DMARC authentication. This makes the domain easy to spoof, and your emails to them are more likely to land in spam folders.",
-      fix: "1) Your email may go to spam ?ask the recipient to whitelist your domain. 2) If you are the domain owner, add SPF and DMARC records to improve deliverability. 3) Use a professional email sending service with proper authentication. 4) Monitor your email deliverability rates in your ESP dashboard."
-    });
-  }
-
-  if (solution.length === 0 && reasons.length === 0) {
+  if (solution.length === 0 && decision === "ALLOW") {
     solution.push({
       category: "No Issues Detected",
-      problem: "This email and IP appear legitimate with no detectable risk signals.",
-      fix: "Proceed with normal business communication. Recommended: always verify new customers via a welcome email and track engagement metrics."
+      problem: "No blocking signal was detected in the completed checks.",
+      fix: "Send through your normal controlled outreach workflow and monitor delivery outcomes."
     });
   }
 
@@ -907,13 +951,13 @@ export async function calculateRiskScore({
   if (ipDetails?.asn) risk_factors.push("ASN: " + (ipDetails?.asname || ipDetails?.asn || "unknown"));
 
   // ============ RECOMMENDATION ============
-  let recommendation = "";
-  if (decision === "BLOCK") {
+  let recommendation = integrityResult?.recommendation || "";
+  if (!recommendation && decision === "BLOCK") {
     recommendation = "Do NOT send email to this address. Sending will result in bounce or damage your sender reputation. Remove from your outreach list immediately.";
-  } else if (decision === "REVIEW") {
+  } else if (!recommendation && decision === "REVIEW") {
     recommendation = "Manual verification recommended before bulk outreach. Some risk signals detected. Consider validating the contact through alternative channels first.";
-  } else {
-    recommendation = "Safe to send. No significant risk signals detected. You can proceed with outreach confidently.";
+  } else if (!recommendation) {
+    recommendation = "Send through your normal controlled outreach workflow.";
   }
 
   // ============ ESTIMATED WASTE COST ============
@@ -957,7 +1001,27 @@ export async function calculateRiskScore({
   // Demote if no MX and checked (confirmed hard fail)
   if (emailDetails?.hasMX === false && emailDetails?.mxChecked) confidence = "high";
 
-  return { score: riskScore, reasons, decision, emailDetails, ipDetails, blacklistHits, impact, solution, risk_factors, recommendation, estimated_waste_cost: estimatedWasteCost, confidence, checksPerformed, checksSkipped };
+  return {
+    score: riskScore,
+    reasons: reasons.map(sanitizeDecisionText),
+    decision,
+    emailDetails,
+    ipDetails,
+    blacklistHits,
+    impact: impact.map(sanitizeDecisionText),
+    solution: solution.map((item) => ({
+      ...item,
+      problem: sanitizeDecisionText(item.problem),
+      fix: sanitizeDecisionText(item.fix),
+    })),
+    risk_factors: risk_factors.map(sanitizeDecisionText),
+    recommendation: sanitizeDecisionText(recommendation),
+    decision_explanation: integrityResult?.decisionExplanation || "",
+    estimated_waste_cost: estimatedWasteCost,
+    confidence,
+    checksPerformed,
+    checksSkipped,
+  };
 }
 
 

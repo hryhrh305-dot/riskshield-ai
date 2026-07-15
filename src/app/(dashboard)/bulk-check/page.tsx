@@ -7,10 +7,11 @@ import { Upload, FileText, Download, CheckCircle, AlertTriangle, XCircle, ArrowR
 import { buildCsvContent, downloadCsvFile, type CsvColumn } from "@/lib/export/csv";
 import type { AuditEvidence, ListAuditSummary } from "@/lib/list-audit";
 import { AuditReportPreview } from "@/components/audit/AuditReportPreview";
-import { chunkWebBulkEmails, extractWebBulkEmails, getDroppedWebBulkFile, mergeWebBulkResponses, readWebBulkFileEmails, runWebBulkBatches, type WebBulkFile } from "@/lib/bulk-web-batching";
+import { chunkWebBulkEmails, getDroppedWebBulkFile, mergeWebBulkResponses, readWebBulkFileInput, reconcileWebBulkText, runWebBulkBatches, type WebBulkFile } from "@/lib/bulk-web-batching";
 import { trackE8Event } from "@/components/e8/AttributionObserver";
+import { getPlanAuditCta, statusLabel, type InputReconciliation } from "@/lib/decision-integrity";
 
-interface BulkResult {
+interface BulkResult extends Record<string, unknown> {
   audit_queue?: string;
   reason_codes?: string[];
   primary_reason?: string;
@@ -23,6 +24,7 @@ interface BulkResult {
   recommendation?: string;
   risk_factors?: string[];
   ai_explanation?: string | null;
+  decision_explanation?: string | null;
   email: string;
   risk_score: number;
   health_score?: number | null;
@@ -33,6 +35,9 @@ interface BulkResult {
   catch_all?: boolean;
   hasMX?: boolean;
   mxChecked?: boolean;
+  mx_status?: string | null;
+  mailbox_status?: string | null;
+  catch_all_status?: string | null;
   domain_age?: { ageDays?: number | null } | null;
   dns_health?: { score?: number | null } | null;
   estimated_bounce_rate?: string | null;
@@ -61,6 +66,8 @@ interface BulkApiResponse extends BulkApiError {
   summary?: Record<string, number>;
   export_columns?: ExportColumn[];
   audit_summary?: ListAuditSummary;
+  plan?: string;
+  credits?: { deducted?: number; remaining?: number };
 }
 
 type AuditQueue = "send" | "review" | "suppress";
@@ -76,11 +83,14 @@ export default function BulkCheckPage() {
   const [upgradeNeeded, setUpgradeNeeded] = useState(false);
   const [xlsxDownloading, setXlsxDownloading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [inputReconciliation, setInputReconciliation] = useState<InputReconciliation | null>(null);
+  const [resultPlan, setResultPlan] = useState("");
   const [exportColumns, setExportColumns] = useState<ExportColumn[]>([
     { key: "email", label: "Email" },
     { key: "risk_score", label: "Risk Score" },
     { key: "risk_level", label: "Risk Level" },
   ]);
+  const auditCta = getPlanAuditCta(resultPlan);
 
   function readExportValue(result: BulkResult, key: string) {
     if (key === "risk_level") return result.risk_level || result.decision || "";
@@ -92,6 +102,7 @@ export default function BulkCheckPage() {
     if (key === "primary_reason") return result.primary_reason || "";
     if (key === "recommended_action") return result.recommended_action || "";
     if (key === "business_impact") return result.business_impact || "";
+    if (key === "decision_explanation") return result.decision_explanation || "";
     if (key === "confidence") return result.confidence ?? "";
     if (key === "evidence_summary") {
       if (result.evidence?.length) {
@@ -100,9 +111,11 @@ export default function BulkCheckPage() {
       return (result.reason_codes || result.reasons || []).join("; ");
     }
     if (key === "mx_status") {
+      if (result.mx_status) return statusLabel(result.mx_status, String(result.mx_status));
       if (!result.mxChecked) return "Not checked";
       return result.hasMX ? "Present" : "Missing";
     }
+    if (key === "catch_all") return statusLabel(result.catch_all_status || result.catch_all, "Unknown");
     if (key === "domain_age_days") return result.domain_age?.ageDays ?? "";
     if (key === "dns_health_score") return result.dns_health?.score ?? "";
     if (key === "estimated_waste_cost") return result.estimated_waste_cost ?? "";
@@ -128,14 +141,28 @@ export default function BulkCheckPage() {
     const decision = result.risk_level || result.decision || "";
 
     if (column.key === "email") {
-      return <span className="break-all font-mono text-slate-200">{String(value)}</span>;
+      const priority = new Set(["email", "decision", "confidence", "primary_reason", "recommended_action"]);
+      const technicalColumns = exportColumns.filter((item) => !priority.has(item.key));
+      return (
+        <div>
+          <span className="break-all font-mono text-slate-200">{String(value)}</span>
+          {technicalColumns.length > 0 && (
+            <details className="mt-2 md:hidden">
+              <summary className="cursor-pointer text-[11px] text-slate-400">Technical evidence</summary>
+              <dl className="mt-2 space-y-1 text-[11px] text-slate-400">
+                {technicalColumns.map((item) => <div key={item.key}><dt className="inline text-slate-500">{item.label}: </dt><dd className="inline">{String(readExportValue(result, item.key) || "Not available")}</dd></div>)}
+              </dl>
+            </details>
+          )}
+        </div>
+      );
     }
 
     if (column.key === "risk_score") {
       return <span className={`font-bold ${scoreColor(Number(result.risk_score || 0))}`}>{String(value)}</span>;
     }
 
-    if (column.key === "risk_level") {
+    if (column.key === "risk_level" || column.key === "decision") {
       return <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${decisionBadge(decision)}`}>{String(value)}</span>;
     }
 
@@ -176,6 +203,7 @@ export default function BulkCheckPage() {
 
     if (column.key === "disposable" || column.key === "role_based" || column.key === "catch_all") {
       const normalized = String(value).toLowerCase();
+      if (!["yes", "no", "true", "false"].includes(normalized)) return <span className="text-slate-500">{String(value || "Unknown")}</span>;
       const truthy = normalized === "yes" || normalized === "true";
       return truthy
         ? <XCircle className="h-4 w-4 text-red-300" />
@@ -183,7 +211,7 @@ export default function BulkCheckPage() {
     }
 
     if (column.key === "mx_status") {
-      if (value === "Not checked") return <span className="text-slate-500">-</span>;
+      if (["Not checked", "Lookup failed", "Timed out", "Unknown"].includes(String(value))) return <span className="text-slate-500">{String(value)}</span>;
       return value === "Present"
         ? <CheckCircle className="h-4 w-4 text-emerald-300" />
         : <XCircle className="h-4 w-4 text-red-300" />;
@@ -197,9 +225,9 @@ export default function BulkCheckPage() {
     return <span className={`${textColor} whitespace-pre-wrap break-words`}>{String(value || "-")}</span>;
   }
 
-  async function scanInBatches(emails: string[]) {
+  async function scanInBatches(reconciliation: InputReconciliation) {
     const e8RunId = crypto.randomUUID();
-    const chunks = chunkWebBulkEmails(emails);
+    const chunks = chunkWebBulkEmails(reconciliation.accepted);
     const responses = await runWebBulkBatches(chunks, async (chunk) => {
       const res = await fetch("/api/bulk-check", {
         method: "POST",
@@ -220,6 +248,8 @@ export default function BulkCheckPage() {
     setResults(merged.results as BulkResult[]);
     setSummary(merged.summary);
     setAuditSummary(merged.audit_summary);
+    setResultPlan(merged.plan || "");
+    setInputReconciliation({ ...reconciliation, resultsProduced: merged.results.length, creditsConsumed: merged.creditsDeducted });
     setExportColumns(merged.export_columns.length ? merged.export_columns : exportColumns);
     setStatusMessage(`Scan complete. ${merged.results.length.toLocaleString()} unique emails checked.`);
     try {
@@ -239,7 +269,7 @@ export default function BulkCheckPage() {
     setAuditSummary(null);
     setStatusMessage("Reading file...");
     try {
-      await scanInBatches(await readWebBulkFileEmails(file));
+      await scanInBatches(await readWebBulkFileInput(file));
     } catch (caught) {
       const failure = caught as Error & { upgradeNeeded?: boolean };
       setUpgradeNeeded(!!failure.upgradeNeeded);
@@ -287,7 +317,7 @@ export default function BulkCheckPage() {
     setAuditSummary(null);
     setStatusMessage("Scanning pasted emails and building the report...");
     try {
-      await scanInBatches(extractWebBulkEmails(text));
+      await scanInBatches(reconcileWebBulkText(text));
     } catch (caught) {
       const failure = caught as Error & { upgradeNeeded?: boolean };
       setUpgradeNeeded(!!failure.upgradeNeeded);
@@ -302,7 +332,7 @@ export default function BulkCheckPage() {
     if (!results || results.length === 0) return;
     setXlsxDownloading(true);
     try {
-      const data = [exportColumns.map((column) => column.label)];
+      const data: Array<Array<string | number>> = [exportColumns.map((column) => column.label)];
       for (const result of results) {
         data.push(exportColumns.map((column) => readExportValue(result, column.key)));
       }
@@ -530,6 +560,22 @@ sales@domain.com`}</pre>
           )}
         </div>
 
+        {inputReconciliation && (
+          <div className="rs-card mb-6 rounded-[28px] p-5">
+            <h2 className="text-sm font-semibold text-white">Input reconciliation</h2>
+            <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 lg:grid-cols-6">
+              {[
+                ["Input rows", inputReconciliation.inputRows],
+                ["Unique processed", inputReconciliation.uniqueValidAddressesProcessed],
+                ["Rejected", inputReconciliation.rejectedBeforeScreening],
+                ["Duplicates", inputReconciliation.duplicatesRemoved],
+                ["Results", inputReconciliation.resultsProduced],
+                ["Credits", inputReconciliation.creditsConsumed],
+              ].map(([label, value]) => <div key={String(label)} className="rounded-2xl border border-white/8 bg-white/[0.03] p-3"><div className="text-[11px] text-slate-500">{label}</div><div className="mt-1 font-semibold text-slate-100">{Number(value).toLocaleString()}</div></div>)}
+            </div>
+          </div>
+        )}
+
         {summary && (
           <div className="rs-card rs-fade-up mb-6 rounded-[28px] p-6">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
@@ -549,8 +595,8 @@ sales@domain.com`}</pre>
                     <div className="text-sm font-medium text-slate-100">Export pack</div>
                     <div className="mt-1 text-xs text-slate-500">Download the report files without repeating the summary metrics on screen.</div>
                   </div>
-                  <Link href="/pricing" className="rs-link-arrow hidden items-center gap-1 text-sm font-medium text-white md:inline-flex">
-                    Upgrade for list audits and reports <ArrowRight className="h-4 w-4" />
+                  <Link href={auditCta.href} className="rs-link-arrow hidden items-center gap-1 text-sm font-medium text-white md:inline-flex">
+                    {auditCta.label} <ArrowRight className="h-4 w-4" />
                   </Link>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
@@ -579,8 +625,8 @@ sales@domain.com`}</pre>
                     Standard files keep send, review, suppression, and audit summary exports separate for agency delivery.
                   </p>
                 </div>
-                <Link href="/pricing" className="rs-link-arrow mt-3 inline-flex items-center gap-1 text-sm font-medium text-white md:hidden">
-                  Upgrade for bulk screening and reports <ArrowRight className="h-4 w-4" />
+                <Link href={auditCta.href} className="rs-link-arrow mt-3 inline-flex items-center gap-1 text-sm font-medium text-white md:hidden">
+                  {auditCta.label} <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
             </div>
@@ -593,6 +639,7 @@ sales@domain.com`}</pre>
             totalContacts={auditSummary.total}
             clientName="Client"
             campaignName="Outbound Campaign"
+            plan={resultPlan}
           />
         )}
 
@@ -607,7 +654,7 @@ sales@domain.com`}</pre>
                   </p>
                 </div>
                 <div className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-xs text-slate-400">
-                  Scroll horizontally on mobile to review every column
+                  Open Technical evidence on mobile for additional signals
                 </div>
               </div>
             </div>
@@ -616,7 +663,7 @@ sales@domain.com`}</pre>
                 <thead className="sticky top-0 bg-black/70 backdrop-blur-xl">
                   <tr>
                     {exportColumns.map((column) => (
-                      <th key={column.key} className="min-w-[120px] whitespace-nowrap border-b border-white/8 px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.22em] text-slate-500">
+                      <th key={column.key} className={`${["email", "decision", "confidence", "primary_reason", "recommended_action"].includes(column.key) ? "" : "hidden md:table-cell"} min-w-[120px] whitespace-nowrap border-b border-white/8 px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.22em] text-slate-500`}>
                         {column.label}
                       </th>
                     ))}
@@ -626,7 +673,7 @@ sales@domain.com`}</pre>
                   {results.map((result, index) => (
                     <tr key={index} className="border-t border-white/8 transition hover:bg-white/[0.03]">
                       {exportColumns.map((column) => (
-                        <td key={column.key} className="px-4 py-3 text-xs align-top leading-5">
+                        <td key={column.key} className={`${["email", "decision", "confidence", "primary_reason", "recommended_action"].includes(column.key) ? "" : "hidden md:table-cell"} px-4 py-3 text-xs align-top leading-5`}>
                           {renderCell(result, column)}
                         </td>
                       ))}

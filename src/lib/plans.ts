@@ -54,9 +54,9 @@ export const plans = {
     batchLimit: 1,
     teamMembers: 1,
     apiAccess: false,
-    tagline: "Preview the list audit workflow",
-    description: "Single-contact risk preview and dashboard history for early evaluation.",
-    creditsLabel: "50 contacts audited / month",
+    tagline: "Try single-contact checks",
+    description: "50 one-time single-contact checks with dashboard history.",
+    creditsLabel: "50 one-time checks",
   },
   starter: {
     name: "Starter",
@@ -238,6 +238,7 @@ const BASIC_EMAIL_DETAIL_KEYS = [
   "isRoleBased",
   "hasMX",
   "mxChecked",
+  "mxStatus",
 ] as const;
 
 const STARTER_EMAIL_DETAIL_KEYS = [
@@ -250,6 +251,9 @@ const STARTER_EMAIL_DETAIL_KEYS = [
   "mailboxFull",
   "tempRejected",
   "permanentRejected",
+  "mailboxStatus",
+  "catchAllStatus",
+  "decisionExplanation",
 ] as const;
 
 const ADVANCED_EMAIL_DETAIL_KEYS = [
@@ -257,12 +261,15 @@ const ADVANCED_EMAIL_DETAIL_KEYS = [
   "localPart",
   "hasSPF",
   "spfChecked",
+  "spfStatus",
   "hasDMARC",
   "dmarcChecked",
   "dmarcPolicy",
+  "dmarcStatus",
   "hasDKIM",
   "dkimChecked",
   "dkimSelector",
+  "dkimStatus",
   "inboxProbability",
   "estimatedBounceRate",
   "senderReputationRisk",
@@ -310,7 +317,7 @@ function sanitizeEmailDetailsForPlan(details: Record<string, unknown> | null | u
   const visibility = getResultVisibility(plan);
   if (!visibility.includeBasicEmailDetails) return null;
 
-  const pickedKeys = [...BASIC_EMAIL_DETAIL_KEYS];
+  const pickedKeys: string[] = [...BASIC_EMAIL_DETAIL_KEYS];
   if (visibility.includeStarterEmailDetails) pickedKeys.push(...STARTER_EMAIL_DETAIL_KEYS);
   if (visibility.includeAdvancedEmailDetails) pickedKeys.push(...ADVANCED_EMAIL_DETAIL_KEYS);
 
@@ -321,7 +328,7 @@ function sanitizeIpDetailsForPlan(details: Record<string, unknown> | null | unde
   const visibility = getResultVisibility(plan);
   if (!visibility.includeBasicIpDetails) return null;
 
-  const pickedKeys = [...BASIC_IP_DETAIL_KEYS];
+  const pickedKeys: string[] = [...BASIC_IP_DETAIL_KEYS];
   if (visibility.includeAdvancedIpDetails) pickedKeys.push(...ADVANCED_IP_DETAIL_KEYS);
 
   return pickDefinedKeys(details, pickedKeys);
@@ -360,7 +367,7 @@ export function hasApiAccess(plan: string): boolean {
 }
 
 export function isContactOnlyPlan(plan: string): boolean {
-  return !!getPlanLimits(plan).contactOnly;
+  return !!(getPlanLimits(plan) as PlanConfig).contactOnly;
 }
 
 export function sanitizeSingleRiskPayloadForPlan<T extends Record<string, any>>(payload: T, plan: string): T {
@@ -422,11 +429,15 @@ export function sanitizeBatchResultForPlan<T extends Record<string, any>>(raw: T
   if (visibility.includeAiExplanation) result.ai_explanation = raw.ai_explanation ?? null;
   if (emailDetails) {
     result.details = emailDetails;
-    result.disposable = !!readEmailDetail(emailDetails, "isDisposable");
-    result.role_based = !!readEmailDetail(emailDetails, "isRoleBased");
-    result.catch_all = !!readEmailDetail(emailDetails, "isCatchAll");
-    result.hasMX = !!readEmailDetail(emailDetails, "hasMX");
-    result.mxChecked = !!readEmailDetail(emailDetails, "mxChecked");
+    result.disposable = readEmailDetail(emailDetails, "isDisposable");
+    result.role_based = readEmailDetail(emailDetails, "isRoleBased");
+    result.catch_all = readEmailDetail(emailDetails, "isCatchAll");
+    result.hasMX = readEmailDetail(emailDetails, "hasMX");
+    result.mxChecked = readEmailDetail(emailDetails, "mxChecked");
+    result.mx_status = readEmailDetail(emailDetails, "mxStatus");
+    result.mailbox_status = readEmailDetail(emailDetails, "mailboxStatus");
+    result.catch_all_status = readEmailDetail(emailDetails, "catchAllStatus");
+    result.decision_explanation = readEmailDetail(emailDetails, "decisionExplanation");
 
     if (visibility.includeAdvancedEmailDetails) {
       result.inbox_probability = readEmailDetail(emailDetails, "inboxProbability");
@@ -449,6 +460,11 @@ export function getBatchExportColumnsForPlan(plan: string): ExportColumn[] {
   const visibility = getResultVisibility(plan);
   const columns: ExportColumn[] = [
     { key: "email", label: "Email" },
+    { key: "decision", label: "Decision" },
+    { key: "confidence", label: "Confidence" },
+    { key: "primary_reason", label: "Primary Reason" },
+    { key: "recommended_action", label: "Recommended Action" },
+    { key: "decision_explanation", label: "Decision Explanation" },
     { key: "risk_score", label: "Risk Score" },
     { key: "risk_level", label: "Risk Level" },
   ];
@@ -484,7 +500,7 @@ export function getBatchExportColumnsForPlan(plan: string): ExportColumn[] {
       { key: "dmarc_policy", label: "DMARC Policy" },
       { key: "dkim_selector", label: "DKIM Selector" },
       { key: "mx_records", label: "MX Records" },
-      { key: "ai_explanation", label: "AI Explanation" },
+      { key: "ai_explanation", label: "Additional Analysis" },
     );
   }
 

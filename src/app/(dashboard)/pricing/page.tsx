@@ -32,8 +32,8 @@ const custom = (text = "Custom"): FeatureValue => ({ text, availability: "custom
 
 const planHighlights: Record<PlanKey, string[]> = {
   free: [
-    "50 contacts audited / month",
-    "Single-contact risk preview",
+    "50 one-time contact checks",
+    "Single-contact checks",
     "Risk score and decision",
     "Recent audit history",
   ],
@@ -56,7 +56,7 @@ const planHighlights: Record<PlanKey, string[]> = {
     "Everything in Growth",
   ],
   business: [
-    "100,000+ contacts audited / month",
+    "Custom contact capacity",
     "Custom API capacity",
     "Enterprise onboarding",
     "Negotiated support and terms",
@@ -70,13 +70,13 @@ const comparisonSections: ComparisonSection[] = [
     title: "Audit workflow",
     rows: [
       {
-        label: "Contacts audited",
+        label: "Included checks",
         values: {
-          free: included("50"),
-          starter: included("500"),
-          growth: included("2,500"),
-          scale: included("15,000"),
-          business: custom("100,000+"),
+          free: included("50 one-time"),
+          starter: included("500/month"),
+          growth: included("2,500/month"),
+          scale: included("15,000/month"),
+          business: custom("Custom"),
         },
       },
       {
@@ -90,7 +90,7 @@ const comparisonSections: ComparisonSection[] = [
         },
       },
       {
-        label: "Single-contact preview",
+        label: "Single-contact checks",
         values: {
           free: included(),
           starter: included(),
@@ -661,7 +661,7 @@ export default function PricingPage() {
             Choose the list audit capacity your agency workflow needs.
           </h1>
           <p className="mt-4 text-base leading-7 text-slate-300">
-            Start with single-contact previews, add client-ready list audit reports, then move to API-driven workflow automation as your team grows.
+            Start with 50 one-time single-contact checks, add client-ready list audit reports, then move to API-driven workflow automation as your team grows.
           </p>
           <p className="mt-4 text-sm text-slate-500">Less than the cost of one wasted campaign launch.</p>
         </section>

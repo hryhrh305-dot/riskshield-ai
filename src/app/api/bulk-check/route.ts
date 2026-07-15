@@ -14,6 +14,7 @@ import {
 } from "@/lib/plans";
 import { consumeLegacyCredits, getUniqueBillableEmails } from "@/lib/legacy-credits";
 import { buildCreditRequestId } from "@/lib/credit-accounting";
+import { reconcileInputRows, splitScreeningTextRows, type InputReconciliation } from "@/lib/decision-integrity";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SECRET_KEY || "");
@@ -40,11 +41,6 @@ async function getUserFromRequest(request: NextRequest) {
     return user;
   } catch { return null; }
 }
-function parseEmails(text: string): string[] {
-  const lines = text.split(/[\s,;]+/);
-  return cleanEmails(lines);
-}
-
 // Detect column index for email in XLSX/CSV data
 function findEmailColumn(headers: string[]): number {
   const emailKeys = ["email", "e-mail", "mail", "email_address", "emailaddress", "address"];
@@ -102,6 +98,8 @@ function attachAuditFields(displayRecord: Record<string, unknown>, sourceRecord:
   return {
     record: {
       ...displayRecord,
+      decision: auditDecision.decision,
+      risk_level: auditDecision.decision,
       audit_queue: auditDecision.queue,
       reason_codes: auditDecision.reasonCodes,
       primary_reason: auditDecision.primaryReason,
@@ -109,6 +107,7 @@ function attachAuditFields(displayRecord: Record<string, unknown>, sourceRecord:
       business_impact: auditDecision.businessImpact,
       confidence: auditDecision.confidence,
       evidence: auditDecision.evidence,
+      decision_explanation: auditDecision.decisionExplanation,
     },
     auditDecision,
   };
@@ -138,6 +137,7 @@ export async function POST(request: NextRequest) {
 
   const contentType = request.headers.get("content-type") || "";
   let emails: string[] = [];
+  let inputReconciliation: InputReconciliation | null = null;
 
   if (contentType.includes("multipart/form-data")) {
     const formData = await request.formData();
@@ -147,17 +147,21 @@ export async function POST(request: NextRequest) {
     if (file) {
       const buffer = Buffer.from(await file.arrayBuffer());
       const parsed = parseFileBuffer(buffer, file.name);
-      emails = parsed.emails;
+      inputReconciliation = reconcileInputRows(parsed.rows.flat().map(String).filter((value) => value.trim().length > 0));
+      emails = inputReconciliation.accepted;
     } else if (textField) {
-      emails = parseEmails(textField);
+      inputReconciliation = reconcileInputRows(splitScreeningTextRows(textField));
+      emails = inputReconciliation.accepted;
     }
   } else {
     try {
       const body = await request.json();
       if (body.emails && Array.isArray(body.emails)) {
-        emails = cleanEmails(body.emails);
+        inputReconciliation = reconcileInputRows(body.emails.map(String));
+        emails = inputReconciliation.accepted;
       } else if (body.text) {
-        emails = parseEmails(body.text);
+        inputReconciliation = reconcileInputRows(splitScreeningTextRows(String(body.text)));
+        emails = inputReconciliation.accepted;
       }
     } catch {
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
@@ -165,18 +169,16 @@ export async function POST(request: NextRequest) {
   }
 
   if (emails.length === 0) {
-    return NextResponse.json({ error: "No valid emails found. Please upload a CSV, TXT, or XLSX file, or paste emails one per line or separated by spaces." }, { status: 400 });
+    return NextResponse.json({ error: "No valid emails found. Please upload a CSV, TXT, or XLSX file, or paste one email per line." }, { status: 400 });
   }
 
-  emails = emails.slice(0, 5000);
+  if (emails.length > 5000) {
+    return NextResponse.json({ error: "Too many contacts. Maximum is 5000 per request." }, { status: 400 });
+  }
 
   // === P0 HOTFIX: Deduplicate and consume credits BEFORE running checks ===
   const uniqueEmails = getUniqueBillableEmails(emails);
   const requiredCredits = uniqueEmails.length;
-
-  if (requiredCredits > 5000) {
-    return NextResponse.json({ error: "Too many contacts. Maximum is 5000 per request." }, { status: 400 });
-  }
 
   const legacyCreditResult = await consumeLegacyCredits({
     supabase: getSupabaseAdmin(),
@@ -402,6 +404,11 @@ export async function POST(request: NextRequest) {
       creditsAvailable: legacyCreditResult.creditsAvailable,
       remaining: legacyCreditResult.creditsRemaining,
     },
+    input_reconciliation: inputReconciliation ? {
+      ...inputReconciliation,
+      resultsProduced: results.length,
+      creditsConsumed: legacyCreditResult.deducted,
+    } : undefined,
     summary: {
       total,
       clean: cleanCount,

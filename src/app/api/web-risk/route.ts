@@ -5,6 +5,7 @@ import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
 import { getResultCacheScope, sanitizeSingleRiskPayloadForPlan, shouldUseAiExplanation, shouldUseDeepDetection } from "@/lib/plans";
 import { consumeLegacyCredits } from "@/lib/legacy-credits";
 import { buildCreditRequestId } from "@/lib/credit-accounting";
+import { buildContactAuditDecision } from "@/lib/list-audit";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SECRET_KEY || "");
@@ -53,6 +54,7 @@ function buildResponseData(email: string | null, requestIP: string | null, riskR
       ip: riskResult.ipDetails,
     },
     ai_explanation: aiReason || null,
+    decision_explanation: riskResult.decision_explanation || riskResult.emailDetails?.decisionExplanation || null,
     risk_factors: riskResult.risk_factors || [],
     recommendation: riskResult.recommendation || '',
     estimated_waste_cost: riskResult.estimated_waste_cost ?? 0,
@@ -164,8 +166,18 @@ try {
   const cachedResult = getCachedResult(cacheKey);
   if (cachedResult) {
     console.log("[RiskCheck] cache HIT for", cacheKey, "credit deducted");
+    const sanitizedCached = sanitizeSingleRiskPayloadForPlan(cachedResult, plan);
+    const cachedAudit = email ? buildContactAuditDecision({ ...cachedResult, email }) : null;
     return NextResponse.json({
-      ...sanitizeSingleRiskPayloadForPlan(cachedResult, plan),
+      ...sanitizedCached,
+      ...(cachedAudit ? {
+        decision: cachedAudit.decision,
+        audit_queue: cachedAudit.queue,
+        primary_reason: cachedAudit.primaryReason,
+        recommended_action: cachedAudit.recommendedAction,
+        confidence: cachedAudit.confidence,
+        decision_explanation: cachedAudit.decisionExplanation,
+      } : {}),
       cached: true,
       credits: {
         deducted: legacyCreditResult.deducted,
@@ -224,6 +236,7 @@ try {
       ip: riskResult.ipDetails,
     },
     ai_explanation: aiReason || null,
+    decision_explanation: riskResult.decision_explanation || riskResult.emailDetails?.decisionExplanation || null,
     risk_factors: riskResult.risk_factors || [],
     recommendation: riskResult.recommendation || '',
     estimated_waste_cost: riskResult.estimated_waste_cost ?? 0,
@@ -236,6 +249,17 @@ try {
     if (riskSettings.block_high_risk && riskResult.score >= 66) cacheData.decision = "BLOCK";
     if (riskSettings.review_catch_all && emailDetails?.isCatchAll && cacheData.decision === "ALLOW") cacheData.decision = "REVIEW";
     if (riskSettings.review_new_domain && (cacheData as any).domain_age?.isNew && cacheData.decision === "ALLOW") cacheData.decision = "REVIEW";
+  }
+  if (email) {
+    const audit = buildContactAuditDecision({ ...cacheData, email });
+    cacheData.decision = audit.decision;
+    Object.assign(cacheData, {
+      audit_queue: audit.queue,
+      primary_reason: audit.primaryReason,
+      recommended_action: audit.recommendedAction,
+      confidence: audit.confidence,
+      decision_explanation: audit.decisionExplanation,
+    });
   }
   setCachedResult(cacheKey, cacheData);
   console.log("[RiskCheck] cached result for", cacheKey, "(24h TTL)");

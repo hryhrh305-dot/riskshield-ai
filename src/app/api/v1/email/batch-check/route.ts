@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { calculateRiskScore, getAIExplanation, getCachedResult, setCachedResult, makeResultCacheKey, cleanEmails, checkDomainAge, getDNSHealthScore, calculateCompanyHealth } from "@/lib/risk-engine";
+import { calculateRiskScore, getAIExplanation, getCachedResult, setCachedResult, makeResultCacheKey, checkDomainAge, getDNSHealthScore, calculateCompanyHealth } from "@/lib/risk-engine";
 import { getBatchExportColumnsForPlan, getPlanLimits, getResultCacheScope, sanitizeBatchResultForPlan, shouldUseAiExplanation, shouldUseDeepDetection, type PlanKey } from "@/lib/plans";
 import { planCostLimits } from "@/lib/cost-control";
 import { buildContactAuditDecision, buildListAuditSummary } from "@/lib/list-audit";
 import { consumeLegacyCredits, getUniqueBillableEmails } from "@/lib/legacy-credits";
 import { buildCreditRequestId } from "@/lib/credit-accounting";
+import { reconcileInputRows } from "@/lib/decision-integrity";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SECRET_KEY || "");
@@ -27,6 +28,8 @@ function attachAuditFields(displayRecord: Record<string, unknown>, sourceRecord:
   return {
     record: {
       ...displayRecord,
+      decision: auditDecision.decision,
+      risk_level: auditDecision.decision,
       audit_queue: auditDecision.queue,
       reason_codes: auditDecision.reasonCodes,
       primary_reason: auditDecision.primaryReason,
@@ -34,6 +37,7 @@ function attachAuditFields(displayRecord: Record<string, unknown>, sourceRecord:
       business_impact: auditDecision.businessImpact,
       confidence: auditDecision.confidence,
       evidence: auditDecision.evidence,
+      decision_explanation: auditDecision.decisionExplanation,
     },
     auditDecision,
   };
@@ -105,7 +109,8 @@ export async function POST(req: NextRequest) {
   }
 
   const rawCount = emails.length;
-  const validEmails = getUniqueBillableEmails(cleanEmails(emails));
+  const inputReconciliation = reconcileInputRows(emails.map(String));
+  const validEmails = getUniqueBillableEmails(inputReconciliation.accepted);
   const skippedCount = rawCount - validEmails.length;
   if (validEmails.length === 0) {
     return NextResponse.json({
@@ -334,6 +339,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     success: true,
+    plan: planKey,
     batch_size: batchSize,
     detail_tier: getResultCacheScope(planKey),
     export_columns: getBatchExportColumnsForPlan(planKey),
@@ -345,6 +351,11 @@ export async function POST(req: NextRequest) {
       requiredCredits: legacyCreditResult.requiredCredits,
       creditsAvailable: legacyCreditResult.creditsAvailable,
       remaining: legacyCreditResult.creditsRemaining,
+    },
+    input_reconciliation: {
+      ...inputReconciliation,
+      resultsProduced: results.length,
+      creditsConsumed: legacyCreditResult.deducted,
     },
     summary: {
       total: batchSize,
