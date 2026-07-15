@@ -3,6 +3,8 @@ import { checkBlacklist, autoBlacklistIfHighRisk } from "@/lib/blacklist";
 import { disposableDomainsSet } from "@/lib/disposable-domains";
 import { hasApiAccess, shouldUseAiExplanation } from "@/lib/plans";
 import { applyDecisionIntegrity, classifyMxEvidence, sanitizeDecisionText, type MxEvidenceStatus } from "@/lib/decision-integrity";
+import { isRoleBasedEmail } from "@/lib/email-classification";
+export { canonicalRoleLocalPart, isRoleBasedEmail, roleBasedPrefixes } from "@/lib/email-classification";
 const disposableDomains: Set<string> = disposableDomainsSet;
 
 // NOTE: OpenAI/dns imports are dynamic to prevent Vercel build-time evaluation
@@ -64,8 +66,6 @@ export function cleanEmails(rawList: (string | null | undefined)[]): string[] {
 
 // ============ LAYER 1: LOCAL RULES (ZERO COST) ============
 
-
-export const roleBasedPrefixes = new Set(["info", "sales", "support", "contact", "admin", "hello", "help", "billing", "no-reply", "noreply", "nobody", "marketing", "team", "service", "office", "careers", "jobs", "hr", "webmaster", "postmaster", "abuse", "root", "hostmaster", "usenet", "news", "ftp", "www"]);
 
 export const suspiciousTLDs = new Set([
   // Free/abused ccTLDs
@@ -416,7 +416,7 @@ export async function calculateRiskScore({
       }
 
       // ---- 1b: Role-based email detection ----
-      if (roleBasedPrefixes.has(localPart)) {
+      if (isRoleBasedEmail(localPart)) {
         riskScore += 20;
         reasons.push("Role-based email - not a personal address (higher risk for cold outreach)");
       }
@@ -456,8 +456,8 @@ export async function calculateRiskScore({
       let isPersonalEmail = personalPatterns.some(p => p.test(localPart.toLowerCase()));
       // Only apply personal pattern discount if NOT disposable and NOT role-based
       const isDisposableCheck = disposableDomains.has(domain);
-      const isRoleBasedEmail = roleBasedPrefixes.has(localPart);
-      if (isPersonalEmail && !spamKeywords.some(kw => localPart.toLowerCase().includes(kw)) && !isDisposableCheck && !isRoleBasedEmail) {
+      const isRoleBasedMailbox = isRoleBasedEmail(localPart);
+      if (isPersonalEmail && !spamKeywords.some(kw => localPart.toLowerCase().includes(kw)) && !isDisposableCheck && !isRoleBasedMailbox) {
         riskScore = Math.max(0, riskScore - 10);
         reasons.push("Personal/individual email pattern - higher trust signal");
       }
@@ -474,7 +474,7 @@ export async function calculateRiskScore({
       emailDetails.domain = domain;
       emailDetails.localPart = localPart;
       emailDetails.isDisposable = disposableDomains.has(domain);
-      emailDetails.isRoleBased = roleBasedPrefixes.has(localPart);
+      emailDetails.isRoleBased = isRoleBasedEmail(localPart);
 
       // ---- 1e: Blacklist check ----
       const [blEmail, blDomain] = await Promise.all([

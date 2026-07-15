@@ -6,6 +6,7 @@ import { Shield, Mail, Globe, AlertTriangle, CheckCircle, XCircle, ArrowRight, Z
 import Link from "next/link";
 import { getResultVisibility } from "@/lib/plans";
 import { trackE8Event } from "@/components/e8/AttributionObserver";
+import { statusLabel } from "@/lib/decision-integrity";
 
 interface RiskResult {
   impact?: string[];
@@ -21,6 +22,9 @@ interface RiskResult {
   };
   ai_explanation?: string | null;
   decision_explanation?: string | null;
+  primary_reason?: string | null;
+  recommended_action?: string | null;
+  confidence?: number | null;
   credits: {
     remaining: number;
     success: boolean;
@@ -153,6 +157,7 @@ export default function RiskCheckPage() {
   const emailDetails = result?.details?.email as Record<string, any> | null | undefined;
   const ipDetails = result?.details?.ip as Record<string, any> | null | undefined;
   const visibility = result ? getResultVisibility((result as any).plan || (result as any).subscription_plan || "free") : null;
+  const technicalReasons = result?.reasons.filter((reason) => !(result.decision === "BLOCK" && /higher trust/i.test(reason))) || [];
   const basicEmailChecks = emailDetails ? [
     {
       label: "Email format",
@@ -162,7 +167,7 @@ export default function RiskCheckPage() {
     },
     {
       label: "Disposable email",
-      value: emailDetails.isDisposable ? "Detected" : "Not detected",
+      value: emailDetails.isDisposable == null ? "Unknown" : emailDetails.isDisposable ? "Yes" : "No",
       tone: emailDetails.isDisposable ? "text-red-300" : "text-emerald-300",
       helper: emailDetails.isDisposable
         ? "This address comes from a temporary email provider."
@@ -170,7 +175,7 @@ export default function RiskCheckPage() {
     },
     {
       label: "Role-based address",
-      value: emailDetails.isRoleBased ? "Detected" : "Not detected",
+      value: emailDetails.isRoleBased == null ? "Unknown" : emailDetails.isRoleBased ? "Yes" : "No",
       tone: emailDetails.isRoleBased ? "text-amber-300" : "text-emerald-300",
       helper: emailDetails.isRoleBased
         ? "This looks like a shared inbox such as info@, sales@, or support@."
@@ -185,6 +190,16 @@ export default function RiskCheckPage() {
         : emailDetails.hasMX
           ? "The domain has a mail server configured."
           : "No mail server was found for this domain.",
+    },
+    {
+      label: "Catch-all",
+      value: statusLabel(emailDetails.catchAllStatus ?? emailDetails.isCatchAll, "Unknown"),
+      tone: emailDetails.catchAllStatus === "yes" || emailDetails.isCatchAll === true
+        ? "text-amber-300"
+        : emailDetails.catchAllStatus === "no" || emailDetails.isCatchAll === false
+          ? "text-emerald-300"
+          : "text-slate-500",
+      helper: "Not tested and unknown states are kept distinct from No.",
     },
   ] : [];
   const hasLeadQualityModule = !!(result && (result.domain_age || result.company_health || ipDetails));
@@ -284,7 +299,7 @@ export default function RiskCheckPage() {
               </h2>
               <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ${decisionColor(result.decision)}`}>
                 {decisionIcon(result.decision)}
-                {result.decision}
+                Final Decision: {result.decision}
               </span>
             </div>
 
@@ -295,7 +310,7 @@ export default function RiskCheckPage() {
                   <div className="mt-1 break-all font-mono text-slate-100">{result.input}</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-xs text-slate-500">Risk Score</div>
+                  <div className="text-xs text-slate-500">Base Signal Score</div>
                   <div className={`text-3xl font-bold ${scoreColor(result.risk_score)}`}>{result.risk_score}</div>
                 </div>
               </div>
@@ -305,7 +320,18 @@ export default function RiskCheckPage() {
                   style={{ width: result.risk_score + "%" }}
                 />
               </div>
+              <p className="mt-3 text-xs leading-5 text-slate-500">
+                The final decision can override the base signal score when a definitive integrity rule or an evidence limitation applies.
+              </p>
             </div>
+
+            {(result.primary_reason || result.recommended_action) && (
+              <div className="mb-4 grid grid-cols-1 gap-3 rounded-[24px] border border-white/10 bg-white/[0.035] p-4 sm:grid-cols-3">
+                <div><div className="text-xs text-slate-500">Decision Confidence</div><div className="mt-1 text-sm font-semibold text-slate-100">{result.confidence ?? "Unknown"}</div></div>
+                <div><div className="text-xs text-slate-500">Primary Reason</div><div className="mt-1 text-sm font-semibold text-slate-100">{result.primary_reason || "Unknown"}</div></div>
+                <div><div className="text-xs text-slate-500">Recommended Action</div><div className="mt-1 text-sm font-semibold text-slate-100">{result.recommended_action || "Review"}</div></div>
+              </div>
+            )}
 
             {hasLeadQualityModule && (
               <div className="mb-4 rounded-[24px] border border-white/10 bg-white/[0.035] p-4">
@@ -318,7 +344,8 @@ export default function RiskCheckPage() {
                         emailDetails.isDisposable ? "Disposable" :
                         emailDetails.isRoleBased ? "Role-based" :
                         !emailDetails.hasMX && emailDetails.mxChecked ? "No Mail Server" :
-                        emailDetails.hasMX ? "Valid Mailbox" : "Unknown"
+                        emailDetails.smtpChecked && emailDetails.smtpValid ? "Mailbox confirmed" :
+                        emailDetails.hasMX ? "Mail server present" : "Unknown"
                       ) : "N/A"}
                     </div>
                   </div>
@@ -383,11 +410,11 @@ export default function RiskCheckPage() {
 
                 {result.company_health.positiveSignals.length > 0 && (
                   <div className="mb-2">
-                    <div className="mb-1 text-xs font-medium text-emerald-300">Positive Signals:</div>
+                    <div className="mb-1 text-xs font-medium text-slate-400">Technical Context:</div>
                     <ul className="space-y-0.5">
                       {result.company_health.positiveSignals.map((s, i) => (
-                        <li key={i} className="flex items-start gap-1.5 text-xs text-emerald-200">
-                          <CheckCircle className="mt-0.5 h-3 w-3 flex-shrink-0" /> {s}
+                        <li key={i} className="flex items-start gap-1.5 text-xs text-slate-400">
+                          <CheckCircle className="mt-0.5 h-3 w-3 flex-shrink-0 text-slate-500" /> {s}
                         </li>
                       ))}
                     </ul>
@@ -517,14 +544,14 @@ export default function RiskCheckPage() {
 
             {visibility?.includeReasons && (
               <div className="mb-4">
-                <h3 className="mb-2 text-sm font-medium text-slate-200">Reasons</h3>
-                {result.reasons.length === 0 ? (
+                <h3 className="mb-2 text-sm font-medium text-slate-200">Technical Evidence</h3>
+                {technicalReasons.length === 0 ? (
                   <p className="text-sm text-slate-500">No risk signals detected.</p>
                 ) : (
                   <ul className="space-y-1">
-                    {result.reasons.map((r, i) => (
+                    {technicalReasons.map((r, i) => (
                       <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                        <span className="mt-0.5 text-red-300">-</span> {r}
+                        <span className="mt-0.5 text-slate-500">-</span> {r}
                       </li>
                     ))}
                   </ul>

@@ -5,7 +5,8 @@ import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
 import { getResultCacheScope, sanitizeSingleRiskPayloadForPlan, shouldUseAiExplanation, shouldUseDeepDetection } from "@/lib/plans";
 import { consumeLegacyCredits } from "@/lib/legacy-credits";
 import { buildCreditRequestId } from "@/lib/credit-accounting";
-import { buildContactAuditDecision } from "@/lib/list-audit";
+import { attachCanonicalDecisionResult } from "@/lib/decision-contract";
+import { getPlanEntitlements } from "@/lib/plan-entitlements";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SECRET_KEY || "");
@@ -101,7 +102,7 @@ try {
   // Fetch profile with credits
   const { data: profile } = await getSupabaseAdmin()
     .from("profiles")
-    .select("plan, credits_remaining, total_checks")
+    .select("plan, credits_remaining, total_checks, subscription_status, subscription_end")
     .eq("id", user.id)
     .single();
   
@@ -116,7 +117,11 @@ try {
     if (rs?.risk_settings) riskSettings = rs.risk_settings as Record<string, boolean>;
   } catch { /* column may not exist yet, use defaults */ }
 
-  const plan = profile?.plan || "free";
+  const plan = getPlanEntitlements({
+    plan: profile?.plan || "free",
+    subscriptionStatus: profile?.subscription_status,
+    subscriptionEnd: profile?.subscription_end,
+  }).effectivePlan;
   const creditsRemaining = profile?.credits_remaining ?? 0;
   const totalChecks = profile?.total_checks ?? 0;
 
@@ -167,17 +172,9 @@ try {
   if (cachedResult) {
     console.log("[RiskCheck] cache HIT for", cacheKey, "credit deducted");
     const sanitizedCached = sanitizeSingleRiskPayloadForPlan(cachedResult, plan);
-    const cachedAudit = email ? buildContactAuditDecision({ ...cachedResult, email }) : null;
+    const cachedDecision = email ? attachCanonicalDecisionResult(sanitizedCached, { ...cachedResult, email }).record : sanitizedCached;
     return NextResponse.json({
-      ...sanitizedCached,
-      ...(cachedAudit ? {
-        decision: cachedAudit.decision,
-        audit_queue: cachedAudit.queue,
-        primary_reason: cachedAudit.primaryReason,
-        recommended_action: cachedAudit.recommendedAction,
-        confidence: cachedAudit.confidence,
-        decision_explanation: cachedAudit.decisionExplanation,
-      } : {}),
+      ...cachedDecision,
       cached: true,
       credits: {
         deducted: legacyCreditResult.deducted,
@@ -251,15 +248,7 @@ try {
     if (riskSettings.review_new_domain && (cacheData as any).domain_age?.isNew && cacheData.decision === "ALLOW") cacheData.decision = "REVIEW";
   }
   if (email) {
-    const audit = buildContactAuditDecision({ ...cacheData, email });
-    cacheData.decision = audit.decision;
-    Object.assign(cacheData, {
-      audit_queue: audit.queue,
-      primary_reason: audit.primaryReason,
-      recommended_action: audit.recommendedAction,
-      confidence: audit.confidence,
-      decision_explanation: audit.decisionExplanation,
-    });
+    Object.assign(cacheData, attachCanonicalDecisionResult(cacheData, { ...cacheData, email }).record);
   }
   setCachedResult(cacheKey, cacheData);
   console.log("[RiskCheck] cached result for", cacheKey, "(24h TTL)");
@@ -282,8 +271,9 @@ try {
   }).then(() => {}, () => {});
 
   // === STEP 5: Return result with credit info ===
+  const displayResult = sanitizeSingleRiskPayloadForPlan(cacheData, plan);
   return NextResponse.json({
-    ...sanitizeSingleRiskPayloadForPlan(cacheData, plan),
+    ...displayResult,
     credits: {
       deducted: legacyCreditResult.deducted,
       requiredCredits: legacyCreditResult.requiredCredits,

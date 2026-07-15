@@ -71,7 +71,7 @@ export const plans = {
     teamMembers: 1,
     apiAccess: false,
     tagline: "For smaller outbound teams",
-    description: "List audits, Send / Review / Suppress decisions, and client-ready summaries.",
+    description: "List audits, Send / Review / Suppress decisions, and basic summaries and exports.",
     creditsLabel: "500 contacts audited / month",
   },
   growth: {
@@ -460,13 +460,14 @@ export function getBatchExportColumnsForPlan(plan: string): ExportColumn[] {
   const visibility = getResultVisibility(plan);
   const columns: ExportColumn[] = [
     { key: "email", label: "Email" },
-    { key: "decision", label: "Decision" },
-    { key: "confidence", label: "Confidence" },
+    { key: "decision", label: "Final Decision" },
+    { key: "confidence", label: "Decision Confidence" },
+    { key: "primary_reason_code", label: "Primary Reason Code" },
     { key: "primary_reason", label: "Primary Reason" },
     { key: "recommended_action", label: "Recommended Action" },
     { key: "decision_explanation", label: "Decision Explanation" },
-    { key: "risk_score", label: "Risk Score" },
-    { key: "risk_level", label: "Risk Level" },
+    { key: "risk_score", label: "Base Signal Score" },
+    { key: "risk_level", label: "Final Decision (Legacy Alias)" },
   ];
 
   if (visibility.includeReasons) {

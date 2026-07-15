@@ -30,9 +30,9 @@ interface BulkResult extends Record<string, unknown> {
   health_score?: number | null;
   decision?: string;
   risk_level?: string;
-  disposable?: boolean;
-  role_based?: boolean;
-  catch_all?: boolean;
+  disposable?: boolean | null;
+  role_based?: boolean | null;
+  catch_all?: boolean | null;
   hasMX?: boolean;
   mxChecked?: boolean;
   mx_status?: string | null;
@@ -87,13 +87,16 @@ export default function BulkCheckPage() {
   const [resultPlan, setResultPlan] = useState("");
   const [exportColumns, setExportColumns] = useState<ExportColumn[]>([
     { key: "email", label: "Email" },
-    { key: "risk_score", label: "Risk Score" },
-    { key: "risk_level", label: "Risk Level" },
+    { key: "decision", label: "Final Decision" },
+    { key: "risk_score", label: "Base Signal Score" },
   ]);
   const auditCta = getPlanAuditCta(resultPlan);
+  const hasClientReadyReport = ["growth", "scale", "business"].includes(resultPlan.toLowerCase());
 
   function readExportValue(result: BulkResult, key: string) {
     if (key === "risk_level") return result.risk_level || result.decision || "";
+    if (key === "disposable") return statusLabel(result.disposable, "Unknown");
+    if (key === "role_based") return statusLabel(result.role_based, "Unknown");
     if (key === "reasons") return (result.reasons || []).join("; ");
     if (key === "impact") return (result.impact || []).join(" | ");
     if (key === "risk_factors") return (result.risk_factors || []).join(" | ");
@@ -142,12 +145,12 @@ export default function BulkCheckPage() {
 
     if (column.key === "email") {
       const priority = new Set(["email", "decision", "confidence", "primary_reason", "recommended_action"]);
-      const technicalColumns = exportColumns.filter((item) => !priority.has(item.key));
+      const technicalColumns = visibleExportColumns.filter((item) => !priority.has(item.key));
       return (
         <div>
           <span className="break-all font-mono text-slate-200">{String(value)}</span>
           {technicalColumns.length > 0 && (
-            <details className="mt-2 md:hidden">
+            <details className="mt-2">
               <summary className="cursor-pointer text-[11px] text-slate-400">Technical evidence</summary>
               <dl className="mt-2 space-y-1 text-[11px] text-slate-400">
                 {technicalColumns.map((item) => <div key={item.key}><dt className="inline text-slate-500">{item.label}: </dt><dd className="inline">{String(readExportValue(result, item.key) || "Not available")}</dd></div>)}
@@ -206,15 +209,15 @@ export default function BulkCheckPage() {
       if (!["yes", "no", "true", "false"].includes(normalized)) return <span className="text-slate-500">{String(value || "Unknown")}</span>;
       const truthy = normalized === "yes" || normalized === "true";
       return truthy
-        ? <XCircle className="h-4 w-4 text-red-300" />
-        : <CheckCircle className="h-4 w-4 text-emerald-300" />;
+        ? <span className="inline-flex items-center gap-1.5 text-red-300"><XCircle className="h-4 w-4" /> Yes</span>
+        : <span className="inline-flex items-center gap-1.5 text-emerald-300"><CheckCircle className="h-4 w-4" /> No</span>;
     }
 
     if (column.key === "mx_status") {
       if (["Not checked", "Lookup failed", "Timed out", "Unknown"].includes(String(value))) return <span className="text-slate-500">{String(value)}</span>;
       return value === "Present"
-        ? <CheckCircle className="h-4 w-4 text-emerald-300" />
-        : <XCircle className="h-4 w-4 text-red-300" />;
+        ? <span className="inline-flex items-center gap-1.5 text-emerald-300"><CheckCircle className="h-4 w-4" /> Present</span>
+        : <span className="inline-flex items-center gap-1.5 text-red-300"><XCircle className="h-4 w-4" /> {String(value)}</span>;
     }
 
     const textColor =
@@ -390,8 +393,8 @@ export default function BulkCheckPage() {
         { key: "recommended_action", label: "Recommended Action", format: (row) => row.recommended_action || readExportValue(row, "recommended_action") },
         { key: "business_impact", label: "Business Impact", format: (row) => row.business_impact || readExportValue(row, "business_impact") },
         { key: "decision", label: "Decision", format: (row) => row.decision || row.risk_level || "" },
-        { key: "risk_score", label: "Risk Score", format: (row) => row.risk_score ?? "" },
-        { key: "risk_level", label: "Risk Level", format: (row) => row.risk_level || row.decision || "" },
+        { key: "risk_score", label: "Base Signal Score", format: (row) => row.risk_score ?? "" },
+        { key: "risk_level", label: "Final Decision", format: (row) => row.risk_level || row.decision || "" },
       ],
       review: [
         { key: "email", label: "Email" },
@@ -403,8 +406,8 @@ export default function BulkCheckPage() {
         { key: "recommended_action", label: "Recommended Action", format: (row) => row.recommended_action || readExportValue(row, "recommended_action") },
         { key: "evidence_summary", label: "Evidence Summary", format: (row) => readExportValue(row, "evidence_summary") },
         { key: "decision", label: "Decision", format: (row) => row.decision || row.risk_level || "" },
-        { key: "risk_score", label: "Risk Score", format: (row) => row.risk_score ?? "" },
-        { key: "risk_level", label: "Risk Level", format: (row) => row.risk_level || row.decision || "" },
+        { key: "risk_score", label: "Base Signal Score", format: (row) => row.risk_score ?? "" },
+        { key: "risk_level", label: "Final Decision", format: (row) => row.risk_level || row.decision || "" },
       ],
       suppress: [
         { key: "email", label: "Email" },
@@ -416,8 +419,8 @@ export default function BulkCheckPage() {
         { key: "recommended_action", label: "Recommended Action", format: (row) => row.recommended_action || readExportValue(row, "recommended_action") },
         { key: "evidence_summary", label: "Evidence Summary", format: (row) => readExportValue(row, "evidence_summary") },
         { key: "decision", label: "Decision", format: (row) => row.decision || row.risk_level || "" },
-        { key: "risk_score", label: "Risk Score", format: (row) => row.risk_score ?? "" },
-        { key: "risk_level", label: "Risk Level", format: (row) => row.risk_level || row.decision || "" },
+        { key: "risk_score", label: "Base Signal Score", format: (row) => row.risk_score ?? "" },
+        { key: "risk_level", label: "Final Decision", format: (row) => row.risk_level || row.decision || "" },
       ],
     };
 
@@ -440,11 +443,12 @@ export default function BulkCheckPage() {
       { key: "campaignReadinessScore", label: "Campaign Readiness Score" },
       { key: "launchStatus", label: "Launch Status" },
       { key: "listAcceptance", label: "List Acceptance" },
-      { key: "topRiskReasons", label: "Top Risk Reasons", format: (row) => row.topRiskReasons.map((item) => `${item.reasonCode} (${item.count})`).join("; ") },
-      { key: "riskySendsPrevented", label: "Risky Sends Prevented", format: (row) => row.estimatedWastePrevented.riskySendsPrevented },
-      { key: "estimatedSendingCreditsSaved", label: "Estimated Sending Credits Saved", format: (row) => row.estimatedWastePrevented.estimatedSendingCreditsSaved },
-      { key: "estimatedSdrTimeSavedHours", label: "Estimated SDR Time Saved Hours", format: (row) => row.estimatedWastePrevented.estimatedSdrTimeSavedHours },
-      { key: "estimatedWasteSavedUsd", label: "Estimated Waste Saved USD", format: (row) => row.estimatedWastePrevented.estimatedWasteSavedUsd },
+      { key: "topDecisionDrivers", label: "Top Decision Drivers", format: (row) => row.topDecisionDrivers.map((item) => `${item.reasonCode} (${item.count})`).join("; ") },
+      { key: "campaignSendsAvoided", label: "Campaign Sends Avoided", format: (row) => row.estimatedWastePrevented.campaignSendsAvoided },
+      { key: "estimatedReviewMinutes", label: "Estimated Review Minutes", format: (row) => row.estimatedWastePrevented.estimatedReviewMinutes },
+      { key: "sdrHourlyCostUsd", label: "Assumed SDR Hourly Cost USD", format: (row) => row.estimatedWastePrevented.sdrHourlyCostUsd },
+      { key: "estimatedOperationalWasteAvoidedUsd", label: "Estimated Operational Waste Avoided USD", format: (row) => row.estimatedWastePrevented.estimatedOperationalWasteAvoidedUsd },
+      { key: "formula", label: "Estimate Formula", format: (row) => row.estimatedWastePrevented.formula },
       { key: "clientRiskBrief", label: "Client Risk Brief" },
     ]);
 
@@ -454,6 +458,13 @@ export default function BulkCheckPage() {
   const sendCount = results?.filter((result) => normalizeAuditQueue(result) === "send").length ?? 0;
   const reviewCount = results?.filter((result) => normalizeAuditQueue(result) === "review").length ?? 0;
   const suppressCount = results?.filter((result) => normalizeAuditQueue(result) === "suppress").length ?? 0;
+  const visibleExportColumns = exportColumns.filter((column) => {
+    if (column.key === "risk_level" && exportColumns.some((item) => item.key === "decision")) return false;
+    if (["recommendation", "solution_summary", "ai_explanation", "dkim_selector", "domain_age_days"].includes(column.key)) {
+      return !!results?.some((result) => readExportValue(result, column.key) !== "");
+    }
+    return true;
+  });
 
   return (
     <div className="rs-shell">
@@ -605,7 +616,7 @@ sales@domain.com`}</pre>
                   <button onClick={() => exportCSV("clean")} className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-200 transition hover:bg-emerald-500/15"><span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Export clean report</span></button>
                   <button onClick={() => exportCSV("risky")} className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-200 transition hover:bg-red-500/15"><span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Risk review list</span></button>
                 </div>
-                <div className="mt-3 rounded-2xl border border-white/8 bg-white/[0.02] p-3">
+                {hasClientReadyReport && <div className="mt-3 rounded-2xl border border-white/8 bg-white/[0.02] p-3">
                   <div className="mb-2 text-xs uppercase tracking-[0.22em] text-slate-500">Client delivery files</div>
                   <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                     <button onClick={() => downloadAuditCsv("send")} disabled={!results} className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-200 transition hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-50">
@@ -624,7 +635,7 @@ sales@domain.com`}</pre>
                   <p className="mt-2 text-[11px] text-slate-500">
                     Standard files keep send, review, suppression, and audit summary exports separate for agency delivery.
                   </p>
-                </div>
+                </div>}
                 <Link href={auditCta.href} className="rs-link-arrow mt-3 inline-flex items-center gap-1 text-sm font-medium text-white md:hidden">
                   {auditCta.label} <ArrowRight className="h-4 w-4" />
                 </Link>
@@ -633,7 +644,7 @@ sales@domain.com`}</pre>
           </div>
         )}
 
-        {auditSummary && (
+        {auditSummary && hasClientReadyReport && (
           <AuditReportPreview
             summary={auditSummary}
             totalContacts={auditSummary.total}
@@ -643,6 +654,18 @@ sales@domain.com`}</pre>
           />
         )}
 
+        {auditSummary && !hasClientReadyReport && (
+          <section className="rs-card mb-6 rounded-[28px] p-6">
+            <div className="text-xs font-medium uppercase tracking-[0.22em] text-slate-500">Basic List Audit Summary</div>
+            <p className="mt-2 text-sm text-slate-400">Starter includes the core queue breakdown and basic CSV/XLSX exports. Client-ready Campaign Readiness and List Acceptance reports start on Growth.</p>
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.08] p-3 text-emerald-100"><div className="text-[11px] uppercase tracking-[0.18em]">Send</div><div className="mt-1 text-xl font-semibold">{auditSummary.sendCount}</div></div>
+              <div className="rounded-2xl border border-amber-500/15 bg-amber-500/[0.08] p-3 text-amber-100"><div className="text-[11px] uppercase tracking-[0.18em]">Review</div><div className="mt-1 text-xl font-semibold">{auditSummary.reviewCount}</div></div>
+              <div className="rounded-2xl border border-red-500/15 bg-red-500/[0.08] p-3 text-red-100"><div className="text-[11px] uppercase tracking-[0.18em]">Suppress</div><div className="mt-1 text-xl font-semibold">{auditSummary.suppressCount}</div></div>
+            </div>
+          </section>
+        )}
+
         {results && (
           <div className="rs-card overflow-hidden rounded-[28px]">
             <div className="border-b border-white/8 px-4 py-4 sm:px-6">
@@ -650,7 +673,7 @@ sales@domain.com`}</pre>
                 <div>
                   <h3 className="text-base font-semibold text-white">Detailed results</h3>
                   <p className="mt-1 text-sm text-slate-500">
-                    Risk score, decision state, and supporting signals for each contact in the uploaded list.
+                    Base signal score, final decision, and supporting evidence for each contact in the uploaded list.
                   </p>
                 </div>
                 <div className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-xs text-slate-400">
@@ -662,8 +685,8 @@ sales@domain.com`}</pre>
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-black/70 backdrop-blur-xl">
                   <tr>
-                    {exportColumns.map((column) => (
-                      <th key={column.key} className={`${["email", "decision", "confidence", "primary_reason", "recommended_action"].includes(column.key) ? "" : "hidden md:table-cell"} min-w-[120px] whitespace-nowrap border-b border-white/8 px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.22em] text-slate-500`}>
+                    {visibleExportColumns.map((column) => (
+                      <th key={column.key} className={`${["email", "decision", "confidence", "primary_reason", "recommended_action"].includes(column.key) ? "" : "hidden"} min-w-[120px] whitespace-nowrap border-b border-white/8 px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.22em] text-slate-500`}>
                         {column.label}
                       </th>
                     ))}
@@ -672,8 +695,8 @@ sales@domain.com`}</pre>
                 <tbody>
                   {results.map((result, index) => (
                     <tr key={index} className="border-t border-white/8 transition hover:bg-white/[0.03]">
-                      {exportColumns.map((column) => (
-                        <td key={column.key} className={`${["email", "decision", "confidence", "primary_reason", "recommended_action"].includes(column.key) ? "" : "hidden md:table-cell"} px-4 py-3 text-xs align-top leading-5`}>
+                      {visibleExportColumns.map((column) => (
+                        <td key={column.key} className={`${["email", "decision", "confidence", "primary_reason", "recommended_action"].includes(column.key) ? "" : "hidden"} px-4 py-3 text-xs align-top leading-5`}>
                           {renderCell(result, column)}
                         </td>
                       ))}

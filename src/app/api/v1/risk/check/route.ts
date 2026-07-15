@@ -6,6 +6,8 @@ import { calculateRiskScore, checkDomainAge, calculateCompanyHealth, getAIExplan
 import { sanitizeSingleRiskPayloadForPlan, shouldUseAiExplanation, shouldUseDeepDetection } from "@/lib/plans";
 import { consumeLegacyCredits } from "@/lib/legacy-credits";
 import { buildCreditRequestId } from "@/lib/credit-accounting";
+import { attachCanonicalDecisionResult } from "@/lib/decision-contract";
+import { getPlanEntitlements } from "@/lib/plan-entitlements";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SECRET_KEY || "");
@@ -37,10 +39,14 @@ export async function POST(request: NextRequest) {
   if (!cc.allowed) {
     return NextResponse.json({ error: cc.errorCode, message: cc.errorMessage }, { status: 429 });
   }
+  const entitlements = getPlanEntitlements({ plan: cc.plan || "free", subscriptionStatus: "active" });
+  if (!entitlements.apiAccess) {
+    return NextResponse.json({ error: "API_ACCESS_REQUIRED", message: "API access starts on Growth." }, { status: 403 });
+  }
 
   const legacyCreditResult = await consumeLegacyCredits({
     supabase: getSupabaseAdmin(),
-    userId: cc.userId,
+    userId: cc.userId!,
     requiredCredits: 1,
     requestId: buildCreditRequestId(request, "risk-check"),
     reason: "api_audit",
@@ -114,7 +120,9 @@ export async function POST(request: NextRequest) {
   };
   (result as any).domain_age = domainAge;
   (result as any).company_health = companyHealth;
-  const sanitizedResult = sanitizeSingleRiskPayloadForPlan(result as Record<string, unknown>, cc.plan || "free");
+  const rawPayload = result as unknown as Record<string, unknown>;
+  const sanitizedPayload = sanitizeSingleRiskPayloadForPlan(rawPayload, cc.plan || "free");
+  const sanitizedResult = attachCanonicalDecisionResult(sanitizedPayload, rawPayload).record;
   (sanitizedResult as any).cost = (result as any).cost;
 
   // Async: save risk log

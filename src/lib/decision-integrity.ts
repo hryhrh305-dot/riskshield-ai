@@ -151,56 +151,74 @@ export function applyDecisionIntegrity(input: {
   const baseDecision = scoreDecision(input.score);
   let decision: Decision = input.decision || baseDecision;
   let primaryReason = decision === "ALLOW" ? "No blocking signal detected" : decision === "REVIEW" ? "Manual review required" : "High-risk signal detected";
+  let primaryReasonCode = decision === "ALLOW" ? "BASE_SCORE_ALLOW" : decision === "REVIEW" ? "BASE_SCORE_REVIEW" : "BASE_SCORE_BLOCK";
   let recommendedAction = decision === "ALLOW" ? "Send" : decision === "REVIEW" ? "Review identity" : "Suppress";
   let confidence: "high" | "medium" | "low" = "medium";
 
-  if (input.isDisposable) {
+  if (suggestedEmail) {
     decision = "BLOCK";
+    primaryReasonCode = "POSSIBLE_TYPO";
+    primaryReason = "Possible domain typo";
+    recommendedAction = `Correct typo to ${suggestedEmail}`;
+    confidence = "high";
+  } else if (input.isDisposable) {
+    decision = "BLOCK";
+    primaryReasonCode = "DISPOSABLE_DOMAIN";
     primaryReason = "Disposable mailbox";
     recommendedAction = "Suppress";
     confidence = "high";
   } else if (isReservedOrTestDomain(domain)) {
     decision = "BLOCK";
+    primaryReasonCode = "RESERVED_TEST_DOMAIN";
     primaryReason = "Reserved or test domain";
     recommendedAction = "Replace contact";
     confidence = "high";
   } else if (input.mxStatus === "null_mx") {
     decision = "BLOCK";
+    primaryReasonCode = "NULL_MX";
     primaryReason = "Domain explicitly does not accept mail";
     recommendedAction = "Suppress";
     confidence = "high";
   } else if (input.mxStatus === "absent") {
     decision = "BLOCK";
+    primaryReasonCode = "NO_MX";
     primaryReason = suggestedEmail ? "Possible domain typo" : "No usable MX";
     recommendedAction = suggestedEmail ? `Correct typo to ${suggestedEmail}` : "Correct typo or replace contact";
     confidence = "high";
-  } else if (suggestedEmail) {
-    decision = "BLOCK";
-    primaryReason = "Possible domain typo";
-    recommendedAction = `Correct typo to ${suggestedEmail}`;
-    confidence = "high";
   } else if (input.mailboxStatus === "rejected") {
     decision = "BLOCK";
+    primaryReasonCode = "SMTP_FAILURE";
     primaryReason = "Mailbox rejected";
     recommendedAction = "Correct typo or replace contact";
     confidence = "high";
   } else if (input.mxStatus === "lookup_failed" || input.mxStatus === "timed_out") {
     decision = "REVIEW";
+    primaryReasonCode = "MX_LOOKUP_FAILED";
     primaryReason = input.mxStatus === "timed_out" ? "MX lookup timed out" : "MX lookup failed";
     recommendedAction = "Retry later";
     confidence = "low";
   } else if (input.catchAllStatus === "yes") {
     decision = "REVIEW";
+    primaryReasonCode = "CATCH_ALL_DOMAIN";
     primaryReason = "Catch-all mailbox uncertainty";
     recommendedAction = "Verify the individual mailbox before sending";
     confidence = "low";
   } else if (!input.mxStatus || input.mxStatus === "not_tested" || !input.mailboxStatus || input.mailboxStatus === "unconfirmed" || input.mailboxStatus === "not_tested") {
     decision = "REVIEW";
+    primaryReasonCode = "MAILBOX_UNCONFIRMED";
     primaryReason = "Mailbox unconfirmed";
     recommendedAction = "Review identity";
     confidence = "low";
   } else {
     decision = baseDecision;
+  }
+
+  if (baseDecision === "BLOCK" && decision === "REVIEW") {
+    decision = "BLOCK";
+    primaryReasonCode = "BASE_SCORE_BLOCK";
+    primaryReason = "High-risk base signal score";
+    recommendedAction = "Suppress";
+    confidence = "medium";
   }
 
   const mailboxConfirmed = input.mailboxStatus === "confirmed";
@@ -219,6 +237,7 @@ export function applyDecisionIntegrity(input: {
     decision,
     queue: decision === "ALLOW" ? "send" as const : decision === "REVIEW" ? "review" as const : "suppress" as const,
     primaryReason,
+    primaryReasonCode,
     recommendedAction,
     confidence,
     limitation,

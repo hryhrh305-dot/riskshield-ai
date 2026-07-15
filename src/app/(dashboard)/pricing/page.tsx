@@ -34,7 +34,7 @@ const planHighlights: Record<PlanKey, string[]> = {
   free: [
     "50 one-time contact checks",
     "Single-contact checks",
-    "Risk score and decision",
+    "Base signal score and final decision",
     "Recent audit history",
   ],
   starter: [

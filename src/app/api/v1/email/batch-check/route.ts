@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { calculateRiskScore, getAIExplanation, getCachedResult, setCachedResult, makeResultCacheKey, checkDomainAge, getDNSHealthScore, calculateCompanyHealth } from "@/lib/risk-engine";
-import { getBatchExportColumnsForPlan, getPlanLimits, getResultCacheScope, sanitizeBatchResultForPlan, shouldUseAiExplanation, shouldUseDeepDetection, type PlanKey } from "@/lib/plans";
+import { getBatchExportColumnsForPlan, getResultCacheScope, sanitizeBatchResultForPlan, shouldUseAiExplanation, shouldUseDeepDetection, type PlanKey } from "@/lib/plans";
 import { planCostLimits } from "@/lib/cost-control";
-import { buildContactAuditDecision, buildListAuditSummary } from "@/lib/list-audit";
+import { buildListAuditSummary, type ContactAuditDecision } from "@/lib/list-audit";
+import { attachCanonicalDecisionResult } from "@/lib/decision-contract";
+import { getPlanEntitlements } from "@/lib/plan-entitlements";
 import { consumeLegacyCredits, getUniqueBillableEmails } from "@/lib/legacy-credits";
 import { buildCreditRequestId } from "@/lib/credit-accounting";
 import { reconcileInputRows } from "@/lib/decision-integrity";
@@ -24,23 +26,7 @@ function getSupabaseAdmin() {
 const MAX_BATCH_SIZE = 100;
 
 function attachAuditFields(displayRecord: Record<string, unknown>, sourceRecord: Record<string, unknown>) {
-  const auditDecision = buildContactAuditDecision(sourceRecord);
-  return {
-    record: {
-      ...displayRecord,
-      decision: auditDecision.decision,
-      risk_level: auditDecision.decision,
-      audit_queue: auditDecision.queue,
-      reason_codes: auditDecision.reasonCodes,
-      primary_reason: auditDecision.primaryReason,
-      recommended_action: auditDecision.recommendedAction,
-      business_impact: auditDecision.businessImpact,
-      confidence: auditDecision.confidence,
-      evidence: auditDecision.evidence,
-      decision_explanation: auditDecision.decisionExplanation,
-    },
-    auditDecision,
-  };
+  return attachCanonicalDecisionResult(displayRecord, sourceRecord);
 }
 
 export async function POST(req: NextRequest) {
@@ -69,7 +55,7 @@ export async function POST(req: NextRequest) {
   // Get profile & plan limits
   const { data: profile } = await getSupabaseAdmin()
     .from("profiles")
-    .select("plan, credits_remaining, subscription_status")
+    .select("plan, credits_remaining, subscription_status, subscription_end")
     .eq("id", keyData.user_id)
     .single();
 
@@ -77,11 +63,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 401 });
   }
 
-  const planKey = (profile.plan || "free") as PlanKey;
-  const planInfo = getPlanLimits(planKey);
+  const entitlements = getPlanEntitlements({
+    plan: profile.plan || "free",
+    subscriptionStatus: profile.subscription_status,
+    subscriptionEnd: profile.subscription_end,
+  });
+  const planKey = entitlements.effectivePlan as PlanKey;
   const limits = planCostLimits[planKey] || planCostLimits.free;
 
-  if (!planInfo.apiAccess) {
+  if (!entitlements.apiAccess) {
     return NextResponse.json({
       error: "API_ACCESS_REQUIRED",
       message: "API access starts on Growth. Upgrade to unlock automation and batch API.",
@@ -182,7 +172,7 @@ export async function POST(req: NextRequest) {
 
   // Process emails in parallel with concurrency control (avoids 504 timeout on Vercel)
   const results: any[] = [];
-  const auditDecisions: Array<ReturnType<typeof buildContactAuditDecision>> = [];
+  const auditDecisions: ContactAuditDecision[] = [];
   const CONCURRENCY = 25;
   const startedAt = Date.now();
   let cacheHits = 0;
@@ -267,6 +257,7 @@ export async function POST(req: NextRequest) {
       risk_factors: riskResult.risk_factors || [],
       recommendation: riskResult.recommendation || "",
       estimated_waste_cost: riskResult.estimated_waste_cost ?? 0,
+      audited_at: new Date().toISOString(),
       cached: false,
     };
     if (shouldUseAiExplanation(planKey)) {

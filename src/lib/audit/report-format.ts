@@ -52,6 +52,6 @@ export function formatAuditReport(summary: ListAuditSummary, generatedAt = new D
     generatedAtLabel: generatedAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }),
     summaryLine: `This list is currently marked as ${formatLaunchStatus(summary.launchStatus).toLowerCase()} and should be handled as a ${formatListAcceptance(summary.listAcceptance).toLowerCase()} workflow.`,
     topRiskReasonText: topRiskReason ? `${topRiskReason.label} (${topRiskReason.count})` : "No dominant risk reason detected.",
-    wasteSnapshot: `${formatNumber(waste.riskySendsPrevented)} risky sends prevented · ${formatNumber(waste.estimatedSendingCreditsSaved)} credits saved · ${waste.estimatedSdrTimeSavedHours.toFixed(2)} SDR hours saved · ${formatCurrency(waste.estimatedWasteSavedUsd)} waste prevented`,
+    wasteSnapshot: `${formatNumber(waste.campaignSendsAvoided)} campaign sends avoided · ${formatNumber(waste.estimatedReviewMinutes)} estimated review minutes · ${formatCurrency(waste.estimatedOperationalWasteAvoidedUsd)} estimated operational waste avoided · Formula: ${waste.formula}. Estimate only; not guaranteed savings.`,
   };
 }

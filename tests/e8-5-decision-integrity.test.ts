@@ -162,8 +162,7 @@ describe("E8.5 decision integrity", () => {
     expect(page).toContain('s >= 66 ? "text-red-300" : s >= 26');
     expect(page).toContain('"Mailbox unconfirmed"');
     expect(page).toContain("Decision Explanation");
-    expect(route).toContain("buildContactAuditDecision({ ...cachedResult, email })");
-    expect(route).toContain("decision_explanation: cachedAudit.decisionExplanation");
+    expect(route).toContain("attachCanonicalDecisionResult(sanitizedCached, { ...cachedResult, email })");
   });
 
   it("provides a deterministic correction for a common provider typo", () => {
@@ -233,7 +232,7 @@ describe("E8.5 decision integrity", () => {
 
     expect(reconciliation).toMatchObject({ inputRows: 100, uniqueValidAddressesProcessed: 89, rejectedBeforeScreening: 10, duplicatesRemoved: 1 });
     expect(decisions).toHaveLength(89);
-    expect(summary).toMatchObject({ total: 89, sendCount: 0, reviewCount: 60, suppressCount: 29 });
+    expect(summary).toMatchObject({ total: 89, sendCount: 0, reviewCount: 59, suppressCount: 30 });
     expect(decisions.filter((item) => item.decision === "ALLOW" && item.reasonCodes.includes("DISPOSABLE_DOMAIN"))).toHaveLength(0);
     expect(decisions.filter((item) => item.queue === "send" && item.reasonCodes.includes("RESERVED_TEST_DOMAIN"))).toHaveLength(0);
     expect(decisions.every((item) => item.recommendedAction.length > 0)).toBe(true);

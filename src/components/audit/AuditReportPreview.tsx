@@ -130,11 +130,11 @@ export function AuditReportPreview({
               <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
                 <div className="flex items-center gap-2 text-sm font-medium text-white">
                   <TriangleAlert className="h-4 w-4 text-amber-300" />
-                  Top Risk Reasons
+                  Top Decision Drivers
                 </div>
                 <div className="mt-3 space-y-2">
-                  {summary.topRiskReasons.length > 0 ? (
-                    summary.topRiskReasons.slice(0, 5).map((item) => (
+                  {summary.topDecisionDrivers.length > 0 ? (
+                    summary.topDecisionDrivers.map((item) => (
                       <div key={item.reasonCode} className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
                         <div className="flex items-center justify-between gap-3">
                           <div className="text-sm font-medium text-white">{item.label}</div>
@@ -181,7 +181,7 @@ export function AuditReportPreview({
             <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
               <div className="flex items-center gap-2 text-sm font-medium text-white">
                 <ArrowRight className="h-4 w-4 text-slate-400" />
-                Estimated Waste Prevented
+                Estimated Operational Waste Avoided
               </div>
               <div className="mt-3 rounded-2xl border border-white/8 bg-white/[0.03] p-4 text-sm text-slate-300">
                 {report.wasteSnapshot}

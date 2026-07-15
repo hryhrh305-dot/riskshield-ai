@@ -95,7 +95,7 @@ export async function costControlCheck(params: {
     return { allowed: false, errorCode: "SUBSCRIPTION_INACTIVE", errorMessage: "User not found", costUnits, monthlyRemaining: 0, dailyRemaining: 0, perMinuteRemaining: 0, ipRemaining: 0 };
   }
 
-  if (profile.subscription_status === "cancelled" && !hasActiveSubscriptionAccess("cancelled", profile.subscription_end)) {
+  if (!hasActiveSubscriptionAccess(profile.subscription_status, profile.subscription_end)) {
     profile.plan = "free";
   }
   if (profile.subscription_status === "past_due" || profile.subscription_status === "paused") {

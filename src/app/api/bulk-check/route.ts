@@ -3,11 +3,12 @@ import { createClient } from "@supabase/supabase-js";
 import { calculateRiskScore, checkDomainAge, getAIExplanation, getCachedResult, getDNSHealthScore, makeResultCacheKey, setCachedResult, calculateCompanyHealth, cleanEmails } from "@/lib/risk-engine";
 import * as XLSX from "xlsx";
 import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
-import { buildContactAuditDecision, buildListAuditSummary } from "@/lib/list-audit";
+import { buildListAuditSummary, type ContactAuditDecision } from "@/lib/list-audit";
+import { attachCanonicalDecisionResult } from "@/lib/decision-contract";
+import { getPlanEntitlements } from "@/lib/plan-entitlements";
 import {
   getBatchExportColumnsForPlan,
   getResultCacheScope,
-  isPlanAtLeast,
   sanitizeBatchResultForPlan,
   shouldUseAiExplanation,
   shouldUseDeepDetection,
@@ -94,23 +95,7 @@ function parseFileBuffer(buffer: Buffer, filename: string): { emails: string[]; 
 }
 
 function attachAuditFields(displayRecord: Record<string, unknown>, sourceRecord: Record<string, unknown>) {
-  const auditDecision = buildContactAuditDecision(sourceRecord);
-  return {
-    record: {
-      ...displayRecord,
-      decision: auditDecision.decision,
-      risk_level: auditDecision.decision,
-      audit_queue: auditDecision.queue,
-      reason_codes: auditDecision.reasonCodes,
-      primary_reason: auditDecision.primaryReason,
-      recommended_action: auditDecision.recommendedAction,
-      business_impact: auditDecision.businessImpact,
-      confidence: auditDecision.confidence,
-      evidence: auditDecision.evidence,
-      decision_explanation: auditDecision.decisionExplanation,
-    },
-    auditDecision,
-  };
+  return attachCanonicalDecisionResult(displayRecord, sourceRecord);
 }
 
 export async function POST(request: NextRequest) {
@@ -121,12 +106,17 @@ export async function POST(request: NextRequest) {
 
   const { data: profile } = await getSupabaseAdmin()
     .from("profiles")
-    .select("plan, credits_remaining")
+    .select("plan, credits_remaining, subscription_status, subscription_end")
     .eq("id", user.id)
     .single();
-  const plan = profile?.plan || "free";
+  const entitlements = getPlanEntitlements({
+    plan: profile?.plan || "free",
+    subscriptionStatus: profile?.subscription_status,
+    subscriptionEnd: profile?.subscription_end,
+  });
+  const plan = entitlements.effectivePlan;
 
-  if (!isPlanAtLeast(plan, "starter")) {
+  if (!entitlements.bulkWebAudit) {
     return NextResponse.json({
       error: "BULK_PLAN_REQUIRED",
       message: "Bulk list screening starts on Starter. Upgrade to scan CSV, TXT, or XLSX files.",
@@ -204,7 +194,7 @@ export async function POST(request: NextRequest) {
 
   // Process in batches
   const results: Array<Record<string, unknown>> = [];
-  const auditDecisions: Array<ReturnType<typeof buildContactAuditDecision>> = [];
+  const auditDecisions: ContactAuditDecision[] = [];
 
   let cleanCount = 0, riskyCount = 0, blockedCount = 0;
   const BATCH_SIZE = 20;
@@ -309,6 +299,7 @@ export async function POST(request: NextRequest) {
         mxChecked: (riskResult.emailDetails?.mxChecked as boolean) || false,
         impact: riskResult.impact || [],
         solution: riskResult.solution || [],
+        audited_at: new Date().toISOString(),
         cached: false,
       };
       if (shouldUseAiExplanation(plan)) {

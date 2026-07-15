@@ -26,7 +26,7 @@ const features = [
   {
     icon: Globe,
     title: "Campaign readiness score",
-    desc: "See how ready a list is to launch with top risk reasons and estimated waste prevented.",
+    desc: "See how ready a list is to launch with decision drivers and a transparent operational-waste estimate.",
   },
   {
     icon: Zap,
@@ -228,7 +228,7 @@ export default function HomePageClient() {
               </Link>
             </div>
 
-            <p className="rs-fade-up rs-fade-up-delay-3 mt-3 text-sm text-slate-400">No credit card required. Free contact preview included.</p>
+            <p className="rs-fade-up rs-fade-up-delay-3 mt-3 text-sm text-slate-400">No credit card required. New accounts receive 50 one-time contact checks.</p>
 
             <div className="rs-stagger mt-10 grid gap-3 sm:grid-cols-2">
               {trustPoints.map((point) => (
@@ -259,7 +259,7 @@ export default function HomePageClient() {
                     <p className="mt-2 break-all text-sm text-slate-200">{livePreview.email}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Risk Score</p>
+                    <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Base Signal Score</p>
                     <p className="rs-metric-value mt-2 text-5xl font-semibold text-white">{livePreview.score}</p>
                   </div>
                 </div>
@@ -323,7 +323,7 @@ export default function HomePageClient() {
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Start with real list audits</p>
             <h2 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-white">Run your first list audit before the next campaign goes live.</h2>
             <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
-              Free previews for quick evaluation, deeper plans for bulk audit exports, API workflows, and operational protection when your funnel grows.
+              Use 50 one-time contact checks for evaluation, then choose a plan for bulk audit exports, API workflows, and operational protection as your funnel grows.
             </p>
 
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">

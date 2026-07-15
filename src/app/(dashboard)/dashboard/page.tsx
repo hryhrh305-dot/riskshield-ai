@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { getPlanLimits, type PlanKey } from "@/lib/plans";
 import { generateApiKey } from "@/lib/api-auth";
+import { getPlanEntitlements } from "@/lib/plan-entitlements";
 import { findCreemProductById, hasActiveSubscriptionAccess } from "@/lib/creem";
 import { signOut } from "@/lib/auth";
 import { SecwynMark } from "@/components/brand/SecwynMark";
@@ -390,8 +391,12 @@ export default function DashboardPage() {
   }
 
   async function createKey() {
-    const currentPlan = profile?.plan || "free";
-    if (!getPlanLimits(currentPlan).apiAccess) return;
+    const currentEntitlements = getPlanEntitlements({
+      plan: profile?.plan || "free",
+      subscriptionStatus: subscription?.status || profile?.subscription_status,
+      subscriptionEnd: subscription?.current_period_end,
+    });
+    if (!currentEntitlements.apiAccess) return;
     const supabase = createClient();
     const {
       data: { session },
@@ -415,10 +420,15 @@ export default function DashboardPage() {
 
   const planKey = profile.plan as PlanKey;
   const planInfo = getPlanLimits(planKey);
+  const entitlements = getPlanEntitlements({
+    plan: planKey,
+    subscriptionStatus: subscription?.status || profile.subscription_status,
+    subscriptionEnd: subscription?.current_period_end,
+  });
   const isBusinessPlan = planKey === "business";
   const monthlyLimit = planInfo.monthlyLimit || 50000;
   const creditsRemaining = profile.credits_remaining ?? 0;
-  const apiEnabled = planInfo.apiAccess;
+  const apiEnabled = entitlements.apiAccess;
   const feedbackRemaining = Math.max(0, feedbackDailyLimit - feedbackSentToday);
   const creditSummarySubscription = referralSummary?.credits?.subscription ?? Math.min(creditsRemaining, monthlyLimit);
   const creditSummaryManual = referralSummary?.credits?.manual ?? 0;
@@ -826,7 +836,7 @@ export default function DashboardPage() {
             {(settings || defaultSettings) &&
               [
                 { key: "block_disposable", label: "Block disposable emails", desc: "Force BLOCK on temporary/disposable email addresses" },
-                { key: "block_high_risk", label: "Block high risk score", desc: "Force BLOCK when risk score is 60 or above" },
+                { key: "block_high_risk", label: "Block high base signal score", desc: "Force BLOCK when the base signal score is 66 or above" },
                 { key: "review_catch_all", label: "Review catch-all domains", desc: "Force REVIEW on domains that accept all mailboxes" },
                 { key: "review_new_domain", label: "Review new domains", desc: "Force REVIEW on domains less than 90 days old" },
               ].map(({ key, label, desc }) => (

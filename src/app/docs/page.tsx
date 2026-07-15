@@ -118,7 +118,7 @@ export default function DocsPage() {
               <code className="rs-code rounded-full px-3 py-1 text-sm">/api/v1/pre-send/check</code>
             </div>
             <p className="mb-4 text-sm text-slate-400">Real-time screening before campaigns go out through Gmail, Outlook, HubSpot, or your own sender workflow.</p>
-            <div className="mb-2 text-xs font-medium uppercase tracking-[0.22em] text-slate-500">Request (batch up to 1,000)</div>
+            <div className="mb-2 text-xs font-medium uppercase tracking-[0.22em] text-slate-500">Request (legacy pre-send endpoint)</div>
             <pre className="rs-code overflow-x-auto rounded-2xl p-3 text-xs text-slate-300">{`{
   "emails": ["lead1@company.com", "spam@temp.com", "..."],
   "campaign_id": "spring-outreach-2026"

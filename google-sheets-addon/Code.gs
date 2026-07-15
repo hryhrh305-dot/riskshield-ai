@@ -302,7 +302,7 @@ function processBatches_(sheet, anchorRange, emails, apiKey, totalCells, skipped
       }
     }
     var scanMsg = "Emails scanned: " + totals.checked + "\n" +
-      "ALLOW (safe): " + totals.allow + " | REVIEW: " + totals.review + " | BLOCK: " + totals.block + "\n" +
+      "ALLOW: " + totals.allow + " | REVIEW: " + totals.review + " | BLOCK: " + totals.block + "\n" +
       "Cached (charged): " + totals.cached + "\nCredits remaining: " + totals.remaining;
     if (skippedCells > 0) scanMsg += "\n\nSkipped " + skippedCells + " invalid/non-email cells.";
     if (duplicateCells > 0) scanMsg += "\nDuplicates removed: " + duplicateCells;
@@ -416,8 +416,8 @@ function processBatch_(sheet, anchorRange, emails, apiKey, totalCells, skippedCe
 function getFallbackExportColumns_() {
   return [
     { key: "email", label: "Email" },
-    { key: "risk_score", label: "Risk Score" },
-    { key: "risk_level", label: "Risk Level" },
+    { key: "decision", label: "Final Decision" },
+    { key: "risk_score", label: "Base Signal Score" },
     { key: "recommendation", label: "Recommendation" },
     { key: "estimated_waste_cost", label: "Estimated Waste Cost" },
     { key: "cached", label: "Cached?" },
@@ -454,8 +454,14 @@ function readExportValue_(result, key) {
   if (key === "estimated_waste_cost") return result.estimated_waste_cost != null ? result.estimated_waste_cost : "";
   if (key === "ai_explanation") return result.ai_explanation || "";
   if (key === "health_score") return result.health_score != null ? result.health_score : "";
-  if (key === "disposable") return result.disposable ? "Yes" : "No";
-  if (key === "role_based") return result.role_based ? "Yes" : "No";
+  if (key === "disposable") {
+    if (result.disposable == null) return "Unknown";
+    return result.disposable ? "Yes" : "No";
+  }
+  if (key === "role_based") {
+    if (result.role_based == null) return "Unknown";
+    return result.role_based ? "Yes" : "No";
+  }
   if (key === "catch_all") {
     if (result.catch_all_status === "yes" || result.catch_all === true) return "Yes";
     if (result.catch_all_status === "no" || result.catch_all === false) return "No";

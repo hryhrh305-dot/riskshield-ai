@@ -1,4 +1,6 @@
 import { applyDecisionIntegrity, isReservedOrTestDomain, type MxEvidenceStatus } from "@/lib/decision-integrity";
+import { disposableDomainsSet } from "@/lib/disposable-domains";
+import { isRoleBasedEmail } from "@/lib/email-classification";
 
 export type AuditQueue = "send" | "review" | "suppress";
 
@@ -29,12 +31,17 @@ export type ContactAuditDecision = {
   legacyDecision?: string;
   riskScore?: number;
   confidence: number;
+  disposable: boolean;
+  roleBased: boolean;
   reasonCodes: string[];
+  primaryReasonCode: string;
   primaryReason: string;
   recommendedAction: string;
   businessImpact: string;
   evidence: AuditEvidence[];
   decisionExplanation: string;
+  decisionLimitation: string;
+  suggestedCorrection: string | null;
 };
 
 export type ListAuditSummary = {
@@ -54,11 +61,21 @@ export type ListAuditSummary = {
     count: number;
     label: string;
   }>;
+  topDecisionDrivers: Array<{
+    reasonCode: string;
+    count: number;
+    label: string;
+  }>;
   estimatedWastePrevented: {
     riskySendsPrevented: number;
     estimatedSendingCreditsSaved: number;
     estimatedSdrTimeSavedHours: number;
     estimatedWasteSavedUsd: number;
+    campaignSendsAvoided: number;
+    estimatedReviewMinutes: number;
+    sdrHourlyCostUsd: number;
+    estimatedOperationalWasteAvoidedUsd: number;
+    formula: string;
   };
   recommendedWorkflow: string[];
   clientRiskBrief: string;
@@ -102,22 +119,10 @@ const AUDIT_REASON_LABELS: Record<string, AuditReasonLabel> = {
   MAILBOX_UNCONFIRMED: { code: "MAILBOX_UNCONFIRMED", label: "Mailbox unconfirmed", severity: "medium" },
   MX_LOOKUP_FAILED: { code: "MX_LOOKUP_FAILED", label: "MX lookup failed", severity: "medium" },
   POSSIBLE_TYPO: { code: "POSSIBLE_TYPO", label: "Possible email typo", severity: "medium" },
+  BASE_SCORE_ALLOW: { code: "BASE_SCORE_ALLOW", label: "Base score allows sending", severity: "positive" },
+  BASE_SCORE_REVIEW: { code: "BASE_SCORE_REVIEW", label: "Base score requires review", severity: "medium" },
+  BASE_SCORE_BLOCK: { code: "BASE_SCORE_BLOCK", label: "Base score requires suppression", severity: "high" },
 };
-
-const TOP_RISK_REASON_CODES = new Set([
-  "INVALID_SYNTAX",
-  "DISPOSABLE_DOMAIN",
-  "ROLE_BASED_EMAIL",
-  "NO_MX",
-  "NULL_MX",
-  "RESERVED_TEST_DOMAIN",
-  "POSSIBLE_TYPO",
-  "MAILBOX_UNCONFIRMED",
-  "MX_LOOKUP_FAILED",
-  "CATCH_ALL_DOMAIN",
-  "BLACKLIST_HIT",
-  "SMTP_FAILURE",
-]);
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -491,7 +496,8 @@ export function buildContactAuditDecision(input: Record<string, unknown>): Conta
   const details = (input.details as { email?: Record<string, unknown> | null } | undefined) || undefined;
   const emailDetails = details?.email || (input.details as Record<string, unknown> | undefined) || {};
   const domain = normalizedEmail.includes("@") ? normalizedEmail.slice(normalizedEmail.lastIndexOf("@") + 1) : "";
-  const isDisposable = readDetailsField(emailDetails, "isDisposable") === true || input.disposable === true;
+  const isDisposable = readDetailsField(emailDetails, "isDisposable") === true || input.disposable === true || disposableDomainsSet.has(domain);
+  const isRoleBased = readDetailsField(emailDetails, "isRoleBased") === true || input.role_based === true || isRoleBasedEmail(normalizedEmail);
   const hasMX = readDetailsField(emailDetails, "hasMX") ?? input.hasMX;
   const mxChecked = readDetailsField(emailDetails, "mxChecked") === true || input.mxChecked === true;
   const rawMxStatus = readDetailsField(emailDetails, "mxStatus") || input.mx_status;
@@ -520,6 +526,7 @@ export function buildContactAuditDecision(input: Record<string, unknown>): Conta
   ].filter(Boolean);
   const integrityReasonCodes = [
     ...(isDisposable ? ["DISPOSABLE_DOMAIN"] : []),
+    ...(isRoleBased ? ["ROLE_BASED_EMAIL"] : []),
     ...(domain && isReservedOrTestDomain(domain) ? ["RESERVED_TEST_DOMAIN"] : []),
     ...(mxStatus === "null_mx" ? ["NULL_MX"] : []),
     ...(mxStatus === "absent" ? ["NO_MX"] : []),
@@ -534,6 +541,9 @@ export function buildContactAuditDecision(input: Record<string, unknown>): Conta
   ])];
 
   const evidence = buildEvidenceFromRawInput(input);
+  if (isRoleBased) {
+    addEvidence(evidence, new Set(evidence.map((item) => item.signal)), "ROLE_BASED_EMAIL", "medium", "Role-based inbox detected.");
+  }
   for (const code of integrityReasonCodes) {
     const meta = getReasonLabel(code);
     addEvidence(evidence, new Set(evidence.map((item) => item.signal)), code, meta.severity, integrity.primaryReason);
@@ -552,12 +562,17 @@ export function buildContactAuditDecision(input: Record<string, unknown>): Conta
     legacyDecision: legacyDecision || undefined,
     riskScore: Number.isFinite(riskScore) ? riskScore : undefined,
     confidence,
+    disposable: isDisposable,
+    roleBased: isRoleBased,
     reasonCodes,
+    primaryReasonCode: integrity.primaryReasonCode,
     primaryReason,
     recommendedAction,
     businessImpact,
     evidence,
     decisionExplanation: integrity.decisionExplanation,
+    decisionLimitation: integrity.limitation,
+    suggestedCorrection: integrity.suggestedEmail,
   };
 }
 
@@ -624,11 +639,9 @@ export function determineListAcceptance(
 export function buildTopRiskReasons(decisions: ContactAuditDecision[]): Array<{ reasonCode: string; count: number; label: string }> {
   const counts = new Map<string, number>();
   for (const decision of decisions) {
-    for (const code of decision.reasonCodes) {
-      const meta = getReasonLabel(code);
-      if (meta.severity === "positive" || !TOP_RISK_REASON_CODES.has(code)) continue;
-      counts.set(code, (counts.get(code) || 0) + 1);
-    }
+    const code = decision.primaryReasonCode;
+    if (!code || code === "UNKNOWN_RISK") continue;
+    counts.set(code, (counts.get(code) || 0) + 1);
   }
 
   return [...counts.entries()]
@@ -637,8 +650,7 @@ export function buildTopRiskReasons(decisions: ContactAuditDecision[]): Array<{ 
       count,
       label: getReasonLabel(reasonCode).label,
     }))
-    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
-    .slice(0, 5);
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 }
 
 export function estimateWastePrevented(decisions: ContactAuditDecision[]): {
@@ -646,8 +658,14 @@ export function estimateWastePrevented(decisions: ContactAuditDecision[]): {
   estimatedSendingCreditsSaved: number;
   estimatedSdrTimeSavedHours: number;
   estimatedWasteSavedUsd: number;
+  campaignSendsAvoided: number;
+  estimatedReviewMinutes: number;
+  sdrHourlyCostUsd: number;
+  estimatedOperationalWasteAvoidedUsd: number;
+  formula: string;
 } {
   const suppressCount = decisions.filter((item) => item.queue === "suppress").length;
+  const estimatedReviewMinutes = roundTo(suppressCount * DEFAULT_SDR_MINUTES_SAVED_PER_SUPPRESS_CONTACT, 2);
   const estimatedSdrTimeSavedHours = roundTo((suppressCount * DEFAULT_SDR_MINUTES_SAVED_PER_SUPPRESS_CONTACT) / 60, 2);
   const estimatedWasteSavedUsd = roundTo(
     (suppressCount * DEFAULT_SENDING_COST_PER_RISKY_SEND_USD) +
@@ -660,6 +678,11 @@ export function estimateWastePrevented(decisions: ContactAuditDecision[]): {
     estimatedSendingCreditsSaved: suppressCount,
     estimatedSdrTimeSavedHours,
     estimatedWasteSavedUsd,
+    campaignSendsAvoided: suppressCount,
+    estimatedReviewMinutes,
+    sdrHourlyCostUsd: DEFAULT_SDR_HOURLY_COST_USD,
+    estimatedOperationalWasteAvoidedUsd: estimatedWasteSavedUsd,
+    formula: `${suppressCount} suppressed contacts × (${DEFAULT_SDR_MINUTES_SAVED_PER_SUPPRESS_CONTACT} review minutes × $${DEFAULT_SDR_HOURLY_COST_USD}/hour + $${DEFAULT_SENDING_COST_PER_RISKY_SEND_USD} send cost)`,
   };
 }
 
@@ -735,6 +758,7 @@ export function buildListAuditSummary(decisions: ContactAuditDecision[]): ListAu
     launchStatus,
     listAcceptance,
     topRiskReasons,
+    topDecisionDrivers: topRiskReasons,
     estimatedWastePrevented,
     recommendedWorkflow,
     clientRiskBrief,

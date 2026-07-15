@@ -1,4 +1,5 @@
-import { buildContactAuditDecision, buildListAuditSummary, type ListAuditSummary } from "@/lib/list-audit";
+import { buildListAuditSummary, type ListAuditSummary } from "@/lib/list-audit";
+import { attachCanonicalDecisionResult } from "@/lib/decision-contract";
 import { reconcileInputRows, splitScreeningTextRows, type InputReconciliation } from "@/lib/decision-integrity";
 import * as XLSXLib from "xlsx";
 
@@ -111,20 +112,11 @@ export async function runWebBulkBatches<T>(
 }
 
 export function mergeWebBulkResponses(responses: WebBulkResponse[]): Required<Pick<WebBulkResponse, "results" | "export_columns" | "summary">> & { audit_summary: ListAuditSummary; plan?: string; creditsDeducted: number } {
-  const decisions = responses.flatMap((response) => response.results || []).map((result) => ({ result, audit: buildContactAuditDecision(result) }));
-  const results = decisions.map(({ result, audit }) => ({
-    ...result,
-    decision: audit.decision,
-    risk_level: audit.decision,
-    audit_queue: audit.queue,
-    reason_codes: audit.reasonCodes,
-    primary_reason: audit.primaryReason,
-    recommended_action: audit.recommendedAction,
-    business_impact: audit.businessImpact,
-    confidence: audit.confidence,
-    evidence: audit.evidence,
-    decision_explanation: audit.decisionExplanation,
-  }));
+  const decisions = responses.flatMap((response) => response.results || []).map((result) => {
+    const attached = attachCanonicalDecisionResult(result, result, typeof result.audited_at === "string" ? result.audited_at : undefined);
+    return { result: attached.record as unknown as WebBulkResult, audit: attached.auditDecision };
+  });
+  const results = decisions.map(({ result }) => result);
   const exportColumns = responses.find((response) => response.export_columns?.length)?.export_columns || [];
   let clean = 0;
   let risky = 0;

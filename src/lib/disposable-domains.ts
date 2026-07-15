@@ -6327,6 +6327,7 @@ export const disposableDomainsSet: Set<string> = new Set([
   "tempmail.cc",
   "tempmail.cn",
   "tempmail.co",
+  "tempmail.com",
   "tempmail.de",
   "tempmail.email",
   "tempmail.eu",
