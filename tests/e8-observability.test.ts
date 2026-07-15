@@ -388,6 +388,44 @@ describe("E8 integration contracts", () => {
     expect(inserted).toMatchObject({ user_id: "550e8400-e29b-41d4-a716-446655440000", plan: "growth", billing_interval: "yearly", provider_event_id: "evt-1" });
   });
 
+  it("normalizes the official refund payload into transaction-linked major-unit revenue fields", async () => {
+    let inserted: Record<string, unknown> | null = null;
+    const fake = {
+      from(table: string) {
+        if (table !== "subscription_events") throw new Error(`unexpected table ${table}`);
+        return { upsert: async (value: Record<string, unknown>) => { inserted = value; return { error: null }; } };
+      },
+    } as unknown as SupabaseClient;
+    await recordSubscriptionEvent({
+      supabase: fake,
+      rawBody: "official-refund-body",
+      eventType: "refund.created",
+      event: {
+        id: "evt-refund",
+        created_at: 1728734351631,
+        object: {
+          id: "ref-1",
+          status: "succeeded",
+          refund_amount: 1210,
+          refund_currency: "EUR",
+          transaction: { id: "tran-1", amount_paid: 1210, status: "refunded" },
+          subscription: { id: "sub-1", status: "canceled" },
+        },
+      },
+    });
+    expect(inserted).toMatchObject({
+      event_type: "refund",
+      provider_payment_id: "tran-1",
+      provider_subscription_id: "sub-1",
+      currency: "EUR",
+      gross_amount: 12.1,
+      refund_amount: 12.1,
+      net_amount: 0,
+      occurred_at: "2024-10-12T11:59:11.631Z",
+      reconciliation_status: "unmatched",
+    });
+  });
+
   it("classifies nested Creem renewals from subscription dates even when the event timestamp is newer", async () => {
     let inserted: Record<string, unknown> | null = null;
     const fake = {

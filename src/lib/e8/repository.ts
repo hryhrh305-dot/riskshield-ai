@@ -269,9 +269,15 @@ export async function recordSubscriptionEvent(params: {
   else if (params.eventType === "refund.created") normalizedEventType = "refund";
   const customer = (object.customer || {}) as Record<string, unknown>;
   const order = (object.order || {}) as Record<string, unknown>;
+  const transaction = (object.transaction || {}) as Record<string, unknown>;
   const numberOrNull = (value: unknown) => {
+    if (value === null || value === undefined || value === "") return null;
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : null;
+  };
+  const moneyOrNull = (value: unknown) => {
+    const parsed = numberOrNull(value);
+    return parsed === null ? null : parsed / 100;
   };
   const uuidOrNull = (value: unknown) => typeof value === "string" && /^[0-9a-f-]{36}$/i.test(value) ? value : null;
   const attributionId = uuidOrNull(metadata.attribution_id);
@@ -286,9 +292,18 @@ export async function recordSubscriptionEvent(params: {
     if (messageError) throw messageError;
     if (message) messageDimensions = message;
   }
-  const gross = numberOrNull(object.amount || order.amount);
-  const fee = numberOrNull(object.fee_amount || order.fee_amount);
-  const refund = numberOrNull(object.refund_amount);
+  const gross = moneyOrNull(
+    params.eventType === "refund.created"
+      ? transaction.amount_paid
+      : object.amount_paid ?? object.amount ?? order.amount_paid ?? order.amount,
+  );
+  const fee = moneyOrNull(object.fee_amount ?? order.fee_amount);
+  const refund = moneyOrNull(object.refund_amount);
+  const occurredAt = typeof params.event.created_at === "number"
+    ? new Date(params.event.created_at).toISOString()
+    : typeof params.event.created_at === "string"
+      ? params.event.created_at
+      : null;
   let referralAttributionId: string | null = null;
   if (userId) {
     try {
@@ -310,13 +325,27 @@ export async function recordSubscriptionEvent(params: {
     provider_event_type: params.eventType || "unknown",
     event_type: normalizedEventType,
     provider_checkout_id: typeof metadata.checkout_id === "string" ? metadata.checkout_id : (params.eventType === "checkout.completed" && typeof object.id === "string" ? object.id : null),
-    provider_payment_id: typeof object.last_transaction_id === "string" ? object.last_transaction_id : typeof order.id === "string" ? order.id : null,
+    provider_payment_id: typeof object.last_transaction_id === "string"
+      ? object.last_transaction_id
+      : typeof transaction.id === "string"
+        ? transaction.id
+        : typeof order.transaction === "string"
+          ? order.transaction
+          : null,
     provider_subscription_id: subscriptionId,
     provider_customer_id: typeof customer.id === "string" ? customer.id : typeof object.customer_id === "string" ? object.customer_id : null,
     outreach_message_id: typeof metadata.outreach_message_id === "string" ? metadata.outreach_message_id : null,
     plan: typeof metadata.plan === "string" ? metadata.plan : null,
     billing_interval: typeof metadata.billing_interval === "string" ? metadata.billing_interval : null,
-    currency: typeof object.currency === "string" ? object.currency : typeof order.currency === "string" ? order.currency : null,
+    currency: typeof object.refund_currency === "string"
+      ? object.refund_currency
+      : typeof object.currency === "string"
+        ? object.currency
+        : typeof order.currency === "string"
+          ? order.currency
+          : typeof transaction.currency === "string"
+            ? transaction.currency
+            : null,
     gross_amount: gross,
     fee_amount: fee,
     refund_amount: refund,
@@ -331,7 +360,7 @@ export async function recordSubscriptionEvent(params: {
     market: typeof metadata.market === "string" ? metadata.market : messageDimensions.market || null,
     matched: Boolean(userId || attributionId || campaignId),
     reconciliation_status: normalizedEventType === "subscription_paid_unclassified" ? "needs_review" : userId ? "matched" : "unmatched",
-    occurred_at: typeof params.event.created_at === "string" ? params.event.created_at : null,
+    occurred_at: occurredAt,
     raw_payload: params.event,
     source: "creem",
     idempotency_key: idempotencyKey,

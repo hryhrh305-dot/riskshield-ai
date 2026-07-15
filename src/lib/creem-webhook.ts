@@ -63,6 +63,19 @@ function getNestedString(
   return typeof current === "string" && current.trim() ? current : null;
 }
 
+function getNestedNumber(source: unknown, path: readonly string[]): number | null {
+  let current: unknown = source;
+
+  for (const key of path) {
+    const record = asRecord(current);
+    if (!record || !(key in record)) return null;
+    current = record[key];
+  }
+
+  const value = typeof current === "number" ? current : Number(current);
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
 function pushCandidate(
   target: BillingLookupCandidate[],
   seen: Set<string>,
@@ -104,7 +117,8 @@ export function extractPaymentIdentifiers(event: CreemWebhookEvent) {
     transactionId:
       getNestedString(event, ["object", "transaction_id"]) ||
       getNestedString(event, ["object", "last_transaction_id"]) ||
-      getNestedString(event, ["object", "payment", "id"]),
+      getNestedString(event, ["object", "payment", "id"]) ||
+      getNestedString(event, ["object", "transaction", "id"]),
     checkoutId:
       getNestedString(event, ["object", "checkout_id"]) ||
       getNestedString(event, ["object", "checkout", "id"]),
@@ -115,6 +129,10 @@ export function extractPaymentIdentifiers(event: CreemWebhookEvent) {
       getNestedString(event, ["object", "subscription", "id"]) ||
       getNestedString(event, ["object", "id"]),
     customerId: extractCustomerId(event),
+    refundId:
+      extractEventType(event) === "refund.created"
+        ? getNestedString(event, ["object", "id"])
+        : null,
     metadataUserId:
       getNestedString(objectMetadata, ["user_id"]) ||
       getNestedString(objectMetadata, ["userId"]) ||
@@ -132,6 +150,56 @@ export function extractPaymentIdentifiers(event: CreemWebhookEvent) {
       getNestedString(objectMetadata, ["user_email"]) ||
       getNestedString(subscriptionMetadata, ["email"]) ||
       getNestedString(subscriptionMetadata, ["user_email"]),
+  };
+}
+
+export type CreemRefundClassification = {
+  kind: "full" | "partial" | "unverified";
+  refundId: string | null;
+  transactionId: string | null;
+  refundAmountMinor: number | null;
+  amountPaidMinor: number | null;
+};
+
+export function classifyCreemRefund(event: CreemWebhookEvent): CreemRefundClassification {
+  const identifiers = extractPaymentIdentifiers(event);
+  const refundStatus = getNestedString(event, ["object", "status"]);
+  const transactionStatus = getNestedString(event, ["object", "transaction", "status"]);
+  const subscriptionStatus = getNestedString(event, ["object", "subscription", "status"]);
+  const refundAmountMinor = getNestedNumber(event, ["object", "refund_amount"]);
+  const amountPaidMinor = getNestedNumber(event, ["object", "transaction", "amount_paid"]);
+  const verified =
+    refundStatus === "succeeded" &&
+    Boolean(identifiers.refundId) &&
+    Boolean(identifiers.transactionId) &&
+    refundAmountMinor !== null &&
+    refundAmountMinor > 0 &&
+    amountPaidMinor !== null &&
+    amountPaidMinor > 0;
+
+  let kind: CreemRefundClassification["kind"] = "unverified";
+  if (
+    verified &&
+    refundAmountMinor >= amountPaidMinor &&
+    transactionStatus === "refunded" &&
+    subscriptionStatus === "canceled"
+  ) {
+    kind = "full";
+  } else if (
+    verified &&
+    (refundAmountMinor < amountPaidMinor ||
+      transactionStatus === "partially_refunded" ||
+      transactionStatus === "partialRefund")
+  ) {
+    kind = "partial";
+  }
+
+  return {
+    kind,
+    refundId: identifiers.refundId,
+    transactionId: identifiers.transactionId,
+    refundAmountMinor,
+    amountPaidMinor,
   };
 }
 

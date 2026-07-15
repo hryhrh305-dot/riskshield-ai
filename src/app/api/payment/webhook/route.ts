@@ -4,6 +4,7 @@ import {
   type CreemWebhookEvent,
   BILLING_REVOKE_EVENTS,
   CREEM_HANDLED_EVENT_TYPES,
+  classifyCreemRefund,
   extractCustomerId,
   extractEventType,
   extractPaymentIdentifiers,
@@ -12,11 +13,11 @@ import {
 import {
   findCreemProductById,
   findPlanByCreemProductId,
-  getCreemPriceForPlan,
+  getCreemApiBaseUrl,
   verifyCreemWebhookSignature,
 } from "@/lib/creem";
 import { markReferralFirstPayment } from "@/lib/referral-rewards";
-import { grantSubscriptionCycle, revokeSubscriptionCredits } from "@/lib/subscription-credits";
+import { grantSubscriptionCycle, revokeSubscriptionTransactionCredits } from "@/lib/subscription-credits";
 import { getE8Flags } from "@/lib/e8/flags";
 import { safeE8ErrorCode } from "@/lib/e8/creem";
 import { recordSubscriptionEvent } from "@/lib/e8/repository";
@@ -125,17 +126,161 @@ async function upsertSubscriptionRecord(params: {
   return anchor;
 }
 
-async function markCheckoutPaymentCompleted(checkoutId: string | null | undefined, orderId?: string | null) {
+function minorUnitsToMajor(value: unknown): number | null {
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount >= 0 ? amount / 100 : null;
+}
+
+async function markCheckoutPaymentCompleted(
+  checkoutId: string | null | undefined,
+  order?: Record<string, unknown> | null,
+) {
   if (!checkoutId) return;
+
+  const transactionId = typeof order?.transaction === "string" ? order.transaction : null;
+  const amount = minorUnitsToMajor(order?.amount_paid ?? order?.amount_due ?? order?.amount);
+  const currency = typeof order?.currency === "string" ? order.currency : null;
+  const payload: Record<string, unknown> = { status: "completed" };
+  if (amount !== null) payload.amount = amount;
+  if (currency) payload.currency = currency;
+
+  if (transactionId) {
+    const { data: transactionPayment, error: transactionLookupError } = await getSupabaseAdmin()
+      .from("payments")
+      .select("id")
+      .eq("provider", "creem")
+      .eq("provider_transaction_id", transactionId)
+      .maybeSingle();
+    if (transactionLookupError) throw transactionLookupError;
+    if (transactionPayment?.id) {
+      const { error: linkError } = await getSupabaseAdmin()
+        .from("payments")
+        .update({ ...payload, provider_checkout_id: checkoutId })
+        .eq("id", transactionPayment.id);
+      if (linkError) throw linkError;
+      const { error: deleteError } = await getSupabaseAdmin()
+        .from("payments")
+        .delete()
+        .eq("provider_checkout_id", checkoutId)
+        .neq("id", transactionPayment.id)
+        .eq("status", "pending");
+      if (deleteError) throw deleteError;
+      return;
+    }
+  }
 
   const { error } = await getSupabaseAdmin()
     .from("payments")
-    .update({
-      status: "completed",
-      provider_transaction_id: orderId || null,
-    })
+    .update(payload)
     .eq("provider_checkout_id", checkoutId);
   if (error) throw error;
+}
+
+type CreemTransactionSnapshot = {
+  amount: number | null;
+  currency: string | null;
+};
+
+async function getCreemTransactionSnapshot(
+  transactionId: string,
+  subscriptionId: string,
+): Promise<CreemTransactionSnapshot | null> {
+  const apiKey = process.env.CREEM_API_KEY || "";
+  if (!apiKey) return null;
+  try {
+    const response = await fetch(
+      `${getCreemApiBaseUrl(apiKey)}/transactions?transaction_id=${encodeURIComponent(transactionId)}`,
+      { headers: { "x-api-key": apiKey }, cache: "no-store", signal: AbortSignal.timeout(3000) },
+    );
+    if (!response.ok) return null;
+    const data = await response.json() as Record<string, unknown>;
+    if (data.id !== transactionId || (data.subscription && data.subscription !== subscriptionId)) return null;
+    if (data.status !== "paid") return null;
+    return {
+      amount: minorUnitsToMajor(data.amount_paid),
+      currency: typeof data.currency === "string" ? data.currency : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function registerCompletedPayment(params: {
+  userId: string;
+  plan: string;
+  subscriptionId: string;
+  transactionId: string;
+  productId?: string | null;
+  currency?: string | null;
+}) {
+  const admin = getSupabaseAdmin();
+  const snapshot = await getCreemTransactionSnapshot(params.transactionId, params.subscriptionId);
+  const { data: existing, error: existingError } = await admin.from("payments")
+    .select("id,status").eq("provider_transaction_id", params.transactionId).maybeSingle();
+  if (existingError) throw existingError;
+  if (existing?.status === "refunded" || existing?.status === "failed") {
+    return { id: existing.id as string, terminal: true };
+  }
+
+  const updatePayload: Record<string, unknown> = {
+    provider_subscription_id: params.subscriptionId,
+    provider_transaction_id: params.transactionId,
+    provider_product_id: params.productId || null,
+    status: "completed",
+    plan: params.plan,
+  };
+  if (snapshot?.amount !== null && snapshot?.amount !== undefined) updatePayload.amount = snapshot.amount;
+  if (snapshot?.currency || params.currency) updatePayload.currency = snapshot?.currency || params.currency;
+
+  if (existing?.id) {
+    const { error } = await admin.from("payments").update(updatePayload).eq("id", existing.id);
+    if (error) throw error;
+    return { id: existing.id as string, terminal: false };
+  }
+
+  const unboundQuery = admin.from("payments")
+    .select("id")
+    .eq("user_id", params.userId)
+    .eq("provider", "creem")
+    .eq("provider_subscription_id", params.subscriptionId)
+    .is("provider_transaction_id", null)
+    .in("status", ["pending", "completed"])
+    .order("created_at", { ascending: true })
+    .limit(1);
+  const unboundResult = await unboundQuery.maybeSingle();
+  let unbound = unboundResult.data;
+  if (unboundResult.error) throw unboundResult.error;
+
+  if (!unbound && params.productId) {
+    const pendingResult = await admin.from("payments")
+      .select("id")
+      .eq("user_id", params.userId)
+      .eq("provider", "creem")
+      .eq("provider_product_id", params.productId)
+      .is("provider_transaction_id", null)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (pendingResult.error) throw pendingResult.error;
+    unbound = pendingResult.data;
+  }
+
+  if (unbound?.id) {
+    const { error } = await admin.from("payments").update(updatePayload).eq("id", unbound.id);
+    if (error) throw error;
+    return { id: unbound.id as string, terminal: false };
+  }
+
+  const { data: inserted, error: insertError } = await admin.from("payments").insert({
+    user_id: params.userId,
+    provider: "creem",
+    ...updatePayload,
+    amount: snapshot?.amount ?? null,
+    currency: snapshot?.currency || params.currency || "USD",
+  }).select("id").single();
+  if (insertError) throw insertError;
+  return { id: inserted.id as string, terminal: false };
 }
 
 async function updatePaymentCheckoutContext(params: {
@@ -232,41 +377,6 @@ async function resolveSubscriptionContext(event: CreemWebhookEvent) {
     null;
 
   return { userId, plan, subscriptionId, productId: productId || stored?.provider_product_id || null };
-}
-
-async function updatePaymentStatusByIdentifiers(
-  status: "refunded" | "failed",
-  identifiers: { checkoutId?: string | null; orderId?: string | null; transactionId?: string | null },
-) {
-  const admin = getSupabaseAdmin();
-  const queryTargets = [
-    identifiers.transactionId ? { column: "provider_transaction_id", value: identifiers.transactionId } : null,
-    identifiers.checkoutId ? { column: "provider_checkout_id", value: identifiers.checkoutId } : null,
-    identifiers.orderId ? { column: "provider_transaction_id", value: identifiers.orderId } : null,
-  ].filter(Boolean) as Array<{ column: "provider_transaction_id" | "provider_checkout_id"; value: string }>;
-
-  for (const target of queryTargets) {
-    const { data: existing, error: lookupError } = await admin
-      .from("payments")
-      .select("id")
-      .eq(target.column, target.value)
-      .maybeSingle();
-    if (lookupError) throw lookupError;
-
-    if (existing?.id) {
-      const { error } = await admin
-        .from("payments")
-        .update({
-          status,
-          provider_transaction_id: identifiers.transactionId || null,
-        })
-        .eq("id", existing.id);
-      if (error) throw error;
-      return true;
-    }
-  }
-
-  return false;
 }
 
 type BillingSubjectMatch = {
@@ -419,22 +529,6 @@ async function findBillingSubjectFromWebhookEvent(event: CreemWebhookEvent): Pro
   return null;
 }
 
-async function revokePaidAccessForBillingIssue(params: {
-  userId: string;
-  subscriptionId?: string | null;
-  productId?: string | null;
-  customerId?: string | null;
-  profileStatus: "cancelled" | "paused";
-  subscriptionStatus: "cancelled" | "paused";
-}) {
-  if (!params.subscriptionId) throw new Error("BILLING_REVERSAL_SUBSCRIPTION_REQUIRED");
-
-  await revokeSubscriptionCredits({
-    supabase: getSupabaseAdmin(), userId: params.userId,
-    subscriptionId: params.subscriptionId, reason: params.profileStatus, terminalStatus: params.subscriptionStatus,
-  });
-}
-
 async function disqualifyPendingReferral(paymentId:string|null|undefined) {
   if(!paymentId) return;
   const {error}=await getSupabaseAdmin().from("referral_attributions").update({
@@ -467,12 +561,14 @@ export async function POST(req: NextRequest) {
         const { userId } = extractCheckoutUserAndPlan(event);
         const subscriptionId = event?.object?.subscription?.id || null;
         const checkoutId = event?.object?.id || null;
-        const orderId = event?.object?.order?.id || null;
+        const order = event?.object?.order && typeof event.object.order === "object"
+          ? event.object.order as Record<string, unknown>
+          : null;
         const productId = event?.object?.product?.id || event?.object?.order?.product || null;
         const customerId = extractCustomerId(event);
 
         if (checkoutId) {
-          await markCheckoutPaymentCompleted(checkoutId, orderId);
+          await markCheckoutPaymentCompleted(checkoutId, order);
           await updatePaymentCheckoutContext({
             checkoutId,
             subscriptionId,
@@ -500,15 +596,26 @@ export async function POST(req: NextRequest) {
         const { userId, plan, subscriptionId, productId } = await resolveSubscriptionContext(event);
         const customerId = extractCustomerId(event);
         if (!userId || !plan || !subscriptionId) break;
-        const transactionId = event?.object?.last_transaction_id || null;
-        if (transactionId) {
-          const { data: priorPayment, error: priorPaymentError } = await getSupabaseAdmin().from("payments")
-            .select("id,status").eq("provider_transaction_id", transactionId).maybeSingle();
-          if (priorPaymentError) throw priorPaymentError;
-          if (priorPayment?.status === "refunded" || priorPayment?.status === "failed") {
-            console.warn("[creem-webhook][stale-paid-after-terminal]", { subscriptionId, transactionPresent: true });
-            break;
-          }
+        const transactionId = typeof event?.object?.last_transaction_id === "string"
+          ? event.object.last_transaction_id
+          : null;
+        if (!transactionId) throw new Error("SUBSCRIPTION_PAYMENT_TRANSACTION_REQUIRED");
+        const payment = await registerCompletedPayment({
+          userId,
+          plan,
+          subscriptionId,
+          transactionId,
+          productId,
+          currency: typeof event?.object?.product?.currency === "string"
+            ? event.object.product.currency
+            : null,
+        });
+        if (payment.terminal) {
+          console.warn("[creem-webhook][stale-paid-after-terminal]", {
+            subscriptionId,
+            transactionPresent: true,
+          });
+          break;
         }
 
         if (customerId) {
@@ -534,54 +641,15 @@ export async function POST(req: NextRequest) {
         await grantSubscriptionCycle({
           supabase: getSupabaseAdmin(), userId, subscriptionId, plan, anchor: creditAnchor, at: paidAt,
           paidThrough: event?.object?.current_period_end_date || "",
+          providerTransactionId: transactionId,
         });
 
-        let referralPaymentId: string | null = null;
-        if (transactionId) {
-          const productMatch = findCreemProductById(productId);
-          const { data: existingPayment, error: existingPaymentError } = await getSupabaseAdmin()
-            .from("payments")
-            .select("id")
-            .eq("provider_transaction_id", transactionId)
-            .maybeSingle();
-          if (existingPaymentError) throw existingPaymentError;
-
-          if (!existingPayment) {
-            const { data: insertedPayment, error: insertedPaymentError } = await getSupabaseAdmin()
-              .from("payments")
-              .insert({
-                user_id: userId,
-                provider: "creem",
-                provider_subscription_id: subscriptionId,
-                provider_transaction_id: transactionId,
-                provider_product_id: productId,
-                amount: getCreemPriceForPlan(plan, productMatch?.billingInterval || "monthly"),
-                currency: event?.object?.product?.currency || "USD",
-                status: "completed",
-                plan,
-              })
-              .select("id")
-              .single();
-            if (insertedPaymentError) throw insertedPaymentError;
-            referralPaymentId = insertedPayment?.id || null;
-          } else {
-            referralPaymentId = existingPayment.id;
-            const { error: paymentUpdateError } = await getSupabaseAdmin()
-              .from("payments")
-              .update({
-                provider_subscription_id: subscriptionId,
-                provider_product_id: productId,
-              })
-              .eq("id", existingPayment.id);
-            if (paymentUpdateError) throw paymentUpdateError;
-          }
-        }
-        if (referralPaymentId) {
+        if (payment.id) {
           await markReferralFirstPayment({
             supabase: getSupabaseAdmin(),
             referredUserId: userId,
             plan,
-            paymentId: referralPaymentId,
+            paymentId: payment.id,
             paidAt: event?.object?.current_period_start_date || undefined,
           });
         }
@@ -742,33 +810,38 @@ export async function POST(req: NextRequest) {
       }
 
       case "refund.created": {
+        const refund = classifyCreemRefund(event);
         const identifiers = extractPaymentIdentifiers(event);
-        const updated = await updatePaymentStatusByIdentifiers("refunded", identifiers);
-        const billingSubject = await findBillingSubjectFromWebhookEvent(event);
-
-        if (billingSubject?.userId) {
-          await disqualifyPendingReferral(billingSubject.paymentId);
-          await revokePaidAccessForBillingIssue({
-            userId: billingSubject.userId,
-            subscriptionId: billingSubject.providerSubscriptionId || identifiers.subscriptionId,
-            productId: billingSubject.providerProductId,
-            customerId: billingSubject.customerId,
-            profileStatus: "cancelled",
-            subscriptionStatus: "cancelled",
-          });
-        } else {
-          console.warn("[creem-webhook][refund.created][unmatched-subject]", {
-            eventType,
-            candidates: getBillingLookupCandidates(event),
-            metadataEmailPresent: Boolean(identifiers.metadataEmail),
-          });
+        if (refund.kind === "unverified") {
+          throw new Error("UNVERIFIED_REFUND_EVENT");
         }
+        if (refund.kind === "partial") {
+          logWebhookEvent("info", "[creem-webhook][refund.created][partial-recorded]", eventType, event);
+          break;
+        }
+
+        const billingSubject = await findBillingSubjectFromWebhookEvent(event);
+        const subscriptionId = billingSubject?.providerSubscriptionId || identifiers.subscriptionId;
+        if (
+          !billingSubject?.userId || !billingSubject.paymentId || !subscriptionId ||
+          !refund.transactionId || !refund.refundId
+        ) {
+          throw new Error("REFUND_TRANSACTION_GRANT_CONTEXT_REQUIRED");
+        }
+        await revokeSubscriptionTransactionCredits({
+          supabase: getSupabaseAdmin(),
+          userId: billingSubject.userId,
+          subscriptionId,
+          providerTransactionId: refund.transactionId,
+          reversalRef: refund.refundId,
+          reason: typeof event?.object?.reason === "string" ? event.object.reason : "refund",
+          terminalStatus: "cancelled",
+        });
+        await disqualifyPendingReferral(billingSubject.paymentId);
 
         logWebhookEvent(
           "info",
-          updated
-            ? `[creem-webhook][refund.created][applied:${billingSubject?.source || "payment-only"}]`
-            : "[creem-webhook][refund.created][unmatched-payment]",
+          `[creem-webhook][refund.created][applied:${billingSubject.source}]`,
           eventType,
           event,
         );
@@ -777,32 +850,29 @@ export async function POST(req: NextRequest) {
 
       case "dispute.created": {
         const identifiers = extractPaymentIdentifiers(event);
-        const updated = await updatePaymentStatusByIdentifiers("failed", identifiers);
         const billingSubject = await findBillingSubjectFromWebhookEvent(event);
-
-        if (billingSubject?.userId) {
-          await disqualifyPendingReferral(billingSubject.paymentId);
-          await revokePaidAccessForBillingIssue({
-            userId: billingSubject.userId,
-            subscriptionId: billingSubject.providerSubscriptionId || identifiers.subscriptionId,
-            productId: billingSubject.providerProductId,
-            customerId: billingSubject.customerId,
-            profileStatus: "paused",
-            subscriptionStatus: "paused",
-          });
-        } else {
-          console.warn("[creem-webhook][dispute.created][unmatched-subject]", {
-            eventType,
-            candidates: getBillingLookupCandidates(event),
-            metadataEmailPresent: Boolean(identifiers.metadataEmail),
-          });
+        const subscriptionId = billingSubject?.providerSubscriptionId || identifiers.subscriptionId;
+        const reversalRef = typeof event?.object?.id === "string" ? event.object.id : null;
+        if (
+          !billingSubject?.userId || !billingSubject.paymentId || !subscriptionId ||
+          !identifiers.transactionId || !reversalRef
+        ) {
+          throw new Error("DISPUTE_TRANSACTION_GRANT_CONTEXT_REQUIRED");
         }
+        await revokeSubscriptionTransactionCredits({
+          supabase: getSupabaseAdmin(),
+          userId: billingSubject.userId,
+          subscriptionId,
+          providerTransactionId: identifiers.transactionId,
+          reversalRef,
+          reason: "dispute",
+          terminalStatus: "paused",
+        });
+        await disqualifyPendingReferral(billingSubject.paymentId);
 
         logWebhookEvent(
           "warn",
-          updated
-            ? `[creem-webhook][dispute.created][applied:${billingSubject?.source || "payment-only"}]`
-            : "[creem-webhook][dispute.created][unmatched-payment]",
+          `[creem-webhook][dispute.created][applied:${billingSubject.source}]`,
           eventType,
           event,
         );

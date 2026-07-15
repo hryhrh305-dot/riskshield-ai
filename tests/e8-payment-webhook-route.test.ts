@@ -7,7 +7,7 @@ const state = vi.hoisted(() => ({
   scheduled: [] as Array<() => Promise<void>>,
   recordSubscriptionEvent: vi.fn(),
   grantSubscriptionCycle: vi.fn(),
-  revokeSubscriptionCredits: vi.fn(),
+  revokeSubscriptionTransactionCredits: vi.fn(),
   markReferralFirstPayment: vi.fn(),
 }));
 
@@ -28,10 +28,10 @@ vi.mock("@supabase/supabase-js", () => ({
         ? { data: null, error: new Error("core database failure") }
         : { data: null, error: null };
       const chain: Record<string, unknown> = {};
-      for (const method of ["select", "eq", "in", "gte", "lte", "order", "limit"]) {
+      for (const method of ["select", "eq", "neq", "is", "in", "gte", "lte", "order", "limit"]) {
         chain[method] = () => chain;
       }
-      for (const method of ["insert", "update", "upsert"]) {
+      for (const method of ["insert", "update", "upsert", "delete"]) {
         chain[method] = () => chain;
       }
       chain.maybeSingle = async () => result();
@@ -45,7 +45,7 @@ vi.mock("@supabase/supabase-js", () => ({
 vi.mock("@/lib/creem", () => ({
   findCreemProductById: () => null,
   findPlanByCreemProductId: () => null,
-  getCreemPriceForPlan: () => 0,
+  getCreemApiBaseUrl: () => "https://api.creem.test/v1",
   verifyCreemWebhookSignature: (payload: string, signature: string, secret: string) => {
     const expected = createHmac("sha256", secret).update(payload, "utf8").digest("hex");
     return signature === expected;
@@ -57,14 +57,22 @@ vi.mock("@/lib/creem-webhook", () => ({
   CREEM_HANDLED_EVENT_TYPES: ["subscription.paid", "subscription.canceled", "refund.created"],
   extractCustomerId: (event: { object?: { customer_id?: string } }) => event.object?.customer_id || null,
   extractEventType: (event: { eventType?: string; event_type?: string }) => event.eventType || event.event_type || "unknown",
-  extractPaymentIdentifiers: () => ({}),
+  classifyCreemRefund: (event: { object?: Record<string, unknown> }) => {
+    const object = event.object || {};
+    return { kind: object.refund_kind || "unverified", refundId: object.id || null,
+      transactionId: object.transaction_id || null };
+  },
+  extractPaymentIdentifiers: (event: { object?: Record<string, unknown> }) => ({
+    transactionId: event.object?.transaction_id || null,
+    subscriptionId: event.object?.subscription_id || null,
+  }),
   getBillingLookupCandidates: () => [],
 }));
 
 vi.mock("@/lib/referral-rewards", () => ({ markReferralFirstPayment: state.markReferralFirstPayment }));
 vi.mock("@/lib/subscription-credits", () => ({
   grantSubscriptionCycle: state.grantSubscriptionCycle,
-  revokeSubscriptionCredits: state.revokeSubscriptionCredits,
+  revokeSubscriptionTransactionCredits: state.revokeSubscriptionTransactionCredits,
 }));
 vi.mock("@/lib/e8/flags", () => ({ getE8Flags: () => ({ observability: state.observability }) }));
 vi.mock("@/lib/e8/repository", () => ({ recordSubscriptionEvent: state.recordSubscriptionEvent }));
@@ -97,7 +105,7 @@ beforeEach(() => {
   state.scheduled.length = 0;
   state.recordSubscriptionEvent.mockReset();
   state.grantSubscriptionCycle.mockReset();
-  state.revokeSubscriptionCredits.mockReset();
+  state.revokeSubscriptionTransactionCredits.mockReset();
   state.markReferralFirstPayment.mockReset();
 });
 
@@ -127,7 +135,7 @@ describe("E8 payment webhook route contract", () => {
     await expect(state.scheduled[0]()).resolves.toBeUndefined();
     expect(state.recordSubscriptionEvent).toHaveBeenCalledTimes(1);
     expect(state.grantSubscriptionCycle).not.toHaveBeenCalled();
-    expect(state.revokeSubscriptionCredits).not.toHaveBeenCalled();
+    expect(state.revokeSubscriptionTransactionCredits).not.toHaveBeenCalled();
     expect(state.markReferralFirstPayment).not.toHaveBeenCalled();
   });
 
@@ -146,7 +154,7 @@ describe("E8 payment webhook route contract", () => {
       { eventType: "subscription.paid", id: "renewal-first", object: { id: "sub-1", current_period_start_date: "2026-02-01T00:00:00Z" } },
       { eventType: "subscription.paid", id: "first-later", object: { id: "sub-1", current_period_start_date: "2026-01-01T00:00:00Z" } },
       { eventType: "subscription.paid", id: "renewal-first", object: { id: "sub-1", current_period_start_date: "2026-02-01T00:00:00Z" } },
-      { eventType: "refund.created", id: "refund-unmatched", object: {} },
+      { eventType: "refund.created", id: "refund-partial", object: { refund_kind: "partial" } },
       { eventType: "subscription.canceled", id: "cancel-unmatched", object: { id: "sub-2" } },
     ];
     for (const fixture of fixtures) {
@@ -155,7 +163,7 @@ describe("E8 payment webhook route contract", () => {
       await expect(response.json()).resolves.toEqual({ received: true });
     }
     expect(state.grantSubscriptionCycle).not.toHaveBeenCalled();
-    expect(state.revokeSubscriptionCredits).not.toHaveBeenCalled();
+    expect(state.revokeSubscriptionTransactionCredits).not.toHaveBeenCalled();
     expect(state.markReferralFirstPayment).not.toHaveBeenCalled();
   });
 });

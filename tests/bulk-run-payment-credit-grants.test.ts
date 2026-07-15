@@ -14,7 +14,8 @@ describe("subscription cycle grants", () => {
     expect(webhook).not.toContain("credits_remaining: freeCredits");
     expect(webhook).toContain("grantSubscriptionCycle");
     expect(webhook).toContain("cancel_at_period_end: true");
-    expect(webhook).toContain("BILLING_REVERSAL_SUBSCRIPTION_REQUIRED");
+    expect(webhook).toContain("REFUND_TRANSACTION_GRANT_CONTEXT_REQUIRED");
+    expect(webhook).toContain("revokeSubscriptionTransactionCredits");
     expect(webhook).not.toContain("payload: event");
     expect(confirm).not.toContain("credits_remaining:");
     expect(confirm).not.toContain("markReferralFirstPayment");

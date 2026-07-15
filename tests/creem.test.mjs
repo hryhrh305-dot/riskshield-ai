@@ -24,6 +24,7 @@ import {
   extractPaymentIdentifiers,
   getBillingLookupCandidates,
 } from "../src/lib/creem-webhook.ts";
+import * as creemWebhook from "../src/lib/creem-webhook.ts";
 import { getPlanRank, isPlanAtLeast } from "../src/lib/plans.ts";
 
 const env = {
@@ -233,10 +234,82 @@ test("payment identifier extraction keeps metadata fallbacks available for safe 
     orderId: "ord_123",
     subscriptionId: null,
     customerId: null,
+    refundId: null,
     metadataUserId: "user_1",
     metadataProfileId: "profile_1",
     metadataEmail: "riskshield@example.com",
   });
+});
+
+test("official refund payload resolves the nested transaction and refund identifiers", () => {
+  const event = {
+    id: "evt_refund_1",
+    eventType: "refund.created",
+    object: {
+      id: "ref_1",
+      status: "succeeded",
+      refund_amount: 5000,
+      transaction: { id: "tran_1", amount_paid: 5000, status: "refunded" },
+      subscription: { id: "sub_1", status: "canceled" },
+    },
+  };
+
+  assert.deepEqual(extractPaymentIdentifiers(event), {
+    transactionId: "tran_1",
+    checkoutId: null,
+    orderId: null,
+    subscriptionId: "sub_1",
+    customerId: null,
+    refundId: "ref_1",
+    metadataUserId: null,
+    metadataProfileId: null,
+    metadataEmail: null,
+  });
+});
+
+test("refund classification only revokes a verified full canceled refund", () => {
+  const classify = creemWebhook.classifyCreemRefund;
+  assert.equal(typeof classify, "function");
+
+  assert.deepEqual(classify({
+    id: "evt_full",
+    eventType: "refund.created",
+    object: {
+      id: "ref_full",
+      status: "succeeded",
+      refund_amount: 5000,
+      transaction: { id: "tran_full", amount_paid: 5000, status: "refunded" },
+      subscription: { id: "sub_full", status: "canceled" },
+    },
+  }), {
+    kind: "full",
+    refundId: "ref_full",
+    transactionId: "tran_full",
+    refundAmountMinor: 5000,
+    amountPaidMinor: 5000,
+  });
+
+  assert.equal(classify({
+    eventType: "refund.created",
+    object: {
+      id: "ref_partial",
+      status: "succeeded",
+      refund_amount: 1000,
+      transaction: { id: "tran_partial", amount_paid: 5000, status: "partially_refunded" },
+      subscription: { id: "sub_partial", status: "active" },
+    },
+  }).kind, "partial");
+
+  assert.equal(classify({
+    eventType: "refund.created",
+    object: {
+      id: "ref_unsafe",
+      status: "pending",
+      refund_amount: 5000,
+      transaction: { id: "tran_unsafe", amount_paid: 5000 },
+      subscription: { id: "sub_unsafe", status: "canceled" },
+    },
+  }).kind, "unverified");
 });
 
 test("cancelled subscriptions keep access until the paid period actually ends", () => {

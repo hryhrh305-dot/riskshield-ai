@@ -19,8 +19,17 @@ export async function reconcileDueCreditCycles({now=new Date(),limit=500}:{now?:
   const jobs:Array<()=>Promise<unknown>>=[];
   for(const row of subscriptions||[]) {
     if(!row.provider_subscription_id||!row.credit_anchor_at||!row.paid_through) continue;
-    jobs.push(()=>grantSubscriptionCycle({supabase,userId:row.user_id,subscriptionId:row.provider_subscription_id,
-      plan:row.plan,anchor:row.credit_anchor_at,at:nowIso,paidThrough:row.paid_through}));
+    jobs.push(async()=>{
+      const {data:payment,error:paymentError}=await supabase.from("payments").select("provider_transaction_id")
+        .eq("user_id",row.user_id).eq("provider","creem")
+        .eq("provider_subscription_id",row.provider_subscription_id).eq("status","completed")
+        .not("provider_transaction_id","is",null).order("created_at",{ascending:false}).limit(1).maybeSingle();
+      if(paymentError) throw paymentError;
+      if(!payment?.provider_transaction_id) throw new Error("SUBSCRIPTION_PAYMENT_TRANSACTION_REQUIRED");
+      return grantSubscriptionCycle({supabase,userId:row.user_id,subscriptionId:row.provider_subscription_id,
+        plan:row.plan,anchor:row.credit_anchor_at,at:nowIso,paidThrough:row.paid_through,
+        providerTransactionId:payment.provider_transaction_id});
+    });
   }
   for(const row of freeProfiles||[]) {
     if(row.created_at) jobs.push(()=>grantFreeCycle({supabase,userId:row.id,anchor:row.created_at,at:nowIso}));
