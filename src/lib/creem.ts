@@ -325,15 +325,12 @@ export function verifyCreemRedirectSignature(rawQuery: string, apiKey: string): 
   const signature = params.get("signature");
   if (!signature) return false;
 
-  const parts: string[] = [];
-  for (const [key, value] of params.entries()) {
-    if (key === "signature" || value === "") continue;
-    parts.push(`${key}=${value}`);
-  }
-
-  parts.push(`salt=${apiKey}`);
-
-  const expected = crypto.createHash("sha256").update(parts.join("|")).digest("hex");
+  const signingString = Array.from(params.entries())
+    .filter(([key, value]) => key !== "signature" && value !== "" && value !== "null")
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => `${key}=${value}`)
+    .join("&");
+  const expected = crypto.createHmac("sha256", apiKey).update(signingString).digest("hex");
   if (expected.length !== signature.length) return false;
   return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
 }

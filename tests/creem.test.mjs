@@ -144,23 +144,21 @@ test("checkout urls use the production riskshield paths", () => {
 test("redirect signature verification follows creem canonical order", () => {
   const apiKey = "creem_test_abc";
   const rawQueryWithoutSignature = [
-    "checkout_id=ch_123",
-    "order_id=ord_456",
-    "customer_id=cust_789",
-    "subscription_id=sub_321",
-    "product_id=prod_growth",
     "request_id=req_111",
+    "subscription_id=sub_321",
+    "order_id=null",
+    "product_id=prod_growth",
+    "checkout_id=ch_123",
+    "customer_id=cust_789",
   ].join("&");
   const signingString = [
     "checkout_id=ch_123",
-    "order_id=ord_456",
     "customer_id=cust_789",
-    "subscription_id=sub_321",
     "product_id=prod_growth",
     "request_id=req_111",
-    `salt=${apiKey}`,
-  ].join("|");
-  const signature = crypto.createHash("sha256").update(signingString).digest("hex");
+    "subscription_id=sub_321",
+  ].join("&");
+  const signature = crypto.createHmac("sha256", apiKey).update(signingString).digest("hex");
   const rawQuery = `${rawQueryWithoutSignature}&signature=${signature}`;
 
   assert.equal(verifyCreemRedirectSignature(rawQuery, apiKey), true);
