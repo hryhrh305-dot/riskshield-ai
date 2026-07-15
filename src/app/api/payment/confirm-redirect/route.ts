@@ -105,8 +105,12 @@ export async function POST(request: NextRequest) {
     }
 
     if (!verifyCreemRedirectSignature(rawQuery, CREEM_API_KEY)) {
-      console.warn("[creem-redirect-signature-diagnostic]", { matches: diagnoseRedirectSignature(rawQuery) });
-      return NextResponse.json({ error: "Invalid redirect signature." }, { status: 401 });
+      const matches = diagnoseRedirectSignature(rawQuery);
+      console.warn("[creem-redirect-signature-diagnostic]", { matches });
+      return NextResponse.json({
+        error: "Invalid redirect signature.",
+        ...(process.env.VERCEL_ENV === "preview" ? { diagnosticMatches: matches } : {}),
+      }, { status: 401 });
     }
 
     const params = new URLSearchParams(rawQuery);
