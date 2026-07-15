@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
+import { getSupabaseProjectRef, readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SECRET_KEY || "");
@@ -18,7 +18,7 @@ async function getUserFromRequest(request: NextRequest) {
   try {
     const supabase = getSupabaseAdmin();
     const cookieHeader = request.headers.get("cookie") || "";
-    const token = readAccessTokenFromCookieHeader(cookieHeader, "njhjiavnidssjvnkcxfo");
+    const token = readAccessTokenFromCookieHeader(cookieHeader, getSupabaseProjectRef(NEXT_PUBLIC_SUPABASE_URL));
     if (!token) return null;
     const { data: { user }, error } = await supabase.auth.getUser(token);
     if (error || !user) return null;

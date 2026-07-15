@@ -7,6 +7,14 @@ export function parseCookieHeader(cookieHeader: string): Record<string, string> 
   }, {} as Record<string, string>);
 }
 
+export function getSupabaseProjectRef(supabaseUrl: string): string {
+  try {
+    return new URL(supabaseUrl).hostname.split(".")[0] || "";
+  } catch {
+    return "";
+  }
+}
+
 export function readAuthCookieValue(cookies: Record<string, string>, baseName: string): string | null {
   if (cookies[baseName]) return cookies[baseName];
 

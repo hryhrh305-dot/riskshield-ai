@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { calculateRiskScore, checkDomainAge, getAIExplanation, getCachedResult, getDNSHealthScore, makeResultCacheKey, setCachedResult, calculateCompanyHealth, cleanEmails } from "@/lib/risk-engine";
 import * as XLSX from "xlsx";
-import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
+import { getSupabaseProjectRef, readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
 import { buildListAuditSummary, type ContactAuditDecision } from "@/lib/list-audit";
 import { attachCanonicalDecisionResult } from "@/lib/decision-contract";
 import { getPlanEntitlements } from "@/lib/plan-entitlements";
@@ -35,7 +35,7 @@ async function getUserFromRequest(request: NextRequest) {
   try {
     const supabase = getSupabaseAdmin();
     const cookieHeader = request.headers.get("cookie") || "";
-    const token = readAccessTokenFromCookieHeader(cookieHeader, "njhjiavnidssjvnkcxfo");
+    const token = readAccessTokenFromCookieHeader(cookieHeader, getSupabaseProjectRef(NEXT_PUBLIC_SUPABASE_URL));
     if (!token) return null;
     const { data: { user }, error } = await supabase.auth.getUser(token);
     if (error || !user) return null;

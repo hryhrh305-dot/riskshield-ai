@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
+import { getSupabaseProjectRef, readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
 
-const PROJECT_REF = "njhjiavnidssjvnkcxfo";
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co";
+const PROJECT_REF = getSupabaseProjectRef(SUPABASE_URL);
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SECRET_KEY || "";
 let _supabaseAdmin: ReturnType<typeof createClient> | null = null;
 

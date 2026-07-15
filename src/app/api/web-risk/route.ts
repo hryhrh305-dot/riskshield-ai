@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { calculateRiskScore, getAIExplanation, checkDomainAge, calculateCompanyHealth, getCachedResult, setCachedResult, makeResultCacheKey, cleanEmail } from "@/lib/risk-engine";
-import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
+import { getSupabaseProjectRef, readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
 import { getResultCacheScope, sanitizeSingleRiskPayloadForPlan, shouldUseAiExplanation, shouldUseDeepDetection } from "@/lib/plans";
 import { consumeLegacyCredits } from "@/lib/legacy-credits";
 import { buildCreditRequestId } from "@/lib/credit-accounting";
@@ -26,7 +26,7 @@ async function getUserFromRequest(request: NextRequest) {
   try {
     const supabase = getSupabaseAdmin();
     const cookieHeader = request.headers.get("cookie") || "";
-    const projectRef = "njhjiavnidssjvnkcxfo";
+    const projectRef = getSupabaseProjectRef(NEXT_PUBLIC_SUPABASE_URL);
     const token = readAccessTokenFromCookieHeader(cookieHeader, projectRef);
     if (!token) return null;
     var { data: { user }, error } = await supabase.auth.getUser(token);

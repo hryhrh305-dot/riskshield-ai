@@ -3,8 +3,20 @@ import assert from "node:assert/strict";
 
 import {
   extractAccessTokenFromCookieValue,
+  getSupabaseProjectRef,
   readAuthCookieValue,
 } from "../src/lib/auth-cookie.ts";
+
+test("getSupabaseProjectRef follows the configured Supabase host", () => {
+  assert.equal(
+    getSupabaseProjectRef("https://njhjiavnidssjvnkcxfo.supabase.co"),
+    "njhjiavnidssjvnkcxfo",
+  );
+  assert.equal(
+    getSupabaseProjectRef("https://isolated-preview.trycloudflare.com"),
+    "isolated-preview",
+  );
+});
 
 test("extractAccessTokenFromCookieValue decodes base64 JSON cookie payloads", () => {
   const payload = {
