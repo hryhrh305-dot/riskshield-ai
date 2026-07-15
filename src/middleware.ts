@@ -52,7 +52,7 @@ export async function middleware(request: NextRequest) {
     const cookieHeader = request.headers.get("cookie") || "";
     const token = cookieHeader ? readAccessTokenFromCookieHeader(cookieHeader, PROJECT_REF) : null;
     const tokenExpired = token ? isJwtExpired(token) : null;
-    const isAuthed = Boolean(token) && tokenExpired !== true && await isValidSessionToken(token);
+    const isAuthed = token !== null && tokenExpired !== true && await isValidSessionToken(token);
 
     const path = request.nextUrl.pathname;
 
