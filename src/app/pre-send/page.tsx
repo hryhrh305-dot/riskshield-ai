@@ -91,7 +91,7 @@ export default function PreSendPage() {
           </div>
           <h1 className="rs-title-settle text-3xl font-semibold text-white sm:text-4xl">Campaign Audit History</h1>
           <p className="mx-auto mt-3 max-w-2xl text-slate-400">
-            Review historical campaign audits before sending. Expand any run to inspect individual contact decisions.
+            Revisit the evidence behind prior campaign approvals. Expand any run to inspect its individual contact decisions.
           </p>
         </section>
 

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Risk Check - Secwyn",
   description:
-    "Run single email and IP risk checks in Secwyn to inspect contact quality before adding records to outbound campaigns.",
+    "Inspect a single contact or IP using Secwyn's pre-send evidence and canonical decision model.",
   alternates: {
     canonical: "/risk-check",
   },

@@ -45,22 +45,30 @@ const planHighlights: Record<PlanKey, string[]> = {
   ],
   growth: [
     "2,500 contacts audited / month",
-    "Agency-ready reports",
+    "Multi-workflow audit reports",
     "Campaign Readiness Score",
     "List Acceptance Decision",
   ],
   scale: [
     "15,000 contacts audited / month",
     "Audit export packs",
-    "Priority processing",
+    "Higher-volume audit capacity",
     "Everything in Growth",
   ],
   business: [
     "Custom contact capacity",
     "Custom API capacity",
     "Enterprise onboarding",
-    "Negotiated support and terms",
+    "Contact-led requirements review",
   ],
+};
+
+const planPositioning: Record<PlanKey, string> = {
+  free: "For evaluating Secwyn with a small one-time decision sample.",
+  starter: "For one focused campaign or an independent advisory workflow.",
+  growth: "For specialists and firms managing multiple audit workflows.",
+  scale: "For organizations operating risk review at greater volume.",
+  business: "For custom capacity, API requirements, and guided onboarding.",
 };
 
 const selfServePaidPlans: PlanKey[] = ["starter", "growth", "scale"];
@@ -647,7 +655,7 @@ export default function PricingPage() {
             </span>
             <div>
               <div className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Secwyn</div>
-              <div className="text-xs text-slate-500">Subscription plans</div>
+              <div className="text-xs text-slate-500">Pre-Send Risk Governance</div>
             </div>
           </Link>
           <Link href="/dashboard" className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/10 hover:text-white">Dashboard</Link>
@@ -656,12 +664,12 @@ export default function PricingPage() {
 
       <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
         <section className="mx-auto mb-10 max-w-4xl text-center">
-          <p className="mb-3 text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Simple plans, clear audit capacity</p>
-          <h1 className="text-4xl font-semibold tracking-[-0.05em] text-white sm:text-5xl">
-            Choose the list audit capacity your agency workflow needs.
+          <p className="mb-3 text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Governance capacity for every operating model</p>
+          <h1 className="rs-marketing-title text-4xl font-semibold tracking-[-0.05em] text-white sm:text-5xl">
+            Choose the decision capacity your campaign approval workflow needs.
           </h1>
           <p className="mt-4 text-base leading-7 text-slate-300">
-            Start with 50 one-time single-contact checks, add client-ready list audit reports, then move to API-driven workflow automation as your team grows.
+            Start with 50 one-time contact audits, then add repeatable list reviews, client-ready evidence, and API or Google Sheets access as your operating model grows.
           </p>
           <p className="mt-4 text-sm text-slate-500">Less than the cost of one wasted campaign launch.</p>
         </section>
@@ -731,7 +739,7 @@ export default function PricingPage() {
                 <div>
                   <h2 className="text-lg font-semibold tracking-[-0.02em]">{plan.name}</h2>
                   <p className={`mt-1 min-h-10 text-sm ${isPopular ? "text-slate-200" : "text-slate-400"}`}>
-                    {plan.tagline}
+                    {planPositioning[key]}
                   </p>
                 </div>
 
@@ -865,7 +873,7 @@ export default function PricingPage() {
             <table className="min-w-[1040px] w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b border-white/10 bg-black/20">
-                  <th className="sticky left-0 z-10 min-w-64 bg-[#08101a] px-5 py-4 text-left font-semibold text-white">
+                  <th className="sticky left-0 z-10 min-w-64 bg-[var(--rs-bg-elevated)] px-5 py-4 text-left font-semibold text-white">
                     Capability
                   </th>
                   {planEntries.map(([key, plan]) => (
@@ -890,7 +898,7 @@ export default function PricingPage() {
         </section>
 
         <section className="mt-6 rounded-[24px] border border-white/10 bg-white/[0.05] px-5 py-4 text-sm text-slate-300">
-          Credits are usage units for Secwyn checks. Cached duplicate results may be returned without repeating the underlying check. Starter, Growth, and Scale are recurring subscriptions, activated automatically after the Creem webhook is processed.
+          Credits are usage units for Secwyn audits. Cached results return faster but still consume one credit because they provide the same usable decision. Downloading an already completed audit does not consume another credit. Starter, Growth, and Scale are recurring subscriptions, activated automatically after the Creem webhook is processed.
         </section>
       </main>
 
@@ -927,7 +935,7 @@ function FragmentRows({
       </tr>
       {section.rows.map((row) => (
         <tr key={row.label} className="border-b border-white/8 last:border-0 hover:bg-white/[0.03]">
-          <th className="sticky left-0 z-10 bg-[#08101a] px-5 py-3.5 text-left text-sm font-medium text-slate-200">
+          <th className="sticky left-0 z-10 bg-[var(--rs-bg-elevated)] px-5 py-3.5 text-left text-sm font-medium text-slate-200">
             {row.label}
           </th>
           {planEntries.map(([key]) => (

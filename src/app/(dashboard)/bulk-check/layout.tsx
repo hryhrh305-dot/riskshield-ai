@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Bulk List Audit - Secwyn",
   description:
-    "Upload or paste contact lists into Secwyn and turn them into Send, Review, and Suppress decisions with export-ready audit output.",
+    "Audit up to 5,000 contacts per Web run and produce Send, Review, and Suppress decisions with export-ready evidence.",
   alternates: {
     canonical: "/bulk-check",
   },

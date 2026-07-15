@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "API Docs - Secwyn",
+  title: "Pre-Send Decision API - Secwyn",
   description:
-    "Read Secwyn API documentation for email and IP risk checks, authentication, request formats, and integration examples.",
+    "Integrate Secwyn's canonical Send, Review, and Suppress decisions into a governed pre-send workflow.",
   alternates: {
     canonical: "/docs",
   },
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     siteName: "Secwyn",
   },
   twitter: {
-    title: "API Docs - Secwyn",
+    title: "Pre-Send Decision API - Secwyn",
   },
 };
 

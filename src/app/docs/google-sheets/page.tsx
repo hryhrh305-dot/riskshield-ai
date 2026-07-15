@@ -25,9 +25,9 @@ export default function GoogleSheetsGuidePage() {
           <div className="rs-fade-up mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-sm font-medium text-slate-200">
             <TableProperties className="h-4 w-4" /> Spreadsheet Guide
           </div>
-          <h1 className="rs-title-settle text-3xl font-semibold text-white sm:text-4xl">Google Sheets Setup Guide</h1>
+          <h1 className="rs-marketing-title rs-title-settle text-3xl font-semibold text-white sm:text-4xl">Google Sheets Setup Guide</h1>
           <p className="mt-3 max-w-2xl text-slate-400">
-            This page is only for installing and using the Google Sheets add-on. It does not require you to read the API reference first.
+            Add Secwyn&apos;s Send, Review, and Suppress decision workflow to an existing sheet without changing the canonical decision model.
           </p>
         </section>
 

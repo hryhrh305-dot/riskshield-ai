@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Pricing - Secwyn",
   description:
-    "Compare Secwyn plans for pre-send list audits, campaign readiness decisions, audit reports, and outbound workflow handoff.",
+    "Compare Secwyn plans by monthly decision capacity, workflow access, and client-ready pre-send audit output.",
   alternates: {
     canonical: "/pricing",
   },

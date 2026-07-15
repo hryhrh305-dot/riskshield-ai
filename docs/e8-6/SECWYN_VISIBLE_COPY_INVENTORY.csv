@@ -1,0 +1,28 @@
+surface,route_or_channel,source,e8_6_action,business_logic_changed
+Homepage,/,src/app/page.tsx + src/components/home/HomePageClient.tsx,Positioning and claim-boundary rewrite,no
+Pricing,/pricing,src/app/(dashboard)/pricing/page.tsx,Plan identity and charging explanation clarified,no
+API docs,/docs,src/app/docs/page.tsx,Decision-workflow positioning,no
+Google Sheets guide,/docs/google-sheets,src/app/docs/google-sheets/page.tsx,Canonical decision-workflow positioning,no
+Privacy,/privacy,src/app/privacy/page.tsx,Theme coverage only,no
+Terms,/terms,src/app/terms/page.tsx,Theme coverage only,no
+404,framework fallback,src/app/not-found.tsx,On-brand recovery copy added,no
+Login,/login,src/app/(auth)/login/page.tsx,Theme and noindex metadata,no
+Signup,/signup,src/app/(auth)/signup/page.tsx,Theme and noindex metadata,no
+Forgot password,/forgot-password,src/app/(auth)/forgot-password/page.tsx,Theme and noindex metadata,no
+Reset password,/reset-password,src/app/(auth)/reset-password/page.tsx,Theme and noindex metadata,no
+Dashboard,/dashboard,src/app/(dashboard)/dashboard/page.tsx,Theme coverage only,no
+Single check,/risk-check,src/app/(dashboard)/risk-check/page.tsx,Metadata and theme,no
+Bulk audit,/bulk-check,src/app/(dashboard)/bulk-check/page.tsx,Metadata and theme,no
+Audit history,/pre-send,src/app/pre-send/page.tsx,Supporting copy and theme,no
+Blacklist,/blacklist,src/app/(dashboard)/blacklist/page.tsx,Theme coverage only,no
+E8 admin,/admin/e8,src/app/admin/e8/page.tsx,Theme coverage only,no
+Feedback admin,/admin/feedback,src/app/(dashboard)/admin/feedback/page.tsx,Theme coverage only,no
+Billing success,/dashboard/billing/success,src/app/(dashboard)/dashboard/billing/success/page.tsx,Theme coverage only,no
+Google Sheets add-on,Apps Script,google-sheets-addon/Code.gs,Inventory only,no
+Google Sheets download,/api/google-sheets-addon,API route,Inventory only,no
+CSV and XLSX exports,downloaded files,bulk page + plans visibility,Inventory only,no
+Audit report preview,embedded component,src/components/audit/AuditReportPreview.tsx,Inventory only,no
+Supabase auth email,email,Supabase-managed template,Out of scope,no
+SES email,email,E8 infrastructure,Paused and out of scope,no
+Root metadata,search/social,src/app/layout.tsx,Pre-send governance alignment,no
+Theme control,all pages,layout + ThemeToggle + globals.css,Persistent accessible dark/light theme,no

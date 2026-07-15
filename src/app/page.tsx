@@ -2,24 +2,24 @@ import type { Metadata } from "next";
 import HomePageClient from "@/components/home/HomePageClient";
 
 export const metadata: Metadata = {
-  title: "Secwyn - Email & IP Risk Intelligence",
+  title: "Secwyn - Pre-Send Risk Governance",
   description:
-    "Secwyn helps outbound teams audit lead lists, detect risky emails, suspicious IPs, and low-quality contacts before launching campaigns.",
+    "Approve high-value outbound campaigns with defensible Send, Review, and Suppress decisions before the first send.",
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "Secwyn - Email & IP Risk Intelligence",
+    title: "Secwyn - Pre-Send Risk Governance",
     description:
-      "Audit outbound lead lists before sending. Detect risky emails, suspicious IPs, and low-quality contacts with Secwyn.",
+      "Turn available contact, domain, and infrastructure signals into pre-send decisions and client-ready evidence.",
     url: "https://www.secwyn.com/",
     siteName: "Secwyn",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Secwyn - Email & IP Risk Intelligence",
+    title: "Secwyn - Pre-Send Risk Governance",
     description:
-      "Pre-send lead list audits for outbound teams. Detect risky emails, suspicious IPs, and low-quality contacts before campaigns launch.",
+      "Approve high-value campaigns with defensible decisions before the first send.",
   },
 };
 

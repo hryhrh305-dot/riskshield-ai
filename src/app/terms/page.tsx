@@ -75,7 +75,7 @@ const sections = [
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="rs-legal min-h-screen bg-gray-50">
       <header className="border-b bg-white">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4 sm:px-6">
           <Link href="/" className="flex items-center gap-3">

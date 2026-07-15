@@ -1,7 +1,9 @@
 ﻿import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { AttributionObserver } from "@/components/e8/AttributionObserver";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { getE8Flags } from "@/lib/e8/flags";
 
 const geistSans = Geist({
@@ -16,20 +18,20 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.secwyn.com"),
-  title: "Secwyn - Email & IP Risk Intelligence",
+  title: "Secwyn - Pre-Send Risk Governance",
   description:
-    "Secwyn helps outbound teams audit lead lists, detect risky emails, suspicious IPs, and low-quality contacts before launching campaigns.",
+    "Approve high-value outbound campaigns with Send, Review, and Suppress decisions, traceable evidence, and client-ready audit output before the first send.",
   openGraph: {
-    title: "Secwyn - Email & IP Risk Intelligence",
+    title: "Secwyn - Pre-Send Risk Governance",
     description:
-      "Audit outbound lead lists before sending. Detect risky emails, suspicious IPs, and low-quality contacts with Secwyn.",
+      "Turn available contact, domain, and infrastructure signals into defensible pre-send decisions and client-ready evidence.",
     siteName: "Secwyn",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Secwyn - Email & IP Risk Intelligence",
+    title: "Secwyn - Pre-Send Risk Governance",
     description:
-      "Pre-send lead list audits for outbound teams. Detect risky emails, suspicious IPs, and low-quality contacts before campaigns launch.",
+      "Approve high-value campaigns with defensible Send, Review, and Suppress decisions before the first send.",
   },
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
@@ -51,8 +53,24 @@ export default function RootLayout({
       className={geistSans.variable + " " + geistMono.variable + " h-full antialiased"}
     >
       <body className="min-h-full flex flex-col overflow-x-hidden">
+        <Script id="secwyn-theme-init" strategy="beforeInteractive">{`
+          (function () {
+            try {
+              var stored = localStorage.getItem("secwyn-theme");
+              var theme = stored === "light" || stored === "dark"
+                ? stored
+                : (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+              document.documentElement.dataset.theme = theme;
+              document.documentElement.style.colorScheme = theme;
+            } catch (error) {
+              document.documentElement.dataset.theme = "dark";
+              document.documentElement.style.colorScheme = "dark";
+            }
+          })();
+        `}</Script>
         {e8Enabled ? <AttributionObserver /> : null}
         {children}
+        <ThemeToggle />
       </body>
     </html>
   );
