@@ -1,5 +1,11 @@
 import crypto from "crypto";
 import { plans, type PlanKey } from "./plans.ts";
+import {
+  findBillingCatalogEntryByProductId,
+  getBillingCatalogEntry,
+  getPublicCatalogGeneration,
+  type BillingCatalogGeneration,
+} from "./billing-catalog.ts";
 
 type CreemPlanKey = Extract<PlanKey, "starter" | "growth" | "scale">;
 export type CreemBillingInterval = "monthly" | "yearly";
@@ -16,12 +22,6 @@ export const CREEM_BILLING_INTERVALS = ["monthly", "yearly"] as const satisfies 
 
 type ProductEnvMap = Record<CreemPlanKey, string | undefined>;
 type ProductEnvMapByInterval = Record<CreemBillingInterval, ProductEnvMap>;
-
-const YEARLY_PRICES: Record<CreemPlanKey, number> = {
-  starter: 499,
-  growth: 2499,
-  scale: 14999,
-};
 
 type AnnualPlanOffer = {
   yearlyPrice: number;
@@ -184,18 +184,8 @@ export function findCreemProductById(
   productId: string | null | undefined,
   env: NodeJS.ProcessEnv = process.env,
 ): { plan: CreemPlanKey; billingInterval: CreemBillingInterval } | null {
-  if (!productId) return null;
-
-  const productMaps = getCreemProductEnvMaps(env);
-  for (const billingInterval of CREEM_BILLING_INTERVALS) {
-    for (const plan of CREEM_SELF_SERVE_PLANS) {
-      if (productMaps[billingInterval][plan] === productId) {
-        return { plan, billingInterval };
-      }
-    }
-  }
-
-  return null;
+  const match = findBillingCatalogEntryByProductId(productId, env);
+  return match ? { plan: match.plan, billingInterval: match.interval } : null;
 }
 
 export function findPlanByCreemProductId(
@@ -235,16 +225,21 @@ export function getCreemCheckoutUrls(env: NodeJS.ProcessEnv = process.env) {
   };
 }
 
-export function getCreditsForPlan(plan: string): number {
-  return plans[plan as PlanKey]?.monthlyLimit ?? 0;
+export function getCreditsForPlan(
+  plan: string,
+  generation: BillingCatalogGeneration = "legacy",
+): number {
+  if (!isCreemSelfServePlan(plan)) return plans[plan as PlanKey]?.monthlyLimit ?? 0;
+  return getBillingCatalogEntry(generation, plan, "monthly").monthlyCredits;
 }
 
 export function getCreemPriceForPlan(
   plan: string,
   billingInterval: CreemBillingInterval = "monthly",
+  generation: BillingCatalogGeneration = "legacy",
 ): number {
   if (!isCreemSelfServePlan(plan)) return plans[plan as PlanKey]?.price ?? 0;
-  return billingInterval === "yearly" ? YEARLY_PRICES[plan] : plans[plan].price;
+  return getBillingCatalogEntry(generation, plan, billingInterval).priceUsd;
 }
 
 function formatUsd(
@@ -259,16 +254,18 @@ function formatUsd(
   }).format(value);
 }
 
-export function getCreemAnnualOffer(plan: string): AnnualPlanOffer | null {
+export function getCreemAnnualOffer(
+  plan: string,
+  generation: BillingCatalogGeneration = getPublicCatalogGeneration(),
+): AnnualPlanOffer | null {
   if (!isCreemSelfServePlan(plan)) return null;
 
-  const monthlyPrice = getCreemPriceForPlan(plan, "monthly");
-  const yearlyPrice = getCreemPriceForPlan(plan, "yearly");
+  const monthlyPrice = getCreemPriceForPlan(plan, "monthly", generation);
+  const yearlyPrice = getCreemPriceForPlan(plan, "yearly", generation);
   const monthlyTotal = monthlyPrice * 12;
   const savingsAmount = Math.max(0, monthlyTotal - yearlyPrice);
   const discountPercent = monthlyTotal > 0 ? Math.round((savingsAmount / monthlyTotal) * 100) : 0;
   const monthlyEquivalent = yearlyPrice / 12;
-  const getsTwoMonthsFree = yearlyPrice === monthlyPrice * 10;
 
   return {
     yearlyPrice,
@@ -282,7 +279,7 @@ export function getCreemAnnualOffer(plan: string): AnnualPlanOffer | null {
     savingsAmountLabel: `Save ${formatUsd(savingsAmount)}/year`,
     discountPercent,
     discountPercentLabel: `Save ${discountPercent}%`,
-    promoLabel: getsTwoMonthsFree ? "2 months free" : null,
+    promoLabel: yearlyPrice === monthlyPrice * 11 ? "12 months for the price of 11" : null,
   };
 }
 

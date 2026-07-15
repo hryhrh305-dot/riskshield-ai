@@ -4,6 +4,11 @@ export type MonthlyCreditCycle = {
   cycleKey: string;
 };
 
+export type AnnualServiceMonth = MonthlyCreditCycle & {
+  monthIndex: number;
+  termKey: string;
+};
+
 function parseDate(value: string, errorCode: string): Date {
   if (!/(?:z|[+-]\d{2}:\d{2})$/i.test(value)) throw new Error(errorCode);
   const parsed = new Date(value);
@@ -46,4 +51,16 @@ export function isCycleInsidePaidPeriod(cycleStart: string, paidStart: string, p
   const end = parseDate(paidEnd, "INVALID_PAID_PERIOD_END");
   if (end.getTime() <= start.getTime()) throw new Error("INVALID_PAID_PERIOD");
   return cycle.getTime() >= start.getTime() && cycle.getTime() < end.getTime();
+}
+
+export function getAnnualServiceMonth(anchorIso: string, at: Date, paidThroughIso: string): AnnualServiceMonth {
+  const anchor = parseDate(anchorIso, "INVALID_ANNUAL_TERM_ANCHOR");
+  const paidThrough = parseDate(paidThroughIso, "INVALID_ANNUAL_PAID_THROUGH");
+  if (paidThrough.getTime() <= anchor.getTime()) throw new Error("INVALID_ANNUAL_TERM");
+  if (at.getTime() >= paidThrough.getTime()) throw new Error("ANNUAL_TERM_ENDED");
+  const cycle = getMonthlyCycle(anchorIso, at);
+  const monthIndex = (new Date(cycle.start).getUTCFullYear() - anchor.getUTCFullYear()) * 12
+    + new Date(cycle.start).getUTCMonth() - anchor.getUTCMonth();
+  if (monthIndex < 0 || monthIndex > 11) throw new Error("ANNUAL_SERVICE_MONTH_OUT_OF_RANGE");
+  return { ...cycle, monthIndex, termKey: anchor.toISOString() };
 }

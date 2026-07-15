@@ -1,4 +1,4 @@
-import { getCreditsForPlan } from "@/lib/creem";
+import { getBillingCatalogEntry, type BillingCatalogGeneration, type BillingInterval } from "@/lib/billing-catalog";
 
 type ReferralRewardPlan = "starter" | "growth" | "scale";
 
@@ -9,9 +9,13 @@ type ServiceSupabaseClient = {
 
 const AUTOMATIC_REFERRAL_PLANS = new Set<ReferralRewardPlan>(["starter", "growth", "scale"]);
 
-export function getReferralRewardCredits(plan: string): number | null {
+export function getReferralRewardCredits(
+  plan: string,
+  generation: BillingCatalogGeneration = "legacy",
+  interval: BillingInterval = "monthly",
+): number | null {
   if (!AUTOMATIC_REFERRAL_PLANS.has(plan as ReferralRewardPlan)) return null;
-  return Math.floor(getCreditsForPlan(plan) * 0.1);
+  return getBillingCatalogEntry(generation, plan, interval).referralRewardCredits;
 }
 
 export async function markReferralFirstPayment(params: {
@@ -20,9 +24,11 @@ export async function markReferralFirstPayment(params: {
   plan: string;
   paymentId: string;
   paidAt?: string;
+  generation?: BillingCatalogGeneration;
+  billingInterval?: BillingInterval;
 }) {
   const paidAt = new Date(params.paidAt || Date.now());
-  const rewardCredits = getReferralRewardCredits(params.plan);
+  const rewardCredits = getReferralRewardCredits(params.plan, params.generation, params.billingInterval);
   const eligibilityReviewAt = new Date(paidAt.getTime() + 30 * 24 * 60 * 60 * 1000);
   const isAutomaticPlan = rewardCredits !== null && rewardCredits > 0;
 

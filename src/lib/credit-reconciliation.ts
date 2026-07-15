@@ -1,5 +1,6 @@
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { grantFreeCycle, grantSubscriptionCycle } from "@/lib/subscription-credits";
+import { findBillingCatalogEntryByProductId } from "@/lib/billing-catalog";
 
 export async function reconcileDueCreditCycles({now=new Date(),limit=500}:{now?:Date;limit?:number}={}) {
   const supabase=getSupabaseAdminClient();
@@ -7,7 +8,7 @@ export async function reconcileDueCreditCycles({now=new Date(),limit=500}:{now?:
   const safeLimit=Math.min(500,Math.max(1,Math.trunc(limit)));
   const perTypeLimit=Math.max(1,Math.floor(safeLimit/2));
   const [{data:subscriptions,error:subscriptionError},{data:freeProfiles,error:freeError}]=await Promise.all([
-    supabase.from("subscriptions").select("user_id,provider_subscription_id,plan,credit_anchor_at,paid_through,billing_interval,cancel_at_period_end")
+    supabase.from("subscriptions").select("user_id,provider_subscription_id,provider_product_id,plan,credit_anchor_at,paid_through,billing_interval,cancel_at_period_end")
       .eq("status","active").in("plan",["starter","growth","scale"])
       .not("credit_anchor_at","is",null).gt("paid_through",nowIso)
       .order("updated_at",{ascending:true}).order("provider_subscription_id",{ascending:true}).limit(perTypeLimit),
@@ -20,6 +21,8 @@ export async function reconcileDueCreditCycles({now=new Date(),limit=500}:{now?:
   for(const row of subscriptions||[]) {
     if(!row.provider_subscription_id||!row.credit_anchor_at||!row.paid_through) continue;
     jobs.push(async()=>{
+      const catalogEntry=findBillingCatalogEntryByProductId(row.provider_product_id);
+      if(!catalogEntry) throw new Error("UNKNOWN_SUBSCRIPTION_PRODUCT");
       const {data:payment,error:paymentError}=await supabase.from("payments").select("provider_transaction_id")
         .eq("user_id",row.user_id).eq("provider","creem")
         .eq("provider_subscription_id",row.provider_subscription_id).eq("status","completed")
@@ -28,7 +31,8 @@ export async function reconcileDueCreditCycles({now=new Date(),limit=500}:{now?:
       if(!payment?.provider_transaction_id) throw new Error("SUBSCRIPTION_PAYMENT_TRANSACTION_REQUIRED");
       return grantSubscriptionCycle({supabase,userId:row.user_id,subscriptionId:row.provider_subscription_id,
         plan:row.plan,anchor:row.credit_anchor_at,at:nowIso,paidThrough:row.paid_through,
-        providerTransactionId:payment.provider_transaction_id});
+        providerTransactionId:payment.provider_transaction_id,generation:catalogEntry.generation,
+        billingInterval:catalogEntry.interval});
     });
   }
   for(const row of freeProfiles||[]) {

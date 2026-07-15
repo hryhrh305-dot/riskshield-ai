@@ -6,10 +6,33 @@ import { Check, Clock3, Minus } from "lucide-react";
 import { SecwynMark } from "@/components/brand/SecwynMark";
 import { plans, type PlanKey } from "@/lib/plans";
 import { getCreemAnnualOffer, getCreemSubscriptionCopy } from "@/lib/creem";
+import type { BillingCatalogGeneration } from "@/lib/billing-catalog";
 import { createClient } from "@/lib/supabase";
 
 type Availability = "included" | "limited" | "unavailable" | "soon" | "custom";
 type BillingInterval = "monthly" | "yearly";
+type CheckoutKind = "checkout" | "contact" | "unavailable";
+type PublicPricingCatalog = {
+  generation: BillingCatalogGeneration;
+  annualSelfServe: boolean;
+  plans: Record<"starter" | "growth" | "scale", {
+    monthlyPrice: number;
+    annualPrice: number;
+    monthlyCredits: number;
+    monthlyCheckout: CheckoutKind;
+    annualCheckout: CheckoutKind;
+  }>;
+};
+
+const LEGACY_PUBLIC_CATALOG: PublicPricingCatalog = {
+  generation: "legacy",
+  annualSelfServe: true,
+  plans: {
+    starter: { monthlyPrice: 49, annualPrice: 499, monthlyCredits: 500, monthlyCheckout: "unavailable", annualCheckout: "unavailable" },
+    growth: { monthlyPrice: 249, annualPrice: 2499, monthlyCredits: 2500, monthlyCheckout: "unavailable", annualCheckout: "unavailable" },
+    scale: { monthlyPrice: 1499, annualPrice: 14999, monthlyCredits: 15000, monthlyCheckout: "unavailable", annualCheckout: "unavailable" },
+  },
+};
 
 type FeatureValue = {
   text: string;
@@ -46,7 +69,7 @@ const planHighlights: Record<PlanKey, string[]> = {
   growth: [
     "2,500 contacts audited / month",
     "Multi-workflow audit reports",
-    "Campaign Readiness Score",
+    "Campaign Audit Summary",
     "List Acceptance Decision",
   ],
   scale: [
@@ -118,13 +141,13 @@ const comparisonSections: ComparisonSection[] = [
         },
       },
       {
-        label: "Maximum planned batch size",
+        label: "Maximum Web contacts per run",
         values: {
           free: included("1"),
           starter: included("500"),
-          growth: included("2,500"),
-          scale: included("15,000"),
-          business: custom(),
+          growth: included("5,000"),
+          scale: included("5,000"),
+          business: custom("5,000"),
         },
       },
       {
@@ -575,6 +598,7 @@ export default function PricingPage() {
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState("");
   const [copiedContactEmail, setCopiedContactEmail] = useState(false);
+  const [publicCatalog, setPublicCatalog] = useState<PublicPricingCatalog | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -603,6 +627,15 @@ export default function PricingPage() {
     return () => {
       mounted = false;
     };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch("/api/pricing-catalog", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("PRICING_CATALOG_UNAVAILABLE")))
+      .then((data: PublicPricingCatalog) => { if (mounted) setPublicCatalog(data); })
+      .catch(() => { if (mounted) setPublicCatalog(LEGACY_PUBLIC_CATALOG); });
+    return () => { mounted = false; };
   }, []);
 
   async function handleCheckout(plan: PlanKey) {
@@ -700,7 +733,7 @@ export default function PricingPage() {
               <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${
                 billingInterval === "yearly" ? "bg-slate-950/10 text-slate-900" : "bg-emerald-400/10 text-emerald-200"
               }`}>
-                2 months free
+                Annual billing
               </span>
             </button>
           </div>
@@ -710,11 +743,14 @@ export default function PricingPage() {
           {planEntries.map(([key, plan]) => {
             const isPopular = key === "growth";
             const isPaidSelfServe = selfServePaidPlans.includes(key);
-            const annualOffer = getCreemAnnualOffer(key);
+            const catalogPlan = publicCatalog && (key === "starter" || key === "growth" || key === "scale") ? publicCatalog.plans[key] : null;
+            const annualOffer = getCreemAnnualOffer(key, publicCatalog?.generation ?? "legacy");
             const showYearly = billingInterval === "yearly" && annualOffer !== null;
             const checkoutLoadingKey = isPaidSelfServe ? `${key}:${billingInterval}` : null;
             const subscriptionCopy = getCreemSubscriptionCopy(billingInterval);
-            const displayedPrice = showYearly && annualOffer ? annualOffer.monthlyEquivalentLabel : plan.priceLabel;
+            const displayedPrice = catalogPlan
+              ? showYearly && annualOffer ? annualOffer.monthlyEquivalentLabel : `$${catalogPlan.monthlyPrice.toLocaleString("en-US")}`
+              : isPaidSelfServe ? "—" : plan.priceLabel;
             const displayedPeriod = "/month";
             const yearlyPriceLabel = showYearly && annualOffer ? annualOffer.yearlyPriceLabel : null;
             const annualDiscountPercentLabel = showYearly && annualOffer ? annualOffer.discountPercentLabel : null;
@@ -747,7 +783,7 @@ export default function PricingPage() {
                   <span className="text-4xl font-semibold tracking-[-0.05em]">{displayedPrice}</span>
                   {!plan.contactOnly && key !== "free" && <span className={isPopular ? "text-slate-200" : "text-slate-500"}>{displayedPeriod}</span>}
                   <p className={`mt-2 text-sm font-medium ${isPopular ? "text-slate-100" : "text-slate-300"}`}>
-                    {plan.creditsLabel}
+                    {catalogPlan ? `${catalogPlan.monthlyCredits.toLocaleString("en-US")} contacts audited / month` : isPaidSelfServe ? "Loading plan details..." : plan.creditsLabel}
                   </p>
                   {showYearly && annualDiscountPercentLabel && annualSavingsAmountLabel && (
                     <div className={`mt-3 flex flex-wrap gap-2 text-xs font-semibold ${
@@ -791,7 +827,10 @@ export default function PricingPage() {
                 </p>
 
                 <ul className="mt-5 flex-1 space-y-2.5">
-                  {planHighlights[key].map((item) => (
+                  {(catalogPlan
+                    ? [`${catalogPlan.monthlyCredits.toLocaleString("en-US")} contacts audited / month`, ...planHighlights[key].slice(1)]
+                    : isPaidSelfServe ? ["Loading plan details..."] : planHighlights[key]
+                  ).map((item) => (
                     <li key={item} className={`flex items-start gap-2 text-sm ${isPopular ? "text-slate-100" : "text-slate-300"}`}>
                       <Check className={`mt-0.5 h-4 w-4 shrink-0 ${isPopular ? "text-white" : "text-emerald-300"}`} />
                       <span>{item}</span>
@@ -801,12 +840,15 @@ export default function PricingPage() {
 
                 <button
                   type="button"
-                  onClick={key === "business" ? handleCopyContactEmail : () => handleCheckout(key)}
+                  onClick={key === "business" || (catalogPlan && (billingInterval === "yearly" ? catalogPlan.annualCheckout : catalogPlan.monthlyCheckout) === "contact")
+                    ? handleCopyContactEmail
+                    : () => handleCheckout(key)}
                   disabled={
                     key === "free" ||
+                    (isPaidSelfServe && !catalogPlan) ||
                     (key !== "business" && checkoutLoading !== null) ||
-                    (key !== "business" && key === currentPlan) ||
-                    (key !== "business" && key === "free")
+                    Boolean(catalogPlan && (billingInterval === "yearly" ? catalogPlan.annualCheckout : catalogPlan.monthlyCheckout) === "unavailable") ||
+                    (key !== "business" && key === currentPlan)
                   }
                   className={`mt-6 w-full rounded-full px-4 py-3 text-sm font-semibold transition ${
                     key === "free" || (key !== "business" && key === currentPlan) || (key !== "business" && checkoutLoading !== null)
@@ -822,6 +864,12 @@ export default function PricingPage() {
                       : "Free plan"
                     : key === "business"
                       ? "Contact sales"
+                      : catalogPlan && (billingInterval === "yearly" ? catalogPlan.annualCheckout : catalogPlan.monthlyCheckout) === "contact"
+                        ? "Contact sales"
+                      : catalogPlan && (billingInterval === "yearly" ? catalogPlan.annualCheckout : catalogPlan.monthlyCheckout) === "unavailable"
+                        ? "Coming soon"
+                      : isPaidSelfServe && !catalogPlan
+                        ? "Loading..."
                       : key === currentPlan
                         ? "Current plan"
                         : checkoutLoading === checkoutLoadingKey
@@ -841,7 +889,9 @@ export default function PricingPage() {
 
                 {isPaidSelfServe && (
                   <p className={`mt-3 text-xs ${isPopular ? "text-slate-200" : "text-slate-500"}`}>
-                    Monthly subscription. Auto-renews until canceled in the Creem Customer Portal.
+                    {billingInterval === "yearly"
+                      ? "Annual subscription billed in USD. Credits are issued monthly. Auto-renews yearly until canceled."
+                      : "Monthly subscription. Auto-renews until canceled in the Creem Customer Portal."}
                   </p>
                 )}
               </article>
@@ -890,7 +940,7 @@ export default function PricingPage() {
               </thead>
               <tbody>
                 {comparisonSections.map((section) => (
-                  <FragmentRows key={section.title} section={section} planEntries={planEntries} />
+                  <FragmentRows key={section.title} section={section} planEntries={planEntries} publicCatalog={publicCatalog} />
                 ))}
               </tbody>
             </table>
@@ -939,6 +989,36 @@ export default function PricingPage() {
                 </p>
               </div>
             </details>
+
+            <details className="rs-card group rounded-[24px] p-5 sm:p-6">
+              <summary className="flex cursor-pointer list-none items-start justify-between gap-4 text-base font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70">
+                <span>How does annual billing work?</span>
+                <span aria-hidden="true" className="text-xl leading-none text-slate-400 transition-transform group-open:rotate-45">+</span>
+              </summary>
+              <div className="mt-4 space-y-3 text-sm leading-6 text-slate-300">
+                <p>
+                  Annual subscriptions are billed once per year in USD. The annual price is 12 months for the price of 11, and the included contact credits are issued monthly from your subscription start date rather than all at once.
+                </p>
+                <p>
+                  Starter and Growth annual checkout may be opened in stages. Scale annual and Business terms are contact-led. An annual subscription auto-renews yearly unless you cancel before renewal.
+                </p>
+              </div>
+            </details>
+
+            <details className="rs-card group rounded-[24px] p-5 sm:p-6">
+              <summary className="flex cursor-pointer list-none items-start justify-between gap-4 text-base font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70">
+                <span>What happens when I cancel an annual subscription?</span>
+                <span aria-hidden="true" className="text-xl leading-none text-slate-400 transition-transform group-open:rotate-45">+</span>
+              </summary>
+              <div className="mt-4 space-y-3 text-sm leading-6 text-slate-300">
+                <p>
+                  A cancellation scheduled for the end of the paid annual term stops renewal while access and monthly credit issuance continue through that term. Refunds, disputes, chargebacks, or immediate termination can stop future credit issuance under the applicable terms.
+                </p>
+                <p>
+                  Ordinary promotional coupons do not stack with Premium V2 annual pricing. Any provider conversion fee is controlled by your bank or payment provider, not Secwyn.
+                </p>
+              </div>
+            </details>
           </div>
         </section>
       </main>
@@ -960,9 +1040,11 @@ export default function PricingPage() {
 function FragmentRows({
   section,
   planEntries,
+  publicCatalog,
 }: {
   section: ComparisonSection;
   planEntries: [PlanKey, typeof plans[PlanKey]][];
+  publicCatalog: PublicPricingCatalog | null;
 }) {
   return (
     <>
@@ -981,7 +1063,13 @@ function FragmentRows({
           </th>
           {planEntries.map(([key]) => (
             <td key={key} className={`px-4 py-3.5 align-middle ${key === "growth" ? "bg-white/[0.03]" : ""}`}>
-              <AvailabilityCell value={row.values[key]} />
+              <AvailabilityCell value={
+                row.label === "Included checks" && (key === "starter" || key === "growth" || key === "scale")
+                  ? publicCatalog
+                    ? included(`${publicCatalog.plans[key].monthlyCredits.toLocaleString("en-US")}/month`)
+                    : limited("Loading")
+                  : row.values[key]
+              } />
             </td>
           ))}
         </tr>

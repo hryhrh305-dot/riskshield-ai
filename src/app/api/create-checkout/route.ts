@@ -5,11 +5,10 @@ import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
 import {
   getCreemApiBaseUrl,
   getCreemCheckoutUrls,
-  getCreemPriceForPlan,
-  getCreemProductIdForPlan,
   isCreemSelfServePlan,
   normalizeCreemBillingInterval,
 } from "@/lib/creem";
+import { getCheckoutAvailability } from "@/lib/billing-catalog";
 import { buildCreemCheckoutMetadata, getCreemAttributionMetadata } from "@/lib/e8/creem";
 import { getE8Flags } from "@/lib/e8/flags";
 import { recordProductEvent } from "@/lib/e8/repository";
@@ -83,10 +82,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "This plan is not available for self-serve checkout." }, { status: 400 });
     }
 
-    const productId = getCreemProductIdForPlan(planKey, process.env, billingInterval);
-    if (!productId) {
-      return NextResponse.json({ error: `Missing Creem ${billingInterval} product mapping for ${planKey}.` }, { status: 500 });
+    const availability = getCheckoutAvailability(planKey, billingInterval, process.env);
+    if (availability.kind !== "checkout") {
+      const status = availability.kind === "contact" ? 409 : 503;
+      const error = availability.kind === "contact"
+        ? "This annual plan is currently contact-led. Contact support@secwyn.com."
+        : "This checkout option is not configured yet.";
+      return NextResponse.json({ error, code: availability.reason }, { status });
     }
+    const { productId, entry } = availability;
 
     const checkoutUrls = getCreemCheckoutUrls();
     const apiBaseUrl = getCreemApiBaseUrl(creemApiKey);
@@ -96,6 +100,7 @@ export async function POST(req: NextRequest) {
       user_id: user.id,
       plan: planKey,
       billing_interval: billingInterval,
+      catalog_generation: entry.generation,
       source: "pricing-page",
     };
     const metadata = buildCreemCheckoutMetadata(baseMetadata, e8Attribution, requestId, getE8Flags().creemMetadata);
@@ -154,7 +159,7 @@ export async function POST(req: NextRequest) {
       provider: "creem",
       provider_checkout_id: data.id,
       provider_product_id: productId,
-      amount: getCreemPriceForPlan(planKey, billingInterval),
+      amount: entry.priceUsd,
       currency: "USD",
       status: "pending",
       plan: planKey,

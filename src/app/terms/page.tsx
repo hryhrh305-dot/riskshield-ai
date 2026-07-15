@@ -17,6 +17,9 @@ const sections = [
     title: "Subscriptions, credits, and billing",
     body: [
       "Paid plans are billed through Creem or another payment provider we authorize. Prices, credits, and plan features are shown on the Pricing page and may change for future billing periods.",
+      "Annual subscriptions are billed once per annual term in U.S. dollars. Included contact credits are issued in monthly service periods from the subscription anchor and are not granted twelve months upfront.",
+      "Unless a checkout expressly states otherwise, annual subscriptions renew annually. A cancellation scheduled for period end stops renewal while access continues through the paid term; immediate cancellation, refund, dispute, or chargeback may stop future credit issuance.",
+      "Premium annual pricing is already discounted as stated on the Pricing page and does not combine with ordinary promotional coupons unless Secwyn expressly confirms otherwise in writing.",
       "Credits are usage units for checks and related workflows. Unless we state otherwise in writing, credits are not cash, are not transferable, and do not roll over after the applicable billing period.",
       "Subscription access normally continues until canceled, expired, refunded, disputed, or terminated. We may suspend access for unpaid invoices, failed payments, chargebacks, abuse, or policy violations.",
       "Refunds are not guaranteed except where required by law or expressly approved by us or our payment provider. We may refuse refunds for abuse, excessive usage, policy violations, or completed digital service delivery.",

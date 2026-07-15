@@ -21,6 +21,7 @@ import { grantSubscriptionCycle, revokeSubscriptionTransactionCredits } from "@/
 import { getE8Flags } from "@/lib/e8/flags";
 import { safeE8ErrorCode } from "@/lib/e8/creem";
 import { recordSubscriptionEvent } from "@/lib/e8/repository";
+import { findBillingCatalogEntryByProductId } from "@/lib/billing-catalog";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SECRET_KEY || "";
@@ -94,7 +95,11 @@ async function upsertSubscriptionRecord(params: {
   if (lookupError) throw lookupError;
   const productMatch = findCreemProductById(params.productId);
   if (params.establishAnchor && !productMatch) throw new Error("UNKNOWN_SUBSCRIPTION_PRODUCT");
-  const anchor = existing?.credit_anchor_at || (params.establishAnchor ? asIso(params.currentPeriodStart) : null);
+  if (productMatch && productMatch.plan !== params.plan) throw new Error("SUBSCRIPTION_PRODUCT_PLAN_MISMATCH");
+  const paidEventAnchor = params.establishAnchor ? asIso(params.currentPeriodStart) : null;
+  const anchor = productMatch?.billingInterval === "yearly" && paidEventAnchor
+    ? paidEventAnchor
+    : existing?.credit_anchor_at || paidEventAnchor;
 
   const payload: Record<string, unknown> = {
     user_id: params.userId,
@@ -638,10 +643,14 @@ export async function POST(req: NextRequest) {
 
         const paidAt = event?.object?.current_period_start_date || creditAnchor;
         if (!creditAnchor || !paidAt) throw new Error("SUBSCRIPTION_CREDIT_ANCHOR_MISSING");
+        const catalogEntry = findBillingCatalogEntryByProductId(productId);
+        if (!catalogEntry) throw new Error("UNKNOWN_SUBSCRIPTION_PRODUCT");
         await grantSubscriptionCycle({
           supabase: getSupabaseAdmin(), userId, subscriptionId, plan, anchor: creditAnchor, at: paidAt,
           paidThrough: event?.object?.current_period_end_date || "",
           providerTransactionId: transactionId,
+          generation: catalogEntry.generation,
+          billingInterval: catalogEntry.interval,
         });
 
         if (payment.id) {
@@ -651,6 +660,8 @@ export async function POST(req: NextRequest) {
             plan,
             paymentId: payment.id,
             paidAt: event?.object?.current_period_start_date || undefined,
+            generation: catalogEntry.generation,
+            billingInterval: catalogEntry.interval,
           });
         }
         break;

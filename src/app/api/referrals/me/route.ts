@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
 import { issueDueReferralRewards } from "@/lib/referral-rewards";
+import { findBillingCatalogEntryByProductId } from "@/lib/billing-catalog";
 
 type ReferralCodeRow = {
   code: string;
@@ -75,6 +76,15 @@ export async function GET(request: NextRequest) {
     await issueDueReferralRewards({ supabase, referrerUserId: user.id });
     const { data: creditSummary, error: creditSummaryError } = await supabase.rpc("get_credit_summary", { p_user_id: user.id });
     if (creditSummaryError) throw creditSummaryError;
+    const { data: subscription, error: subscriptionError } = await supabase
+      .from("subscriptions")
+      .select("provider_product_id")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (subscriptionError) throw subscriptionError;
+    const catalogEntry = findBillingCatalogEntryByProductId(subscription?.provider_product_id || null);
 
     const [{ count: registeredCount,error:registeredError }, { count: pendingCount,error:pendingError }, { data: recentAttributions,error:recentError }] = await Promise.all([
       supabase
@@ -104,6 +114,12 @@ export async function GET(request: NextRequest) {
       },
       recentAttributions: recentAttributions ?? [],
       credits: creditSummary,
+      subscriptionEntitlement: catalogEntry ? {
+        generation: catalogEntry.generation,
+        interval: catalogEntry.interval,
+        plan: catalogEntry.plan,
+        monthlyCredits: catalogEntry.monthlyCredits,
+      } : null,
     });
   } catch (error) {
     console.error("[referrals/me][GET]", error);

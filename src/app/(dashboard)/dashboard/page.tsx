@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase";
 import { getPlanLimits, type PlanKey } from "@/lib/plans";
 import { generateApiKey } from "@/lib/api-auth";
 import { getPlanEntitlements } from "@/lib/plan-entitlements";
-import { findCreemProductById, hasActiveSubscriptionAccess } from "@/lib/creem";
+import { hasActiveSubscriptionAccess } from "@/lib/creem";
 import { signOut } from "@/lib/auth";
 import { SecwynMark } from "@/components/brand/SecwynMark";
 import Link from "next/link";
@@ -88,6 +88,12 @@ interface ReferralSummary {
   };
   recentAttributions: ReferralAttributionRow[];
   credits?: { subscription: number; referral: number; manual: number; total: number; nearestExpiry: string | null };
+  subscriptionEntitlement?: {
+    generation: "legacy" | "premium_v2";
+    interval: "monthly" | "yearly";
+    plan: "starter" | "growth" | "scale";
+    monthlyCredits: number;
+  } | null;
 }
 
 const defaultSettings = {
@@ -426,7 +432,7 @@ export default function DashboardPage() {
     subscriptionEnd: subscription?.current_period_end,
   });
   const isBusinessPlan = planKey === "business";
-  const monthlyLimit = planInfo.monthlyLimit || 50000;
+  const monthlyLimit = referralSummary?.subscriptionEntitlement?.monthlyCredits ?? (planInfo.monthlyLimit || 50000);
   const creditsRemaining = profile.credits_remaining ?? 0;
   const apiEnabled = entitlements.apiAccess;
   const feedbackRemaining = Math.max(0, feedbackDailyLimit - feedbackSentToday);
@@ -443,11 +449,10 @@ export default function DashboardPage() {
   const monthlyPercent = creditsPercent;
   const usageStatus = monthlyPercent <= 20 ? "critical" : monthlyPercent <= 50 ? "warning" : "healthy";
   const activeApiKeys = apiKeys.filter((key) => key.status === "active");
-  const productMatch = findCreemProductById(subscription?.provider_product_id || null);
   const billingCycleLabel =
-    productMatch?.billingInterval === "yearly"
+    referralSummary?.subscriptionEntitlement?.interval === "yearly"
       ? "Yearly"
-      : productMatch?.billingInterval === "monthly"
+      : referralSummary?.subscriptionEntitlement?.interval === "monthly"
         ? "Monthly"
         : null;
   const subscriptionEndsAt = subscription?.current_period_end || null;

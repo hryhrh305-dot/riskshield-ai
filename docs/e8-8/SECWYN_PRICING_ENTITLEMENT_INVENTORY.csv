@@ -1,0 +1,15 @@
+generation,plan,interval,price_usd,monthly_credits,public_display,new_checkout,api,sheets,referral_credits
+legacy,free,one_time,0,50,yes,no,no,no,0
+legacy,starter,monthly,49,500,legacy_mode_only,legacy_mode_only,no,no,50
+legacy,starter,yearly,499,500,legacy_mode_only,legacy_mode_only,no,no,50
+legacy,growth,monthly,249,2500,legacy_mode_only,legacy_mode_only,yes,yes,250
+legacy,growth,yearly,2499,2500,legacy_mode_only,legacy_mode_only,yes,yes,250
+legacy,scale,monthly,1499,15000,legacy_mode_only,legacy_mode_only,yes,yes,1500
+legacy,scale,yearly,14999,15000,legacy_mode_only,legacy_mode_only,yes,yes,1500
+premium_v2,starter,monthly,199,500,v2_mode,yes_if_mapped,no,no,50
+premium_v2,starter,yearly,2189,500,v2_mode,yes_if_annual_gate_and_mapped,no,no,50
+premium_v2,growth,monthly,999,2500,v2_mode,yes_if_mapped,yes,yes,250
+premium_v2,growth,yearly,10989,2500,v2_mode,yes_if_annual_gate_and_mapped,yes,yes,250
+premium_v2,scale,monthly,3999,10000,v2_mode,yes_if_mapped,yes,yes,1000
+premium_v2,scale,yearly,43989,10000,v2_mode,contact_only,yes,yes,1000
+contract,business,custom,custom,custom,yes,contact_only,custom,custom,manual

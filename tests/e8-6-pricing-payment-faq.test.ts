@@ -33,8 +33,8 @@ describe("E8.6 pricing payment clarification", () => {
   it("uses the native accessible disclosure pattern", () => {
     expect(pricing).toContain('className="rs-app relative min-h-screen overflow-x-hidden"');
     expect(pricing).toContain('<section id="payment-faq"');
-    expect(pricing.match(/<details/g)).toHaveLength(2);
-    expect(pricing.match(/<summary/g)).toHaveLength(2);
+    expect(pricing.match(/<details/g)).toHaveLength(4);
+    expect(pricing.match(/<summary/g)).toHaveLength(4);
     expect(pricing).toContain('aria-hidden="true"');
   });
 
