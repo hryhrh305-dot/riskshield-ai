@@ -141,7 +141,7 @@ test("checkout urls use the production riskshield paths", () => {
   assert.equal(urls.webhookUrl, "https://www.574269.xyz/api/payment/webhook");
 });
 
-test("redirect signature verification follows Creem SHA-256 redirect order", () => {
+test("redirect signature verification follows Creem SHA-256 redirect order and excludes null values", () => {
   const apiKey = "creem_test_abc";
   const rawQueryWithoutSignature = [
     "request_id=req_111",
