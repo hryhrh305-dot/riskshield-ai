@@ -162,7 +162,10 @@ export function buildAuditReportModel({
   const total = results.length;
   const first = results[0] || {};
   const sourceRows = Array.isArray(reconciliation?.rows) ? reconciliation.rows : [];
-  const inputRowsByEmail = new Map(sourceRows.filter((row) => row.normalizedValue).map((row) => [row.normalizedValue as string, row]));
+  const inputRowsByEmail = new Map<string, (typeof sourceRows)[number]>();
+  for (const row of sourceRows) {
+    if (row.normalizedValue && !inputRowsByEmail.has(row.normalizedValue)) inputRowsByEmail.set(row.normalizedValue, row);
+  }
   const contacts = results.map((result, index) => {
     const row = inputRowsByEmail.get(readText(result.normalized_email ?? result.email, ""));
     return { ...result, original_input: row?.originalValue ?? result.email ?? result.normalized_email ?? null, row_number: row?.rowNumber ?? index + 1 };
@@ -267,7 +270,7 @@ export function buildClientReportHtml(model: AuditReportModel): string {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(model.title)} - Secwyn</title>
 <style>
-@page{margin:14mm}*{box-sizing:border-box}body{margin:0;background:#f5f1e8;color:#101a2b;font:14px/1.55 Arial,sans-serif}.report{max-width:1120px;margin:0 auto;padding:32px}.brand{background:#081424;color:#fff;padding:24px;border-radius:18px}.brand small{color:#a8bacb}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.card,.section{background:#fff;border:1px solid #d8dee7;border-radius:16px;padding:16px;margin-top:16px}.section h2{margin-top:0}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #d8dee7;padding:7px;text-align:left;vertical-align:top}th{background:#eef3f7}thead{display:table-header-group}.muted{color:#5a687a}.meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.keep{break-inside:avoid}.page-break{break-before:page}footer{margin-top:24px;border-top:1px solid #d8dee7;padding-top:12px;color:#5a687a}@media(max-width:720px){.report{padding:16px}.grid,.meta{grid-template-columns:1fr}.scroll{overflow:auto}}@media print{body{background:#fff}.report{max-width:none;padding:0}.brand{border-radius:0}.section,.card{box-shadow:none}.no-print{display:none!important}a{color:inherit;text-decoration:none}}
+@page{margin:14mm}*{box-sizing:border-box}body{margin:0;background:#f5f1e8;color:#101a2b;font:14px/1.55 Arial,sans-serif}.report{max-width:1120px;margin:0 auto;padding:32px}.brand{background:#081424;color:#fff;padding:24px;border-radius:18px}.brand small{color:#a8bacb}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.card,.section{background:#fff;border:1px solid #d8dee7;border-radius:16px;padding:16px;margin-top:16px}.section h2{margin-top:0}.scroll{width:100%;max-width:100%;overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #d8dee7;padding:7px;text-align:left;vertical-align:top;overflow-wrap:anywhere;word-break:break-word}th{background:#eef3f7}thead{display:table-header-group}.muted{color:#5a687a}.meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.keep{break-inside:avoid}.page-break{break-before:page}footer{margin-top:24px;border-top:1px solid #d8dee7;padding-top:12px;color:#5a687a}@media(max-width:720px){.report{padding:16px}.grid,.meta{grid-template-columns:1fr}}@media print{body{background:#fff}.report{max-width:none;padding:0}.brand{border-radius:0}.section,.card{box-shadow:none}.no-print{display:none!important}a{color:inherit;text-decoration:none}}
 </style></head><body><main class="report">
 <header class="brand keep"><small>SECWYN · PRE-SEND RISK GOVERNANCE</small><h1>${escapeHtml(model.title)}</h1><p>${escapeHtml(model.summaryLine)}</p></header>
 <section class="section keep"><h2>Executive Audit Summary</h2><div class="grid">${queueCards}</div></section>

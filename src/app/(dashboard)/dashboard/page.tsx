@@ -692,10 +692,10 @@ export default function DashboardPage() {
           <div className="mt-5 grid gap-3 md:grid-cols-2">
             <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
               <div className="text-sm font-semibold text-emerald-100">Reward</div>
-              <p className="mt-1 text-sm leading-6 text-emerald-50/85">
+              <p className="rs-referral-reward-copy mt-1 text-sm leading-6 text-emerald-50/85">
                 Earn bonus checks equal to 10% of the referred user&apos;s first subscription plan included checks.
               </p>
-              <p className="mt-2 text-xs text-emerald-100/75">
+              <p className="rs-referral-reward-example mt-2 text-xs text-emerald-100/75">
                 Example: If your referral buys a plan with 2500 included checks, you can earn 250 bonus checks.
               </p>
             </div>
@@ -856,37 +856,19 @@ export default function DashboardPage() {
                     const enabled = s[typedKey];
 
                     return (
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={enabled}
-                    aria-label={label}
-                    onClick={() => {
-                      setSettings({ ...s, [typedKey]: !s[typedKey] });
-                    }}
-                    className={`group relative inline-flex h-5 w-9 items-center rounded-full border px-0.5 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${
-                      enabled
-                        ? "border-emerald-400/55 bg-emerald-500/28 shadow-[0_0_0_1px_rgba(52,211,153,0.18),0_6px_14px_rgba(16,185,129,0.14)]"
-                        : "border-white/10 bg-white/8"
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none absolute text-[7px] font-semibold uppercase tracking-[0.05em] transition-all duration-200 ${
-                        enabled
-                          ? "left-1.5 text-emerald-100/95"
-                          : "left-[15px] text-slate-500"
-                      }`}
-                    >
-                      {enabled ? "On" : "Off"}
-                    </span>
-                    <span
-                      className={`inline-block h-3.5 w-3.5 rounded-full transition-all duration-200 ${
-                        enabled
-                          ? "translate-x-4 bg-emerald-300 shadow-[0_0_0_1px_rgba(255,255,255,0.2),0_3px_8px_rgba(16,185,129,0.35)]"
-                          : "translate-x-0 bg-white/90 shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_4px_10px_rgba(0,0,0,0.35)]"
-                      }`}
-                    />
-                  </button>
+                   <button
+                     type="button"
+                     role="switch"
+                     aria-checked={enabled}
+                     aria-label={label}
+                     onClick={() => {
+                       setSettings({ ...s, [typedKey]: !s[typedKey] });
+                     }}
+                     className="rs-editorial-switch"
+                   >
+                     <span className="rs-editorial-switch-label">{enabled ? "On" : "Off"}</span>
+                     <span className="rs-editorial-switch-thumb" />
+                   </button>
                     );
                   })()}
                 </div>

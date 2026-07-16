@@ -27,6 +27,11 @@ function stateLine(counts: Record<string, number>) {
     : "No results";
 }
 
+function reportDecisionTone(value: unknown): "allow" | "review" | "block" {
+  const decision = String(value || "REVIEW").toUpperCase();
+  return decision === "ALLOW" ? "allow" : decision === "BLOCK" ? "block" : "review";
+}
+
 export function AuditReportPreview({
   summary,
   results,
@@ -97,7 +102,7 @@ export function AuditReportPreview({
               <ol className="mt-3 space-y-2">
                 {report.requiredActions.slice(0, 8).map((item) => (
                   <li key={`${item.queue}:${item.action}`} className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm leading-6 text-slate-300">
-                    <span className="font-semibold text-white">{item.count.toLocaleString()} {item.queue}</span> · {item.action}
+                    <span className="font-semibold text-white">{item.count.toLocaleString()} {item.count === 1 ? "contact" : "contacts"}</span> · {item.action}
                   </li>
                 ))}
               </ol>
@@ -129,14 +134,35 @@ export function AuditReportPreview({
           <p className="mt-3 text-xs leading-5 text-slate-500">{report.evidenceCoverage.statement}</p>
         </section>
 
-        <section className="report-section" aria-labelledby="contact-evidence-title">
+        <section className="report-section report-contact-results" aria-labelledby="contact-evidence-title">
           <div className="flex items-end justify-between gap-3">
-            <div><h3 id="contact-evidence-title" className="text-sm font-semibold text-white">Contact-level Results</h3><p className="mt-1 text-xs text-slate-500">Previewing {previewContacts.length.toLocaleString()} of {report.contacts.length.toLocaleString()}. The HTML and CSV/XLSX exports retain the full result set.</p></div>
+            <div><h3 id="contact-evidence-title" className="text-sm font-semibold text-white">Contact-level Results</h3><p className="mt-1 text-xs text-slate-500">Showing the first {previewContacts.length.toLocaleString()} accepted unique contacts in uploaded order ({report.contacts.length.toLocaleString()} total). The HTML and CSV/XLSX exports retain the full result set.</p></div>
           </div>
-          <div className="mt-3 overflow-x-auto rounded-2xl border border-white/10">
-            <table className="w-full min-w-[900px] text-left text-xs">
+          <div className="report-contact-scroll mt-3 overflow-x-auto rounded-2xl border border-white/10">
+            <table className="report-contact-table w-full min-w-[900px] text-left text-xs">
               <thead className="bg-black/40 text-slate-400"><tr><th className="p-3">Row</th><th className="p-3">Original input</th><th className="p-3">Normalized email</th><th className="p-3">Decision</th><th className="p-3">Score</th><th className="p-3">Primary reason</th><th className="p-3">Recommended action</th><th className="p-3">Evidence state</th><th className="p-3">Technical context</th></tr></thead>
-              <tbody>{previewContacts.map((item, index) => <tr key={`${String(item.audit_id || item.email)}:${index}`} className="border-t border-white/8"><td className="p-3 text-slate-500">{String(item.row_number ?? index + 1)}</td><td className="break-all p-3 font-mono text-slate-200">{String(item.original_input || item.email || "Not available")}</td><td className="break-all p-3 font-mono text-slate-300">{String(item.normalized_email || item.email || "Not available")}</td><td className="p-3 text-slate-200">{String(item.decision || item.risk_level || "REVIEW")}</td><td className="p-3 text-slate-200">{String(item.risk_score ?? "")}</td><td className="p-3 text-slate-300">{String(item.primary_reason || "Not available")}</td><td className="p-3 text-slate-300">{String(item.recommended_action || "Not available")}</td><td className="p-3 text-slate-400">MX {String(item.mx_status || "unknown")} · Mailbox {String(item.mailbox_status || "unknown")} · Catch-all {String(item.catch_all_status || "unknown")}</td><td className="p-3 text-slate-400"><div>{String(item.decision_explanation || "No additional explanation recorded")}</div><div className="mt-1">Disposable {item.disposable === true ? "Yes" : item.disposable === false ? "No" : "Unknown"} · Role-based {item.role_based === true ? "Yes" : item.role_based === false ? "No" : "Unknown"}</div><div className="mt-1">Engine {String(item.engine_version || "Not available")} · Policy {String(item.policy_rules_version || "Not available")} · Audited {String(item.audited_at || "Not available")}</div></td></tr>)}</tbody>
+              <tbody>
+                {previewContacts.map((item, index) => {
+                  const decision = String(item.decision || item.risk_level || "REVIEW").toUpperCase();
+                  return <tr key={`${String(item.audit_id || item.email)}:${index}`} className="border-t border-white/8">
+                    <td data-label="Row" className="p-3 text-slate-500">{String(item.row_number ?? index + 1)}</td>
+                    <td data-label="Original input" className="break-all p-3 font-mono text-slate-200">{String(item.original_input || item.email || "Not available")}</td>
+                    <td data-label="Normalized email" className="break-all p-3 font-mono text-slate-300">{String(item.normalized_email || item.email || "Not available")}</td>
+                    <td data-label="Decision" className={`report-decision report-decision-${reportDecisionTone(decision)} p-3 font-semibold text-slate-200`}>{decision}</td>
+                    <td data-label="Score" className="p-3 text-slate-200">{String(item.risk_score ?? "")}</td>
+                    <td data-label="Primary reason" className="p-3 text-slate-300">{String(item.primary_reason || "Not available")}</td>
+                    <td data-label="Recommended action" className="p-3 text-slate-300">{String(item.recommended_action || "Not available")}</td>
+                    <td data-label="Evidence state" className="p-3 text-slate-400">MX {String(item.mx_status || "unknown")} · Mailbox {String(item.mailbox_status || "unknown")} · Catch-all {String(item.catch_all_status || "unknown")}</td>
+                    <td data-label="Technical context" className="p-3 text-slate-400">
+                      <div className="report-contact-detail">
+                        <div>{String(item.decision_explanation || "No additional explanation recorded")}</div>
+                        <div className="mt-1">Disposable {item.disposable === true ? "Yes" : item.disposable === false ? "No" : "Unknown"} · Role-based {item.role_based === true ? "Yes" : item.role_based === false ? "No" : "Unknown"}</div>
+                        <div className="mt-1">Engine {String(item.engine_version || "Not available")} · Policy {String(item.policy_rules_version || "Not available")} · Audited {String(item.audited_at || "Not available")}</div>
+                      </div>
+                    </td>
+                  </tr>;
+                })}
+              </tbody>
             </table>
           </div>
         </section>

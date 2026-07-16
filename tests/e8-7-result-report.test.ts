@@ -1,5 +1,8 @@
 import { readFileSync } from "node:fs";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { AuditReportPreview } from "@/components/audit/AuditReportPreview";
 import {
   buildAuditReportModel,
   buildClientReportHtml,
@@ -127,6 +130,32 @@ describe("E8.7 report truth contract", () => {
     expect(model.summaryLine).not.toMatch(/savings|waste prevented|guaranteed|certificate/i);
   });
 
+  it("keeps contact previews in first-accepted input order when later duplicates exist", () => {
+    const summary = buildListAuditSummary([
+      decision({ email: "first@secwyn.com", normalizedEmail: "first@secwyn.com" }),
+      decision({ email: "second@secwyn.com", normalizedEmail: "second@secwyn.com" }),
+    ]);
+    const model = buildAuditReportModel({
+      summary,
+      results: [
+        result({ email: "first@secwyn.com", normalized_email: "first@secwyn.com" }),
+        result({ email: "second@secwyn.com", normalized_email: "second@secwyn.com" }),
+      ],
+      reconciliation: {
+        rows: [
+          { rowNumber: 1, originalValue: "FIRST@secwyn.com", normalizedValue: "first@secwyn.com", status: "ACCEPTED", accepted: true, rejected: false, duplicate: false, processed: true, charged: true, rejectionReason: null },
+          { rowNumber: 2, originalValue: "second@secwyn.com", normalizedValue: "second@secwyn.com", status: "ACCEPTED", accepted: true, rejected: false, duplicate: false, processed: true, charged: true, rejectionReason: null },
+          { rowNumber: 2583, originalValue: "first@secwyn.com", normalizedValue: "first@secwyn.com", status: "DUPLICATE", accepted: false, rejected: false, duplicate: true, processed: false, charged: false, rejectionReason: "DUPLICATE_NORMALIZED_EMAIL" },
+        ],
+      },
+    });
+
+    expect(model.contacts.map((contact) => [contact.row_number, contact.original_input])).toEqual([
+      [1, "FIRST@secwyn.com"],
+      [2, "second@secwyn.com"],
+    ]);
+  });
+
   it("generates escaped, printable HTML without invented client or value claims", () => {
     const summary = buildListAuditSummary([decision()]);
     const model = buildAuditReportModel({
@@ -146,6 +175,8 @@ describe("E8.7 report truth contract", () => {
     expect(html).not.toContain("<script>alert(1)</script>");
     expect(html).not.toMatch(/Campaign Readiness Score|Waste Prevented|Potential Savings|Client: Client|Campaign: Outbound Campaign/i);
     expect(html).toContain("support@secwyn.com");
+    expect(html).toContain(".scroll{width:100%;max-width:100%;overflow-x:auto}");
+    expect(html).toContain("overflow-wrap:anywhere");
   });
 
   it("handles empty and 5,000-row fixtures without NaN or a second billing model", () => {
@@ -163,6 +194,38 @@ describe("E8.7 report truth contract", () => {
 });
 
 describe("E8.7 artifact and surface safety", () => {
+  it("keeps printed page tops clear and renders semantic decision colors", () => {
+    const summary = buildListAuditSummary([
+      decision({ decision: "ALLOW", queue: "send" }),
+      decision({ email: "review@secwyn.com", normalizedEmail: "review@secwyn.com" }),
+      decision({ email: "block@secwyn.com", normalizedEmail: "block@secwyn.com", decision: "BLOCK", queue: "suppress" }),
+    ]);
+    const markup = renderToStaticMarkup(createElement(AuditReportPreview, {
+      summary,
+      results: [
+        result({ decision: "ALLOW" }),
+        result({ email: "review@secwyn.com", decision: "REVIEW" }),
+        result({ email: "block@secwyn.com", decision: "BLOCK" }),
+      ],
+      onDownloadHtml: () => undefined,
+      onPrint: () => undefined,
+    }));
+    const globals = readFileSync("src/app/globals.css", "utf8");
+
+    expect(globals).toContain("margin: 22mm 14mm 14mm;");
+    expect(globals).toMatch(/\.secwyn-print-report\s*\{[^}]*overflow: visible !important;/s);
+    expect(globals).toContain("box-decoration-break: clone;");
+    expect(globals).toContain("-webkit-box-decoration-break: clone;");
+    expect(globals).toMatch(/\.report-contact-table tr[^}]*box-shadow: inset 0 2px 0 #d8dee7 !important;/s);
+    expect(markup).toMatch(/report-decision-allow[^>]*>ALLOW</);
+    expect(markup).toMatch(/report-decision-review[^>]*>REVIEW</);
+    expect(markup).toMatch(/report-decision-block[^>]*>BLOCK</);
+    expect(globals).toMatch(/\.report-decision-allow[^}]*color: #15763a !important;/s);
+    expect(globals).toMatch(/\.report-decision-review[^}]*color: #955b08 !important;/s);
+    expect(globals).toMatch(/\.report-decision-block[^}]*color: #b42336 !important;/s);
+    expect(globals).toContain("html .secwyn-print-report .report-decision.report-decision-allow");
+  });
+
   it("neutralizes spreadsheet formulas while retaining ordinary emails", () => {
     expect(sanitizeSpreadsheetCell("normal@example.com")).toBe("normal@example.com");
     expect(sanitizeSpreadsheetCell("=HYPERLINK(\"https://example.com\")")).toBe("'=HYPERLINK(\"https://example.com\")");
@@ -194,6 +257,20 @@ describe("E8.7 artifact and surface safety", () => {
     expect(singlePage).toContain("Evidence boundary");
     expect(globals).toContain("@media print");
     expect(globals).toContain(".secwyn-print-report");
+    expect(globals).toContain(".rs-bulk-results-head");
+    expect(globals).toMatch(/@media print and \(orientation: portrait\)[\s\S]*\.report-contact-table/);
+    expect(report).toContain('className="report-contact-table');
+    expect(report).toContain("Showing the first {previewContacts.length.toLocaleString()} accepted unique contacts in uploaded order");
+    expect(report).toContain('data-label="Technical context"');
+    expect(report).toContain('className="report-contact-detail"');
+    expect(report).toContain("{item.count.toLocaleString()} {item.count === 1 ? \"contact\" : \"contacts\"}");
+    expect(bulkPage).toContain("function resetAudit()");
+    expect(bulkPage).toContain('onClick={resetAudit}');
+    expect(bulkPage).toContain('className="rs-client-delivery-files');
+    expect(bulkPage).toContain('const PRIMARY_RESULT_COLUMN_KEYS = ["email", "decision", "confidence", "primary_reason", "recommended_action", "mailbox_status", "risk_score"] as const;');
+    expect(bulkPage).toContain('className="w-full table-fixed text-sm"');
+    expect(bulkPage).toContain("colSpan={primaryResultColumns.length}");
+    expect(bulkPage).toContain('className="rs-technical-evidence-grid');
     expect(publicRuntime).not.toMatch(/Compliance Certificate|Safety Certificate|Guaranteed Deliverability|underwrit|insured|human-reviewed|approved by/i);
   });
 });

@@ -762,12 +762,12 @@ export default function PricingPage() {
                 key={key}
                 className={`relative flex min-h-[430px] flex-col rounded-[28px] border p-6 shadow-[0_20px_60px_rgba(2,6,23,0.28)] ${
                   isPopular
-                    ? "border-white/15 bg-white/[0.08] text-white ring-1 ring-white/10"
+                    ? "rs-pricing-growth border-white/15 bg-white/[0.08] text-white ring-1 ring-white/10"
                     : "border-white/10 bg-black/20 text-white"
                 }`}
               >
                 {plan.badge && (
-                  <div className="absolute right-4 top-4 rounded-full border border-white/10 bg-white px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-950">
+                  <div className="rs-pricing-popular-badge absolute right-4 top-4 rounded-full border border-white/10 bg-white px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-950">
                     {plan.badge}
                   </div>
                 )}

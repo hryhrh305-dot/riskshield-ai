@@ -16,7 +16,6 @@ export function ThemeToggle() {
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => setTheme(getDocumentTheme()));
-    const media = window.matchMedia("(prefers-color-scheme: light)");
 
     const applyTheme = (nextTheme: Theme) => {
       document.documentElement.dataset.theme = nextTheme;
@@ -29,20 +28,14 @@ export function ThemeToggle() {
       if (event.newValue === "light" || event.newValue === "dark") {
         applyTheme(event.newValue);
       } else {
-        applyTheme(media.matches ? "light" : "dark");
+        applyTheme("light");
       }
     };
 
-    const handleSystemTheme = () => {
-      if (!localStorage.getItem(STORAGE_KEY)) applyTheme(media.matches ? "light" : "dark");
-    };
-
     window.addEventListener("storage", handleStorage);
-    media.addEventListener("change", handleSystemTheme);
     return () => {
       window.cancelAnimationFrame(frame);
       window.removeEventListener("storage", handleStorage);
-      media.removeEventListener("change", handleSystemTheme);
     };
   }, []);
 

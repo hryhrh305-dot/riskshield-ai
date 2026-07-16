@@ -11,6 +11,8 @@ const globals = read("src/app/globals.css");
 const themeToggle = read("src/components/theme/ThemeToggle.tsx");
 const plans = read("src/lib/plans.ts");
 const pricing = read("src/app/(dashboard)/pricing/page.tsx");
+const dashboard = read("src/app/(dashboard)/dashboard/page.tsx");
+const bulkCheck = read("src/app/(dashboard)/bulk-check/page.tsx");
 
 describe("E8.6 positioning contract", () => {
   it("leads with the approved pre-send governance message", () => {
@@ -56,11 +58,13 @@ describe("E8.6 positioning contract", () => {
 });
 
 describe("E8.6 theme contract", () => {
-  it("initializes the selected theme before hydration", () => {
+  it("defaults new visitors to light before hydration while preserving saved choices", () => {
     expect(rootLayout).toContain("secwyn-theme-init");
     expect(rootLayout).toContain('strategy="beforeInteractive"');
     expect(rootLayout).toContain("secwyn-theme");
-    expect(rootLayout).toContain("prefers-color-scheme: light");
+    expect(rootLayout).toMatch(/stored === "light" \|\| stored === "dark"[\s\S]*\? stored[\s\S]*: "light"/);
+    expect(rootLayout).toContain('document.documentElement.dataset.theme = "light"');
+    expect(rootLayout).not.toContain("prefers-color-scheme");
   });
 
   it("provides an accessible persistent toggle", () => {
@@ -68,6 +72,8 @@ describe("E8.6 theme contract", () => {
     expect(themeToggle).toContain("localStorage.setItem");
     expect(themeToggle).toContain("aria-label");
     expect(themeToggle).toContain("aria-pressed");
+    expect(themeToggle).toContain('applyTheme("light")');
+    expect(themeToggle).not.toContain("prefers-color-scheme");
   });
 
   it("defines a warm light palette without replacing the dark default", () => {
@@ -76,6 +82,25 @@ describe("E8.6 theme contract", () => {
     expect(globals).toContain("--rs-accent: #0897a5");
     expect(globals).toContain(".rs-theme-toggle");
     expect(globals).toContain(":focus-visible");
+    expect(globals).toMatch(/\n\.rs-marketing-title\s*\{[^}]*font-family: Georgia, "Times New Roman", serif;[^}]*font-weight: 500;[^}]*letter-spacing: -0\.045em;/s);
+    expect(globals).not.toMatch(/html\[data-theme="light"\] \.rs-marketing-title\s*\{[^}]*font-family/s);
+    expect(globals).toMatch(/article\.rs-pricing-growth\s*\{[^}]*border-color: #e7d4c6 !important;[^}]*background: #f6ede5 !important;[^}]*box-shadow: 0 10px 24px rgba\(80, 48, 28, 0\.08\) !important;/s);
+    expect(globals).toMatch(/\.rs-pricing-popular-badge\s*\{[^}]*border-color: #dfc7b6 !important;[^}]*background: #fff8f2 !important;[^}]*color: #7a4e35 !important;/s);
+    expect(dashboard).toContain("rs-referral-reward-copy");
+    expect(dashboard).toContain("rs-referral-reward-example");
+    expect(globals).toMatch(/\.rs-referral-reward-copy\s*\{[^}]*color: #1f6654 !important;/s);
+    expect(globals).toMatch(/\.rs-referral-reward-example\s*\{[^}]*color: #3b6f61 !important;/s);
+    expect(dashboard).toContain("rs-editorial-switch");
+    expect(dashboard).toContain("rs-editorial-switch-label");
+    expect(dashboard).toContain("rs-editorial-switch-thumb");
+    expect(dashboard).toContain('role="switch"');
+    expect(dashboard).toContain("aria-checked={enabled}");
+    expect(globals).toMatch(/\.rs-editorial-switch\s*\{/);
+    expect(globals).toMatch(/\.rs-editorial-switch\[aria-checked="true"\]\s*\{/);
+    expect(globals).toMatch(/html\[data-theme="light"\][^}]*\.rs-editorial-switch/s);
+    expect(bulkCheck).toContain("rs-bulk-plan-notice");
+    expect(globals).toMatch(/\.rs-bulk-plan-notice\s*\{[^}]*color: #24527a !important;/s);
+    expect(globals).toMatch(/\.rs-bulk-results-head th\s*\{[^}]*color: #f8fafc !important;/s);
   });
 });
 

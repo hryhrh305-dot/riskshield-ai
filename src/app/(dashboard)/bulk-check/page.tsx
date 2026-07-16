@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type DragEvent } from "react";
+import { Fragment, useState, type DragEvent } from "react";
 import * as XLSXLib from "xlsx";
 import Link from "next/link";
 import { Upload, FileText, Download, CheckCircle, AlertTriangle, XCircle, ArrowRight, BarChart3 } from "lucide-react";
@@ -79,6 +79,8 @@ interface BulkApiResponse extends BulkApiError {
 
 type AuditQueue = "send" | "review" | "suppress";
 
+const PRIMARY_RESULT_COLUMN_KEYS = ["email", "decision", "confidence", "primary_reason", "recommended_action", "mailbox_status", "risk_score"] as const;
+
 export default function BulkCheckPage() {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
@@ -154,21 +156,7 @@ export default function BulkCheckPage() {
     const decision = result.risk_level || result.decision || "";
 
     if (column.key === "email") {
-      const priority = new Set(["email", "decision", "risk_score", "confidence", "primary_reason", "recommended_action", "mailbox_status"]);
-      const technicalColumns = visibleExportColumns.filter((item) => !priority.has(item.key));
-      return (
-        <div>
-          <span className="break-all font-mono text-slate-200">{String(value)}</span>
-          {technicalColumns.length > 0 && (
-            <details className="mt-2">
-              <summary className="cursor-pointer text-[11px] text-slate-400">Technical evidence</summary>
-              <dl className="mt-2 space-y-1 text-[11px] text-slate-400">
-                {technicalColumns.map((item) => <div key={item.key}><dt className="inline text-slate-500">{item.label}: </dt><dd className="inline">{String(readExportValue(result, item.key) || "Not available")}</dd></div>)}
-              </dl>
-            </details>
-          )}
-        </div>
-      );
+      return <span className="break-all font-mono text-slate-200">{String(value)}</span>;
     }
 
     if (column.key === "risk_score") {
@@ -473,6 +461,22 @@ export default function BulkCheckPage() {
     window.print();
   }
 
+  function resetAudit() {
+    setText("");
+    setResults(null);
+    setSummary(null);
+    setAuditSummary(null);
+    setInputReconciliation(null);
+    setResultPlan("");
+    setDecisionFilter("all");
+    setResultSearch("");
+    setVisibleResultLimit(250);
+    setError("");
+    setUpgradeNeeded(false);
+    setStatusMessage("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   const sendCount = results?.filter((result) => normalizeAuditQueue(result) === "send").length ?? 0;
   const reviewCount = results?.filter((result) => normalizeAuditQueue(result) === "review").length ?? 0;
   const suppressCount = results?.filter((result) => normalizeAuditQueue(result) === "suppress").length ?? 0;
@@ -492,6 +496,11 @@ export default function BulkCheckPage() {
     }
     return true;
   });
+  const primaryResultColumns = PRIMARY_RESULT_COLUMN_KEYS
+    .map((key) => visibleExportColumns.find((column) => column.key === key))
+    .filter((column): column is ExportColumn => Boolean(column));
+  const primaryResultKeySet = new Set<string>(PRIMARY_RESULT_COLUMN_KEYS);
+  const technicalResultColumns = visibleExportColumns.filter((column) => !primaryResultKeySet.has(column.key));
 
   return (
     <div className="rs-shell">
@@ -517,7 +526,7 @@ export default function BulkCheckPage() {
           </Link>
         </div>
 
-        <div className="mb-6 rounded-2xl border border-blue-500/20 bg-blue-500/10 px-4 py-3 text-sm text-blue-200">
+        <div className="rs-bulk-plan-notice mb-6 rounded-2xl border border-blue-500/20 bg-blue-500/10 px-4 py-3 text-sm text-blue-200">
           List audits are available on <span className="font-semibold">Starter and above</span>. Free plan users can still use the single Contact Check page.
         </div>
 
@@ -629,22 +638,28 @@ sales@domain.com`}</pre>
                 </p>
               </div>
               <div className="w-full max-w-2xl rounded-[24px] border border-white/10 bg-black/20 p-4">
-                <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="mb-3 flex items-center justify-between gap-3 px-3">
                   <div>
                     <div className="text-sm font-medium text-slate-100">Export pack</div>
                     <div className="mt-1 text-xs text-slate-500">Download the report files without repeating the summary metrics on screen.</div>
                   </div>
-                  <Link href={auditCta.href} className="rs-link-arrow hidden items-center gap-1 text-sm font-medium text-white md:inline-flex">
-                    {auditCta.label} <ArrowRight className="h-4 w-4" />
-                  </Link>
+                  {auditCta.href === "/bulk-check" ? (
+                    <button type="button" onClick={resetAudit} className="rs-link-arrow hidden items-center gap-1 text-sm font-medium text-white md:inline-flex">
+                      {auditCta.label} <ArrowRight className="h-4 w-4" />
+                    </button>
+                  ) : (
+                    <Link href={auditCta.href} className="rs-link-arrow hidden items-center gap-1 text-sm font-medium text-white md:inline-flex">
+                      {auditCta.label} <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  )}
                 </div>
-                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <div className="flex flex-col gap-2 px-3 sm:flex-row sm:flex-wrap">
                   <button onClick={downloadXLSX} disabled={xlsxDownloading} className="rounded-full border border-white/12 bg-white/6 px-3 py-2 text-xs font-medium text-slate-100 transition hover:border-white/20 hover:bg-white/10 disabled:opacity-50">{xlsxDownloading ? "Generating..." : <span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Export XLSX</span>}</button>
                   <button onClick={() => exportCSV("all")} className="rounded-full border border-white/12 bg-white/6 px-3 py-2 text-xs font-medium text-slate-100 transition hover:border-white/20 hover:bg-white/10"><span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Full CSV export</span></button>
                   <button onClick={() => exportCSV("clean")} className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-200 transition hover:bg-emerald-500/15"><span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Export clean report</span></button>
                   <button onClick={() => exportCSV("risky")} className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-200 transition hover:bg-red-500/15"><span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Risk review list</span></button>
                 </div>
-                {hasClientReadyReport && <div className="mt-3 rounded-2xl border border-white/8 bg-white/[0.02] p-3">
+                {hasClientReadyReport && <div className="rs-client-delivery-files mt-3 rounded-2xl border border-white/8 bg-white/[0.02] p-3">
                   <div className="mb-2 text-xs uppercase tracking-[0.22em] text-slate-500">Client delivery files</div>
                   <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                     <button onClick={() => downloadAuditCsv("send")} disabled={!results} className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-200 transition hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-50">
@@ -664,9 +679,15 @@ sales@domain.com`}</pre>
                     Standard files keep send, review, suppression, and audit summary exports separate for agency delivery.
                   </p>
                 </div>}
-                <Link href={auditCta.href} className="rs-link-arrow mt-3 inline-flex items-center gap-1 text-sm font-medium text-white md:hidden">
-                  {auditCta.label} <ArrowRight className="h-4 w-4" />
-                </Link>
+                {auditCta.href === "/bulk-check" ? (
+                  <button type="button" onClick={resetAudit} className="rs-link-arrow mx-3 mt-3 inline-flex items-center gap-1 text-sm font-medium text-white md:hidden">
+                    {auditCta.label} <ArrowRight className="h-4 w-4" />
+                  </button>
+                ) : (
+                  <Link href={auditCta.href} className="rs-link-arrow mx-3 mt-3 inline-flex items-center gap-1 text-sm font-medium text-white md:hidden">
+                    {auditCta.label} <ArrowRight className="h-4 w-4" />
+                  </Link>
+                )}
               </div>
             </div>
           </div>
@@ -721,12 +742,21 @@ sales@domain.com`}</pre>
                 </label>
               </div>
             </div>
-            <div className="max-h-[600px] overflow-x-auto overflow-y-auto overscroll-contain">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-black/70 backdrop-blur-xl">
+            <div className="max-h-[600px] overflow-y-auto overscroll-contain">
+              <table className="w-full table-fixed text-sm">
+                <colgroup>
+                  <col className="w-[17%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[11%]" />
+                  <col className="w-[18%]" />
+                  <col className="w-[18%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[12%]" />
+                </colgroup>
+                <thead className="rs-bulk-results-head sticky top-0 bg-black/70 backdrop-blur-xl">
                   <tr>
-                    {visibleExportColumns.map((column) => (
-                      <th key={column.key} className={`${["email", "decision", "risk_score", "confidence", "primary_reason", "recommended_action", "mailbox_status"].includes(column.key) ? "" : "hidden"} min-w-[120px] whitespace-nowrap border-b border-white/8 px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.22em] text-slate-500`}>
+                    {primaryResultColumns.map((column) => (
+                      <th key={column.key} className="break-words border-b border-white/8 px-2 py-3 text-left text-[10px] font-medium uppercase leading-4 tracking-[0.12em] text-slate-500">
                         {column.label}
                       </th>
                     ))}
@@ -734,13 +764,32 @@ sales@domain.com`}</pre>
                 </thead>
                 <tbody>
                   {visibleResults.map((result, index) => (
-                    <tr key={index} className="border-t border-white/8 transition hover:bg-white/[0.03]">
-                      {visibleExportColumns.map((column) => (
-                        <td key={column.key} className={`${["email", "decision", "risk_score", "confidence", "primary_reason", "recommended_action", "mailbox_status"].includes(column.key) ? "" : "hidden"} px-4 py-3 text-xs align-top leading-5`}>
-                          {renderCell(result, column)}
-                        </td>
-                      ))}
-                    </tr>
+                    <Fragment key={String(result.audit_id || result.email || index)}>
+                      <tr className="border-t border-white/8 transition hover:bg-white/[0.03]">
+                        {primaryResultColumns.map((column) => (
+                          <td key={column.key} className="break-words px-2 py-3 text-xs align-top leading-5">
+                            {renderCell(result, column)}
+                          </td>
+                        ))}
+                      </tr>
+                      {technicalResultColumns.length > 0 && (
+                        <tr className="border-t border-white/[0.04]">
+                          <td colSpan={primaryResultColumns.length} className="px-3 pb-3 pt-1">
+                            <details>
+                              <summary className="w-fit cursor-pointer rounded-full px-2 py-1 text-[11px] text-slate-400 transition hover:bg-white/[0.04] hover:text-slate-200">Technical evidence</summary>
+                              <dl className="rs-technical-evidence-grid mt-2 grid gap-2 rounded-2xl border border-white/8 bg-black/15 p-3 text-[11px] text-slate-300 sm:grid-cols-2 xl:grid-cols-3">
+                                {technicalResultColumns.map((column) => (
+                                  <div key={column.key} className="min-w-0 rounded-xl border border-white/[0.06] bg-white/[0.025] p-2.5">
+                                    <dt className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500">{column.label}</dt>
+                                    <dd className="mt-1 whitespace-pre-wrap break-words leading-5">{String(readExportValue(result, column.key) || "Not available")}</dd>
+                                  </div>
+                                ))}
+                              </dl>
+                            </details>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
