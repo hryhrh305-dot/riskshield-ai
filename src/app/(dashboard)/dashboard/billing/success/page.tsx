@@ -192,7 +192,7 @@ export default function BillingSuccessPage() {
     <div className="rs-shell">
       <header className="border-b border-white/10 bg-black/20 backdrop-blur-xl">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
-          <Link href="/dashboard" className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3">
             <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
               <SecwynMark className="h-5 w-5 text-white" />
             </div>

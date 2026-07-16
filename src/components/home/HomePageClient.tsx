@@ -94,7 +94,7 @@ export default function HomePageClient() {
     window.location.href = "/";
   }
 
-  const ctaHref = user ? "/bulk-check" : "/signup";
+  const ctaHref = user ? "/risk-check" : "/signup";
 
   return (
     <div className="rs-shell overflow-x-hidden">

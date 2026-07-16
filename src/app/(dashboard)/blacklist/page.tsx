@@ -90,7 +90,7 @@ export default function BlacklistPage() {
       <header className="sticky top-0 z-20 border-b border-white/10 bg-black/30 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <div className="flex items-center gap-6">
-            <Link href="/dashboard" className="flex items-center gap-3 text-lg font-bold text-white">
+            <Link href="/" className="flex items-center gap-3 text-lg font-bold text-white">
               <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
                 <SecwynMark className="h-5 w-5 text-white" />
               </span>

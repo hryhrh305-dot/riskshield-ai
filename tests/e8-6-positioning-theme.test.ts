@@ -12,6 +12,8 @@ const themeToggle = read("src/components/theme/ThemeToggle.tsx");
 const plans = read("src/lib/plans.ts");
 const pricing = read("src/app/(dashboard)/pricing/page.tsx");
 const dashboard = read("src/app/(dashboard)/dashboard/page.tsx");
+const blacklist = read("src/app/(dashboard)/blacklist/page.tsx");
+const billingSuccess = read("src/app/(dashboard)/dashboard/billing/success/page.tsx");
 const bulkCheck = read("src/app/(dashboard)/bulk-check/page.tsx");
 
 describe("E8.6 positioning contract", () => {
@@ -21,6 +23,14 @@ describe("E8.6 positioning contract", () => {
     expect(home).toContain("Audit 50 Contacts Free");
     expect(home).toContain("View a Sample Audit");
     expect(home).toContain("Valid is not a launch decision.");
+  });
+
+  it("routes signed-in free audits to contact check and app brand links home", () => {
+    expect(home).toContain('const ctaHref = user ? "/risk-check" : "/signup";');
+    expect(home).not.toContain('const ctaHref = user ? "/bulk-check" : "/signup";');
+    expect(dashboard).toMatch(/<Link href="\/" className="flex items-center gap-3 text-lg font-bold text-white">[\s\S]*?<SecwynMark/);
+    expect(blacklist).toMatch(/<Link href="\/" className="flex items-center gap-3 text-lg font-bold text-white">[\s\S]*?<SecwynMark/);
+    expect(billingSuccess).toMatch(/<Link href="\/" className="flex items-center gap-3">[\s\S]*?<SecwynMark/);
   });
 
   it("labels illustrative and future-state material honestly", () => {
