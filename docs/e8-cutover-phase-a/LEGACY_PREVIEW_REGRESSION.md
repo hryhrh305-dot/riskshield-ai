@@ -17,3 +17,7 @@ Before enabling V2 flags, Preview was checked in dark and light modes. Legacy pr
 A new Legacy checkout could not be completed against the current Creem Test account. Creem returned `404 Product not found` because HumanOps staged only the six V2 Test Products and the Test API key could not resolve the configured Legacy Product IDs.
 
 This does not show a Production Legacy failure: Production was untouched and uses its existing Live/legacy configuration. It does mean the task's requested **new Legacy Test checkout during rollback is not externally proven**, so the rollback acceptance item remains blocked until matching Legacy Test Products/IDs are available or an approved equivalent Test fixture is configured.
+
+## Retest preparation
+
+On 2026-07-16, HumanOps staged the six Legacy Test Product mappings, their shared Test webhook, return URLs, and a replacement branch-scoped Test API key. The external checkout result remains pending until the new Git Preview deployment and signed webhook retest finish; preparation alone is not counted as acceptance.
