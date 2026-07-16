@@ -18,8 +18,9 @@ Verified: 2026-07-16 (Asia/Shanghai)
 ## Real external acceptance
 
 - Six active Creem Test Products were visually confirmed.
-- Five Test Mode checkout paths were paid using Creem's documented test method.
+- Six Test Mode checkout paths were paid using Creem's documented test method: five V2 paths and one Legacy Growth Annual rollback path.
 - Webhook-driven monthly/annual activations and first service-month credits were checked in the isolated database and UI.
+- The Legacy rollback payment produced one payment, one active yearly subscription, and one 2,500-credit grant after a successful webhook delivery.
 - Annual and pricing feature-flag rollbacks were deployed and inspected.
 - No Live Product, real payment, real refund, Production DB write, or Production deployment was performed.
 

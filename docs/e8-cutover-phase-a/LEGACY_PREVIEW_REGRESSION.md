@@ -12,12 +12,18 @@ Before enabling V2 flags, Preview was checked in dark and light modes. Legacy pr
 - Pricing V2 flag off: public pricing returned to Legacy values while all existing V2 Test subscriptions remained recognizable in the isolated database.
 - Flags restored: V2 monthly and annual public catalog returned correctly.
 
-## Known rollback limitation
+## External Legacy checkout retest
 
-A new Legacy checkout could not be completed against the current Creem Test account. Creem returned `404 Product not found` because HumanOps staged only the six V2 Test Products and the Test API key could not resolve the configured Legacy Product IDs.
+On 2026-07-16, a new authenticated **Legacy Growth Annual** checkout completed in Creem Test Mode while both public V2 flags were disabled. The isolated database recorded one completed Growth payment, one active yearly Growth subscription, and one 2,500-credit first service-month grant. The initial 50-credit free grant was revoked. The provider webhook returned `200` and did not create a second payment, subscription, or subscription grant.
 
-This does not show a Production Legacy failure: Production was untouched and uses its existing Live/legacy configuration. It does mean the task's requested **new Legacy Test checkout during rollback is not externally proven**, so the rollback acceptance item remains blocked until matching Legacy Test Products/IDs are available or an approved equivalent Test fixture is configured.
+This proves that the Legacy catalog generation, authenticated checkout route, webhook mapping, annual entitlement, and credit-grant path remain operational during the public rollback.
 
-## Retest preparation
+## Remaining Legacy Test mapping limitation
 
-On 2026-07-16, HumanOps staged the six Legacy Test Product mappings, their shared Test webhook, return URLs, and a replacement branch-scoped Test API key. The external checkout result remains pending until the new Git Preview deployment and signed webhook retest finish; preparation alone is not counted as acceptance.
+The replacement mappings were not all correct:
+
+- all three Legacy monthly Product IDs returned provider `404 Product not found` for the staged Test API key;
+- Legacy Starter Annual opened a Scale-named product;
+- Legacy Growth Annual and Scale Annual resolved to the expected provider products.
+
+Production was untouched and uses separate existing Live/Legacy configuration, so these Test-only mapping errors do not establish a Production regression. They do prevent a claim that every staged Legacy Test Product mapping passed. The four incorrect branch-scoped mappings must be corrected before using this Preview branch for a complete six-path Legacy rollback rehearsal.

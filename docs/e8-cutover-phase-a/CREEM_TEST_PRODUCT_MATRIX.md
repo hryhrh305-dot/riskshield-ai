@@ -17,4 +17,8 @@ Annual prices equal eleven monthly payments. Scale Annual has a recognized serve
 
 ## Coupon status
 
-Application code does not send a coupon, discount, Product ID, or price selected by the client. Provider-side Test coupon scoping could not be inspected because no authenticated Creem Dashboard browser session was available to the automation environment. It is recorded as a production-entry blocker rather than inferred as passing.
+Application code does not send a coupon, discount, Product ID, or price selected by the client. HumanOps confirmed on 2026-07-16 that the existing Creem coupons do not apply to the V2 Annual products. No coupon stacking was observed or enabled by Secwyn.
+
+## Legacy rollback mapping audit
+
+The Legacy mappings are separate from the six accepted V2 Test Products. Legacy Growth Annual and Scale Annual resolved to the expected provider products, while the three Legacy monthly IDs were not found by the staged Test API key and Legacy Starter Annual opened a Scale-named product. These branch-scoped Test mapping errors must not be copied into Production.

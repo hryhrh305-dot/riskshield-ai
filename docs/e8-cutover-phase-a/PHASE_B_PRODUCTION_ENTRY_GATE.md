@@ -6,12 +6,12 @@ Decision date: 2026-07-16 (Asia/Shanghai)
 
 **BLOCKED — do not start Phase B yet.**
 
-Core V2 monthly/annual Test Mode payments, webhook entitlement writes, first service-month credits, public catalog behavior, and flag rollback mechanics passed. Two required external-evidence gaps remain. The provider-side coupon gate passed by HumanOps confirmation on 2026-07-16.
+Core V2 monthly/annual Test Mode payments, webhook entitlement writes, first service-month credits, public catalog behavior, and flag rollback mechanics passed. A fresh Legacy Growth Annual checkout also passed during rollback. Two required external-evidence/configuration gaps remain. The provider-side coupon gate passed by HumanOps confirmation on 2026-07-16.
 
 ## Required before Phase B authorization
 
-1. Complete one new Legacy checkout while V2 pricing is disabled using the newly staged Legacy Test Product mappings.
-2. Resolve or obtain Creem confirmation for the signed return-query mismatch; keep verification fail-closed. Re-run Starter Test checkout and confirm both return verification and webhook activation.
+1. Correct the branch-scoped Legacy Test mappings: all three monthly IDs must resolve in the same Test account, and Starter Annual must resolve to a Starter-named product. Re-run the affected checkout probes while V2 pricing is disabled.
+2. Resolve or obtain Creem confirmation for the signed return-query mismatch; keep verification fail-closed. Re-run an authenticated Test checkout and confirm both return verification and webhook activation.
 
 ## Evidence already obtained
 
@@ -19,6 +19,7 @@ Core V2 monthly/annual Test Mode payments, webhook entitlement writes, first ser
 - Independent Preview branch and URL created; Production aliases unchanged.
 - Authenticated writes isolated from Production.
 - Legacy public pricing regression passed.
+- Legacy Growth Annual checkout, webhook activation, yearly entitlement, and first service-month grant passed during rollback.
 - Six V2 Test Products active with correct monthly/annual prices.
 - Starter/Growth/Scale monthly Test checkout passed.
 - Starter/Growth annual Test checkout passed; Scale annual remained Contact-only.

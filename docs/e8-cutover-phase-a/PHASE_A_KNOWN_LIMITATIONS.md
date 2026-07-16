@@ -4,8 +4,8 @@ Verified: 2026-07-16 (Asia/Shanghai)
 
 ## Blocking external-evidence gaps
 
-1. New Legacy checkout during the Preview rollback previously failed because matching Legacy Test Products were not staged; the configured replacement requires external retest.
-2. Creem's signed return query did not validate against the documented HMAC construction or configured Test credentials. Webhook activation passed, verification remained fail-closed, and temporary diagnostics were removed.
+1. A new Legacy Growth Annual checkout passed during the Preview rollback, but the staged Legacy Test mappings remain incomplete: three monthly IDs were not found and Starter Annual opened a Scale-named product.
+2. Creem's signed return query did not validate against the documented HMAC construction or either staged Test credential. Webhook activation passed, verification remained fail-closed, and temporary diagnostics were removed.
 
 Provider-side coupon scope is no longer a blocker: HumanOps confirmed on 2026-07-16 that existing coupons do not stack onto V2 Annual Products.
 
@@ -25,4 +25,4 @@ Provider-side coupon scope is no longer a blocker: HumanOps confirmed on 2026-07
 
 ## Environment limitation
 
-Preview acceptance used an ephemeral local Supabase staging stack and tunnel. It was suitable for Phase A evidence, not a durable shared Staging environment. After evidence collection, branch-scoped write credentials were sealed with fail-closed placeholders; authenticated Preview acceptance cannot be resumed without explicitly staging a new isolated environment.
+Preview acceptance used an ephemeral local Supabase staging stack and tunnel. It was suitable for Phase A evidence, not a durable shared Staging environment. The disposable stack required test-only default role grants because the repository's historical root schema was not a complete Supabase local bootstrap. No repository migration or Production schema was changed. After evidence collection, branch-scoped write credentials were sealed with fail-closed placeholders; authenticated Preview acceptance cannot be resumed without explicitly staging a new isolated environment.

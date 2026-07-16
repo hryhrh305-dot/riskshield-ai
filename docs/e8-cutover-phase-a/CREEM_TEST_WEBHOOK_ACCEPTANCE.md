@@ -8,6 +8,8 @@ Verified: 2026-07-16 (Asia/Shanghai)
 - Starter, Growth, and Scale monthly entitlements reached the Dashboard with 500, 2,500, and 10,000 checks respectively.
 - Starter and Growth annual entitlements created only the first service-month grant (500 and 2,500), not the entire annual quantity.
 - Existing V2 Test subscriptions remained recognizable while public V2 flags were disabled and after flags were restored.
+- A fresh Legacy Growth Annual Test payment during the public rollback produced one completed payment, one active yearly subscription, and exactly one 2,500-credit first service-month grant.
+- The distinct webhook request for that checkout returned `200`; database counts remained one payment, one subscription, and one active subscription grant for the generated user. Duplicate/replay idempotency remains automated evidence rather than being inferred from duplicated Vercel log rows.
 
 ## Automated/fixture coverage, not claimed as real provider events
 

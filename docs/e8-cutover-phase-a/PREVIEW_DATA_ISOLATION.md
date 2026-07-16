@@ -31,6 +31,8 @@ At the end of the real Test Mode checkout run, the isolated database contained:
 - 5 subscription credit grants, totalling 16,000 checks;
 - no real-payment referral reward event.
 
+The final rollback retest used an additional generated user in a fresh disposable local Staging instance. It produced one completed Legacy Growth Annual payment, one yearly subscription, and one 2,500-credit first service-month grant. This final generated-user record is separate from the earlier aggregate above.
+
 The additional completed payment did not create an additional subscription grant. Exact webhook replay idempotency remains covered by automated tests, not by claiming that this count alone proves a provider replay.
 
 ## Secret and identity policy
@@ -39,4 +41,4 @@ No API key, webhook secret, database URL, password, full Product ID, generated t
 
 ## Phase A closeout
 
-After evidence collection, the branch-scoped Supabase/database and Creem write credentials were replaced with nonfunctional fail-closed placeholders before the final Preview deployment. This prevents the branch from falling back to Production credentials after the temporary stack is stopped. The final public Preview can still demonstrate pricing/catalog UI, but authenticated checkout/write acceptance requires a newly authorized isolated environment.
+After evidence collection, the branch-scoped Supabase/database and Creem write credentials are replaced with nonfunctional fail-closed placeholders before the final Preview deployment. This prevents the branch from falling back to Production credentials after the temporary stack is stopped. The final public Preview can still demonstrate pricing/catalog UI, but authenticated checkout/write acceptance requires a newly authorized isolated environment.

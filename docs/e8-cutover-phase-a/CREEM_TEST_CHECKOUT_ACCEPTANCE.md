@@ -12,6 +12,7 @@ Verified: 2026-07-16 (Asia/Shanghai)
 | Starter Annual | Passed | Passed | 500 for first service month | Starter yearly |
 | Growth Annual | Passed | Passed | 2,500 for first service month | Growth yearly |
 | Scale Annual | Not offered | Contact-only passed | None | Mapping recognized |
+| Legacy Growth Annual during rollback | Passed | Passed through webhook state | 2,500 for first service month | Growth yearly |
 
 Only Creem's documented Test Mode payment method was used; no real transaction was processed. Success evidence is retained under `screenshots/` without customer emails, Product IDs, or order IDs.
 
@@ -24,6 +25,6 @@ Only Creem's documented Test Mode payment method was used; no real transaction w
 
 ## Known redirect issue
 
-Creem's auxiliary signed return query was rejected with `401 invalid signature` even after implementing the documented sorted-parameter HMAC-SHA256 verification. Safe temporary diagnostics tested the configured Test API key and webhook secret against documented and legacy variants and found no match; diagnostics were then removed.
+Creem's auxiliary signed return query was rejected with `401 invalid signature` even after implementing the documented sorted-parameter HMAC-SHA256 verification. The mismatch reproduced on a fresh authenticated Legacy Growth Annual checkout using the replacement Test API key. Safe temporary diagnostics tested documented and legacy variants and found no match; diagnostics were then removed.
 
-The authoritative webhook completed activation and the authenticated success page displayed the correct plan/credits. Signature verification was not weakened or bypassed. Provider clarification is required before Production cutover.
+The authoritative webhook completed activation and the authenticated success page displayed Growth with 2,500 available credits. Signature verification was not weakened or bypassed. Provider clarification or a separately reviewed server-to-server verification design is required before Production cutover.
