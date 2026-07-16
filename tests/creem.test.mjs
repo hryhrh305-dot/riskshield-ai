@@ -141,7 +141,7 @@ test("checkout urls use the production riskshield paths", () => {
   assert.equal(urls.webhookUrl, "https://www.574269.xyz/api/payment/webhook");
 });
 
-test("redirect signature verification follows creem canonical order", () => {
+test("redirect signature verification follows Creem SHA-256 redirect order", () => {
   const apiKey = "creem_test_abc";
   const rawQueryWithoutSignature = [
     "request_id=req_111",
@@ -152,16 +152,21 @@ test("redirect signature verification follows creem canonical order", () => {
     "customer_id=cust_789",
   ].join("&");
   const signingString = [
-    "checkout_id=ch_123",
-    "customer_id=cust_789",
-    "product_id=prod_growth",
     "request_id=req_111",
     "subscription_id=sub_321",
-  ].join("&");
-  const signature = crypto.createHmac("sha256", apiKey).update(signingString).digest("hex");
+    "product_id=prod_growth",
+    "checkout_id=ch_123",
+    "customer_id=cust_789",
+    `salt=${apiKey}`,
+  ].join("|");
+  const signature = crypto.createHash("sha256").update(signingString).digest("hex");
   const rawQuery = `${rawQueryWithoutSignature}&signature=${signature}`;
+  const reorderedQuery = `checkout_id=ch_123&customer_id=cust_789&product_id=prod_growth&request_id=req_111&subscription_id=sub_321&signature=${signature}`;
+  const legacyHmac = crypto.createHmac("sha256", apiKey).update(signingString).digest("hex");
 
   assert.equal(verifyCreemRedirectSignature(rawQuery, apiKey), true);
+  assert.equal(verifyCreemRedirectSignature(reorderedQuery, apiKey), false);
+  assert.equal(verifyCreemRedirectSignature(`${rawQueryWithoutSignature}&signature=${legacyHmac}`, apiKey), false);
   assert.equal(verifyCreemRedirectSignature(`${rawQueryWithoutSignature}&signature=bad`, apiKey), false);
 });
 
