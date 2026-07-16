@@ -141,11 +141,11 @@ test("checkout urls use the production riskshield paths", () => {
   assert.equal(urls.webhookUrl, "https://www.574269.xyz/api/payment/webhook");
 });
 
-test("redirect signature verification follows creem canonical order", () => {
+test("redirect signature verification follows Creem SHA-256 order and excludes null values", () => {
   const apiKey = "creem_test_abc";
   const rawQueryWithoutSignature = [
     "checkout_id=ch_123",
-    "order_id=ord_456",
+    "order_id=null",
     "customer_id=cust_789",
     "subscription_id=sub_321",
     "product_id=prod_growth",
@@ -153,7 +153,6 @@ test("redirect signature verification follows creem canonical order", () => {
   ].join("&");
   const signingString = [
     "checkout_id=ch_123",
-    "order_id=ord_456",
     "customer_id=cust_789",
     "subscription_id=sub_321",
     "product_id=prod_growth",

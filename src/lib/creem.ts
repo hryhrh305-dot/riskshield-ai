@@ -330,7 +330,7 @@ export function verifyCreemRedirectSignature(rawQuery: string, apiKey: string): 
 
   const parts: string[] = [];
   for (const [key, value] of params.entries()) {
-    if (key === "signature" || value === "") continue;
+    if (key === "signature" || value === "" || value === "null") continue;
     parts.push(`${key}=${value}`);
   }
 
