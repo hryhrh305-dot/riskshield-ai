@@ -13,13 +13,13 @@ Verified: 2026-07-16 (Asia/Shanghai)
 
 ## Phase A Preview
 
-- Final code commit: `118c12e` before the acceptance-document commit.
-- Deployment ID: `dpl_Ago...FyBd` (masked).
-- Deployment URL: `https://riskshield-86qy3zj1z-hrh-projects.vercel.app`.
+- Acceptance evidence commit: `4c8d41e` plus this final closeout documentation commit.
+- Last writable acceptance deployment URL: `https://riskshield-i8x8jvh7q-hrh-projects.vercel.app`.
 - Stable branch alias: `https://riskshield-api-git-secwyn-e8-cutover-preview-hrh-projects.vercel.app`.
 - Target/state: Preview / READY.
-- V2 pricing flag: enabled in the branch-scoped Preview environment for final acceptance.
-- V2 annual self-serve flag: enabled in the branch-scoped Preview environment for final acceptance.
+- V2 pricing flag: restored to enabled in the branch-scoped Preview environment.
+- V2 annual self-serve flag: restored to enabled in the branch-scoped Preview environment.
+- The final closeout deployment keeps the public V2 catalog visible while branch-scoped Supabase, database, and Creem write credentials are replaced with fail-closed placeholders.
 
 ## Production
 

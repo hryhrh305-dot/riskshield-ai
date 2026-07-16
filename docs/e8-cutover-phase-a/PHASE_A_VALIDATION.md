@@ -13,7 +13,7 @@ Verified: 2026-07-16 (Asia/Shanghai)
 | Full `npm run lint` | Known baseline | 150 findings: 111 errors, 39 warnings; no broad cleanup authorized |
 | `npx tsc --noEmit` | Known baseline | Existing repository type debt remains; Phase A middleware narrowing issue was fixed |
 | Browser smoke | Passed with limitations | Public pricing, responsive modes, authenticated Dashboard, Test success pages, and portal inspected |
-| `git diff --check` | Run at final commit gate | Must be clean before Phase A commit |
+| `git diff --check` | Passed | Clean at both acceptance and closeout commit gates |
 
 ## Real external acceptance
 
