@@ -6,13 +6,12 @@ Decision date: 2026-07-16 (Asia/Shanghai)
 
 **BLOCKED — do not start Phase B yet.**
 
-Core V2 monthly/annual Test Mode payments, webhook entitlement writes, first service-month credits, public catalog behavior, and flag rollback mechanics passed. Three required external-evidence gaps remain.
+Core V2 monthly/annual Test Mode payments, webhook entitlement writes, first service-month credits, public catalog behavior, and flag rollback mechanics passed. Two required external-evidence gaps remain. The provider-side coupon gate passed by HumanOps confirmation on 2026-07-16.
 
 ## Required before Phase B authorization
 
-1. HumanOps inspects every active Creem promotion/coupon and proves V2 Annual Products cannot receive an unapproved stacked discount.
-2. Provide valid Legacy Test Product mappings (or an explicitly approved equivalent Test environment) and complete one new Legacy checkout while V2 pricing is disabled.
-3. Resolve or obtain Creem confirmation for the signed return-query mismatch; keep verification fail-closed. Re-run Starter Test checkout and confirm both return verification and webhook activation.
+1. Complete one new Legacy checkout while V2 pricing is disabled using the newly staged Legacy Test Product mappings.
+2. Resolve or obtain Creem confirmation for the signed return-query mismatch; keep verification fail-closed. Re-run Starter Test checkout and confirm both return verification and webhook activation.
 
 ## Evidence already obtained
 

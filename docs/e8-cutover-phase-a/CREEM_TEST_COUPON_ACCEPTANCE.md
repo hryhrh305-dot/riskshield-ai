@@ -11,6 +11,6 @@ Verified: 2026-07-16 (Asia/Shanghai)
 
 ## Provider-side status
 
-**Blocked / not externally verified.** The automation environment could not access an authenticated Creem Test Dashboard session, so it could not read the scope of historical/founder/15% coupons or prove that no provider-managed promotion applies to V2 Annual Products.
+**Passed by HumanOps confirmation on 2026-07-16.** HumanOps inspected the Creem promotion configuration and confirmed that existing coupons do not stack onto V2 Annual Products. No coupon value, Product ID, or secret is stored in this record.
 
-Before Production annual activation, HumanOps must inspect every active Creem Live/Test promotion and confirm that V2 Annual Product IDs are excluded unless a promotion is explicitly approved. Record a sanitized screenshot or export without full Product IDs or secrets.
+Recheck this gate before Production annual activation if any Creem promotion scope changes after this acceptance date.

@@ -4,9 +4,10 @@ Verified: 2026-07-16 (Asia/Shanghai)
 
 ## Blocking external-evidence gaps
 
-1. Provider-side coupon scope was not inspectable. V2 Annual exclusion from every existing Creem promotion is not proven.
-2. New Legacy checkout during the Preview rollback failed because matching Legacy Test Products were not staged.
-3. Creem's signed return query did not validate against the documented HMAC construction or configured Test credentials. Webhook activation passed, verification remained fail-closed, and temporary diagnostics were removed.
+1. New Legacy checkout during the Preview rollback previously failed because matching Legacy Test Products were not staged; the configured replacement requires external retest.
+2. Creem's signed return query did not validate against the documented HMAC construction or configured Test credentials. Webhook activation passed, verification remained fail-closed, and temporary diagnostics were removed.
+
+Provider-side coupon scope is no longer a blocker: HumanOps confirmed on 2026-07-16 that existing coupons do not stack onto V2 Annual Products.
 
 ## Known repository baseline
 
