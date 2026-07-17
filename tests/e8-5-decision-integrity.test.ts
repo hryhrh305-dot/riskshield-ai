@@ -125,7 +125,7 @@ describe("E8.5 decision integrity", () => {
     expect(classifyMxEvidence({ records: [], errorCode: "ENODATA" })).toBe("absent");
   });
 
-  it("does not make safe deliverability claims without mailbox evidence", () => {
+  it("keeps a low-score contact actionable without overstating missing mailbox evidence", () => {
     const result = applyDecisionIntegrity({
       email: "person@secwyn.com",
       score: 0,
@@ -134,7 +134,8 @@ describe("E8.5 decision integrity", () => {
       mailboxStatus: "unconfirmed",
     });
 
-    expect(result.decision).toBe("REVIEW");
+    expect(result.decision).toBe("ALLOW");
+    expect(result.confidence).toBe("low");
     expect(result.inboxProbability).toBe("unknown");
     expect(result.estimatedBounceRate).toBe("unknown");
     expect(result.recommendation.toLowerCase()).not.toContain("safe to send");
@@ -286,7 +287,7 @@ describe("E8.5 decision integrity", () => {
     const summary = buildListAuditSummary(decisions);
 
     expect(decisions[0]).toMatchObject({ decision: "BLOCK", queue: "suppress" });
-    expect(decisions[1]).toMatchObject({ decision: "REVIEW", queue: "review" });
+    expect(decisions[1]).toMatchObject({ decision: "ALLOW", queue: "send" });
     expect(summary.sendCount + summary.reviewCount + summary.suppressCount).toBe(summary.total);
     expect(decisions.every((item) => item.recommendedAction.length > 0)).toBe(true);
     expect(summary.topRiskReasons.map((item) => item.reasonCode)).not.toContain("UNKNOWN_RISK");
@@ -322,7 +323,7 @@ describe("E8.5 decision integrity", () => {
 
     expect(reconciliation).toMatchObject({ inputRows: 100, uniqueValidAddressesProcessed: 89, rejectedBeforeScreening: 10, duplicatesRemoved: 1 });
     expect(decisions).toHaveLength(89);
-    expect(summary).toMatchObject({ total: 89, sendCount: 0, reviewCount: 59, suppressCount: 30 });
+    expect(summary).toMatchObject({ total: 89, sendCount: 59, reviewCount: 0, suppressCount: 30 });
     expect(decisions.filter((item) => item.decision === "ALLOW" && item.reasonCodes.includes("DISPOSABLE_DOMAIN"))).toHaveLength(0);
     expect(decisions.filter((item) => item.queue === "send" && item.reasonCodes.includes("RESERVED_TEST_DOMAIN"))).toHaveLength(0);
     expect(decisions.every((item) => item.recommendedAction.length > 0)).toBe(true);

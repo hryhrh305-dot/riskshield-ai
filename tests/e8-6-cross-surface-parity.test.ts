@@ -109,9 +109,9 @@ describe("E8.6 cross-surface decision parity", () => {
       normalized_email: "person@secwyn.com",
       base_signal_score: 0,
       risk_score: 0,
-      final_decision: "REVIEW",
-      final_decision_code: "REVIEW",
-      primary_reason_code: "MAILBOX_UNCONFIRMED",
+      final_decision: "ALLOW",
+      final_decision_code: "ALLOW",
+      primary_reason_code: "BASE_SCORE_ALLOW",
       disposable: false,
       role_based: false,
       catch_all_status: "not_tested",
@@ -162,7 +162,7 @@ describe("E8.6 cross-surface decision parity", () => {
     ];
     const summary = buildListAuditSummary(decisions);
 
-    expect(summary.topDecisionDrivers.reduce((total, item) => total + item.count, 0)).toBe(summary.total);
+    expect(summary.topDecisionDrivers.reduce((total, item) => total + item.count, 0)).toBe(summary.reviewCount + summary.suppressCount);
     expect(summary.topDecisionDrivers.map((item) => item.reasonCode)).not.toContain("UNKNOWN_RISK");
   });
 

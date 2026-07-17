@@ -248,7 +248,7 @@ export function applyDecisionIntegrity(input: {
     primaryReason = "Catch-all mailbox uncertainty";
     recommendedAction = "Verify the individual mailbox before sending";
     confidence = "low";
-  } else if (!input.mxStatus || input.mxStatus === "not_tested" || !input.mailboxStatus || input.mailboxStatus === "unconfirmed" || input.mailboxStatus === "not_tested") {
+  } else if (!input.mxStatus || input.mxStatus === "not_tested") {
     decision = "REVIEW";
     primaryReasonCode = "MAILBOX_UNCONFIRMED";
     primaryReason = "Mailbox unconfirmed";
@@ -256,6 +256,9 @@ export function applyDecisionIntegrity(input: {
     confidence = "low";
   } else {
     decision = baseDecision;
+    if (!input.mailboxStatus || input.mailboxStatus === "unconfirmed" || input.mailboxStatus === "not_tested") {
+      confidence = "low";
+    }
   }
 
   if (baseDecision === "BLOCK" && decision === "REVIEW") {

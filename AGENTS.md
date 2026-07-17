@@ -18,7 +18,9 @@
 
 - Starter: 500 audited contacts per month
 - Growth: 2,500 audited contacts per month
-- Scale: 15,000 audited contacts per month
+- Legacy Scale: 15,000 audited contacts per service month; referral reward 1,500
+- Premium V2 Scale: 10,000 audited contacts per service month; referral reward 1,000
+- Legacy and Premium V2 entitlements are selected from the immutable Creem Product ID/catalog-generation snapshot; public V2 pricing must not overwrite active Legacy subscribers
 - New user default: 50 credits
 - API Access: Growth and Scale only
 - Google Sheets: Growth and Scale only
