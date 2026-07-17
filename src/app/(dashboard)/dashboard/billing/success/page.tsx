@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase";
 import { getPlanRank, isPlanAtLeast, type PlanKey } from "@/lib/plans";
 import { findCreemProductById, hasActiveSubscriptionAccess } from "@/lib/creem";
 
-type BillingState = "loading" | "active" | "syncing" | "error";
+type BillingState = "loading" | "active" | "syncing" | "test_canary" | "error";
 
 type ProfileRow = {
   plan: string;
@@ -46,6 +46,11 @@ const BANNER_COPY: Record<
     title: "Payment completed, subscription is syncing",
     description: "Payment succeeded. Your subscription will be activated automatically after the Creem webhook finishes syncing.",
     tone: "amber",
+  },
+  test_canary: {
+    title: "Test checkout received",
+    description: "This Test Mode checkout is isolated from your live subscription and contact credits.",
+    tone: "blue",
   },
   error: {
     title: "Unable to load billing status",
@@ -92,12 +97,17 @@ export default function BillingSuccessPage() {
         const rawQuery = window.location.search.replace(/^\?/, "");
         if (rawQuery && rawQuery.includes("signature=") && rawQuery.includes("checkout_id=")) {
           try {
-            await fetch("/api/payment/confirm-redirect", {
+            const redirectResponse = await fetch("/api/payment/confirm-redirect", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               credentials: "include",
               body: JSON.stringify({ rawQuery }),
             });
+            const redirectResult = await redirectResponse.json().catch(() => null);
+            if (redirectResponse.ok && redirectResult?.billingEnvironment === "test_canary") {
+              if (mounted) setState("test_canary");
+              return;
+            }
           } catch {}
         }
 
@@ -264,6 +274,12 @@ export default function BillingSuccessPage() {
             {state === "syncing" && (
               <div className="rounded-[24px] border border-amber-500/20 bg-amber-500/10 p-5 text-sm text-amber-200">
                 We are still syncing your subscription. Please refresh in a moment.
+              </div>
+            )}
+
+            {state === "test_canary" && (
+              <div className="rounded-[24px] border border-sky-500/20 bg-sky-500/10 p-5 text-sm text-sky-200">
+                No live plan, credit balance, referral reward, or production billing record was changed.
               </div>
             )}
 

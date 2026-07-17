@@ -14,7 +14,7 @@ type BillingInterval = "monthly" | "yearly";
 type CheckoutKind = "checkout" | "contact" | "unavailable";
 type PublicPricingCatalog = {
   generation: BillingCatalogGeneration;
-  purchaseMode: "live" | "canary_locked";
+  purchaseMode: "live" | "canary_locked" | "test_canary";
   annualSelfServe: boolean;
   plans: Record<"starter" | "growth" | "scale", {
     monthlyPrice: number;

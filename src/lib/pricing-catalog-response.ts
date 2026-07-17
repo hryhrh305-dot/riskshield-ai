@@ -4,12 +4,13 @@ import {
   type BillingPlan,
 } from "@/lib/billing-catalog";
 import type { AdminV2CanaryDecision } from "@/lib/admin-v2-canary";
+import { isTestCanaryCheckoutConfigured } from "@/lib/test-canary-billing";
 
 type CheckoutKind = "checkout" | "contact" | "unavailable";
 
 export type PublicPricingCatalogResponse = {
   generation: AdminV2CanaryDecision["generation"];
-  purchaseMode: "live" | "canary_locked";
+  purchaseMode: "live" | "canary_locked" | "test_canary";
   annualSelfServe: boolean;
   plans: Record<BillingPlan, {
     monthlyPrice: number;
@@ -25,6 +26,7 @@ export function buildPricingCatalogResponse(
   env: NodeJS.ProcessEnv = process.env,
 ): PublicPricingCatalogResponse {
   const generation = decision.generation;
+  const testCanaryCheckout = decision.enabled && isTestCanaryCheckoutConfigured(env);
   const legacyEnv = {
     ...env,
     SECWYN_PREMIUM_PRICING_V2_ENABLED: "false",
@@ -37,8 +39,8 @@ export function buildPricingCatalogResponse(
     let monthlyCheckout: CheckoutKind;
     let annualCheckout: CheckoutKind;
     if (decision.checkoutLocked) {
-      monthlyCheckout = "unavailable";
-      annualCheckout = plan === "scale" ? "contact" : "unavailable";
+      monthlyCheckout = testCanaryCheckout ? "checkout" : "unavailable";
+      annualCheckout = plan === "scale" ? "contact" : testCanaryCheckout ? "checkout" : "unavailable";
     } else {
       monthlyCheckout = getCheckoutAvailability(plan, "monthly", legacyEnv).kind;
       annualCheckout = getCheckoutAvailability(plan, "yearly", legacyEnv).kind;
@@ -55,7 +57,7 @@ export function buildPricingCatalogResponse(
 
   return {
     generation,
-    purchaseMode: decision.checkoutLocked ? "canary_locked" : "live",
+    purchaseMode: testCanaryCheckout ? "test_canary" : decision.checkoutLocked ? "canary_locked" : "live",
     annualSelfServe: false,
     plans,
   };
