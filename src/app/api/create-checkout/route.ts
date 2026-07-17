@@ -9,6 +9,7 @@ import {
   normalizeCreemBillingInterval,
 } from "@/lib/creem";
 import { getCheckoutAvailability } from "@/lib/billing-catalog";
+import { getAdminV2CanaryDecision } from "@/lib/admin-v2-canary";
 import { buildCreemCheckoutMetadata, getCreemAttributionMetadata } from "@/lib/e8/creem";
 import { getE8Flags } from "@/lib/e8/flags";
 import { recordProductEvent } from "@/lib/e8/repository";
@@ -67,6 +68,17 @@ export async function POST(req: NextRequest) {
     const user = await getUserFromRequest(req);
     if (!user) {
       return NextResponse.json({ error: "Please sign in first." }, { status: 401 });
+    }
+
+    const canaryDecision = getAdminV2CanaryDecision({
+      verified: true,
+      email: user.email || null,
+    }, process.env);
+    if (canaryDecision.checkoutLocked) {
+      return NextResponse.json({
+        error: "Premium V2 checkout validation is pending.",
+        code: "V2_CANARY_CHECKOUT_DISABLED",
+      }, { status: 409 });
     }
 
     let body: { plan?: string; billingInterval?: string };

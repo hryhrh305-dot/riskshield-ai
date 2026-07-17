@@ -14,6 +14,7 @@ type BillingInterval = "monthly" | "yearly";
 type CheckoutKind = "checkout" | "contact" | "unavailable";
 type PublicPricingCatalog = {
   generation: BillingCatalogGeneration;
+  purchaseMode: "live" | "canary_locked";
   annualSelfServe: boolean;
   plans: Record<"starter" | "growth" | "scale", {
     monthlyPrice: number;
@@ -26,6 +27,7 @@ type PublicPricingCatalog = {
 
 const LEGACY_PUBLIC_CATALOG: PublicPricingCatalog = {
   generation: "legacy",
+  purchaseMode: "live",
   annualSelfServe: true,
   plans: {
     starter: { monthlyPrice: 49, annualPrice: 499, monthlyCredits: 500, monthlyCheckout: "unavailable", annualCheckout: "unavailable" },
@@ -640,6 +642,10 @@ export default function PricingPage() {
 
   async function handleCheckout(plan: PlanKey) {
     if (!selfServePaidPlans.includes(plan)) return;
+    if (publicCatalog?.purchaseMode === "canary_locked") {
+      setCheckoutError("Premium V2 checkout validation is pending. Test checkout not enabled.");
+      return;
+    }
 
     const loadingKey = `${plan}:${billingInterval}`;
     setCheckoutLoading(loadingKey);
@@ -747,6 +753,12 @@ export default function PricingPage() {
             const annualOffer = getCreemAnnualOffer(key, publicCatalog?.generation ?? "legacy");
             const showYearly = billingInterval === "yearly" && annualOffer !== null;
             const checkoutLoadingKey = isPaidSelfServe ? `${key}:${billingInterval}` : null;
+            const checkoutKind = catalogPlan
+              ? billingInterval === "yearly" ? catalogPlan.annualCheckout : catalogPlan.monthlyCheckout
+              : null;
+            const isCanaryCheckoutLocked = publicCatalog?.purchaseMode === "canary_locked"
+              && isPaidSelfServe
+              && checkoutKind !== "contact";
             const subscriptionCopy = getCreemSubscriptionCopy(billingInterval);
             const displayedPrice = catalogPlan
               ? showYearly && annualOffer ? annualOffer.monthlyEquivalentLabel : `$${catalogPlan.monthlyPrice.toLocaleString("en-US")}`
@@ -845,13 +857,14 @@ export default function PricingPage() {
                     : () => handleCheckout(key)}
                   disabled={
                     key === "free" ||
+                    isCanaryCheckoutLocked ||
                     (isPaidSelfServe && !catalogPlan) ||
                     (key !== "business" && checkoutLoading !== null) ||
                     Boolean(catalogPlan && (billingInterval === "yearly" ? catalogPlan.annualCheckout : catalogPlan.monthlyCheckout) === "unavailable") ||
                     (key !== "business" && key === currentPlan)
                   }
                   className={`mt-6 w-full rounded-full px-4 py-3 text-sm font-semibold transition ${
-                    key === "free" || (key !== "business" && key === currentPlan) || (key !== "business" && checkoutLoading !== null)
+                    key === "free" || isCanaryCheckoutLocked || (key !== "business" && key === currentPlan) || (key !== "business" && checkoutLoading !== null)
                       ? isPopular
                         ? "cursor-not-allowed bg-white/85 text-slate-950"
                         : "cursor-not-allowed bg-white/10 text-slate-500"
@@ -866,6 +879,8 @@ export default function PricingPage() {
                       ? "Contact sales"
                       : catalogPlan && (billingInterval === "yearly" ? catalogPlan.annualCheckout : catalogPlan.monthlyCheckout) === "contact"
                         ? "Contact sales"
+                      : isCanaryCheckoutLocked
+                        ? "Checkout validation pending"
                       : catalogPlan && (billingInterval === "yearly" ? catalogPlan.annualCheckout : catalogPlan.monthlyCheckout) === "unavailable"
                         ? "Coming soon"
                       : isPaidSelfServe && !catalogPlan
@@ -881,6 +896,12 @@ export default function PricingPage() {
                               : "Start Scale"}
                 </button>
 
+                {isCanaryCheckoutLocked && (
+                  <p className={`mt-3 text-xs ${isPopular ? "text-slate-200" : "text-slate-500"}`}>
+                    Test checkout not enabled. No payment will be started during this acceptance stage.
+                  </p>
+                )}
+
                 {key === "business" && (
                   <p className="mt-3 text-xs text-slate-500">
                     {copiedContactEmail ? "support@secwyn.com copied to clipboard." : "Click to copy support@secwyn.com and contact us for custom terms."}
@@ -890,7 +911,9 @@ export default function PricingPage() {
                 {isPaidSelfServe && (
                   <p className={`mt-3 text-xs ${isPopular ? "text-slate-200" : "text-slate-500"}`}>
                     {billingInterval === "yearly"
-                      ? "Annual subscription billed in USD. Credits are issued monthly. Auto-renews yearly until canceled."
+                      ? publicCatalog?.purchaseMode === "canary_locked"
+                        ? "Billed annually in USD. Credits issued monthly. Auto-renews yearly until canceled."
+                        : "Annual subscription billed in USD. Credits are issued monthly. Auto-renews yearly until canceled."
                       : "Monthly subscription. Auto-renews until canceled in the Creem Customer Portal."}
                   </p>
                 )}
