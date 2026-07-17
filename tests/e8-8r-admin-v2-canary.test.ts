@@ -4,6 +4,7 @@ import {
   getAdminV2CanaryDecision,
   parseAdminV2CanaryEmails,
 } from "@/lib/admin-v2-canary";
+import { readAccessTokenFromSupabaseCookieHeader } from "@/lib/auth-cookie";
 import { buildPricingCatalogResponse } from "@/lib/pricing-catalog-response";
 
 function env(overrides: Record<string, string | undefined> = {}): NodeJS.ProcessEnv {
@@ -22,6 +23,14 @@ function env(overrides: Record<string, string | undefined> = {}): NodeJS.Process
 }
 
 describe("E8.8R Phase B admin-only Premium V2 canary", () => {
+  it("reads the standard Supabase auth cookie without requiring a runtime public URL", () => {
+    const token = readAccessTokenFromSupabaseCookieHeader(
+      `unrelated=value; sb-project-auth-token=${encodeURIComponent(JSON.stringify(["verified-token"]))}`,
+    );
+
+    expect(token).toBe("verified-token");
+  });
+
   it("accepts only a comma-separated, valid, normalized server allowlist", () => {
     expect(parseAdminV2CanaryEmails(" Admin@Example.com ,second@example.com ")).toEqual([
       "admin@example.com",

@@ -67,3 +67,18 @@ export function readAccessTokenFromCookieHeader(cookieHeader: string, projectRef
 
   return extractAccessTokenFromCookieValue(rawToken);
 }
+
+export function readAccessTokenFromSupabaseCookieHeader(cookieHeader: string): string | null {
+  const cookies = parseCookieHeader(cookieHeader);
+  const baseNames = [...new Set(Object.keys(cookies).flatMap((key) => {
+    const match = key.match(/^(sb-[A-Za-z0-9_-]+-auth-token)(?:\.\d+)?$/);
+    return match ? [match[1]] : [];
+  }))];
+
+  for (const baseName of baseNames) {
+    const token = extractAccessTokenFromCookieValue(readAuthCookieValue(cookies, baseName));
+    if (token) return token;
+  }
+
+  return null;
+}

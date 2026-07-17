@@ -1,6 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
 import type { NextRequest } from "next/server";
-import { getSupabaseProjectRef, readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
+import { readAccessTokenFromSupabaseCookieHeader } from "@/lib/auth-cookie";
 import type { BillingCatalogGeneration } from "@/lib/billing-catalog";
 
 export type VerifiedCanaryActor = {
@@ -49,24 +48,12 @@ export async function resolveVerifiedCanaryActor(
     return { verified: false, email: null };
   }
 
-  const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL || "";
-  const serviceRoleKey = env.SUPABASE_SECRET_KEY || "";
-  const projectRef = getSupabaseProjectRef(supabaseUrl);
-  if (!supabaseUrl || !serviceRoleKey || !projectRef) {
-    return { verified: false, email: null };
-  }
-
-  const accessToken = readAccessTokenFromCookieHeader(request.headers.get("cookie") || "", projectRef);
+  const accessToken = readAccessTokenFromSupabaseCookieHeader(request.headers.get("cookie") || "");
   if (!accessToken) return { verified: false, email: null };
 
   try {
-    const supabase = createClient(supabaseUrl, serviceRoleKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-      },
-    });
+    const { getSupabaseAdminClient } = await import("@/lib/supabase/admin");
+    const supabase = getSupabaseAdminClient();
     const {
       data: { user },
       error,
