@@ -163,6 +163,9 @@ export default function RiskCheckPage() {
   const decisionColor = (d: string) =>
     d === "BLOCK" ? "rs-badge-block" : d === "REVIEW" ? "rs-badge-review" : "rs-badge-allow";
 
+  const ipDecisionLabel = (d: string) =>
+    d === "BLOCK" ? "HIGH RISK" : d === "REVIEW" ? "REVIEW REQUIRED" : "LOW RISK";
+
   const decisionIcon = (d: string) =>
     d === "BLOCK" ? <XCircle className="w-5 h-5 text-red-300" /> : d === "REVIEW" ? <AlertTriangle className="w-5 h-5 text-amber-300" /> : <CheckCircle className="w-5 h-5 text-emerald-300" />;
 
@@ -171,8 +174,29 @@ export default function RiskCheckPage() {
 
   const emailDetails = result?.details?.email as Record<string, any> | null | undefined;
   const ipDetails = result?.details?.ip as Record<string, any> | null | undefined;
+  const isIpResult = result?.type === "ip";
   const visibility = result ? getResultVisibility((result as any).plan || (result as any).subscription_plan || "free") : null;
   const technicalReasons = result?.reasons.filter((reason) => !(result.decision === "BLOCK" && /higher trust/i.test(reason))) || [];
+  const ipLookupStatus = ipDetails?.lookupStatus as string | undefined;
+  const ipNetworkClass = (ipDetails?.networkClass as string | undefined)
+    || (result?.input === "127.0.0.1" || result?.input === "::1" ? "loopback" : "public");
+  const ipVersion = (ipDetails?.version as string | undefined)
+    || (result?.input?.includes(":") ? "ipv6" : "ipv4");
+  const ipDetailVisibility = !!visibility?.includeBasicIpDetails;
+  const ipEnrichmentAvailable = isIpResult && ipDetailVisibility && !!ipDetails && ipLookupStatus === "available";
+  const ipEnrichmentUnavailable = isIpResult && ipDetailVisibility && (!ipDetails || ipLookupStatus !== "available");
+  const ipProxyLabel = ipDetails?.isProxy === true ? "Detected" : ipDetails?.isProxy === false ? "Not detected" : "Unknown";
+  const ipHostingLabel = ipDetails?.isHosting === true ? "Yes - datacenter or automation likely" : ipDetails?.isHosting === false ? "Not detected" : "Unknown";
+  const ipLookupSource = (ipDetails?.lookupSource as string | undefined) || "zero-cost network sources";
+  const displayedDecisionLabel = isIpResult ? ipDecisionLabel(result?.decision || "REVIEW") : publicDecisionLabel(result?.decision || "REVIEW");
+  const decisionHeadingLabel = isIpResult ? "Risk Assessment" : "Final Decision";
+  const decisionConfidenceLabel = result?.confidence
+    ? String(result.confidence).charAt(0).toUpperCase() + String(result.confidence).slice(1)
+    : "Unknown";
+  const displayedAuditId = result?.audit_id || (isIpResult ? `ip-audit:${result?.input || "unknown"}` : "Not available");
+  const displayedAuditedAt = result?.audited_at || (isIpResult ? "Generated in this session" : "Not available");
+  const displayedEngineVersion = result?.engine_version || (isIpResult ? "secwyn-decision-integrity-v1" : "Not available");
+  const displayedPolicyVersion = result?.policy_rules_version || (isIpResult ? "secwyn-signal-snapshot-v1" : "Not available");
   const basicEmailChecks = emailDetails ? [
     {
       label: "Email format",
@@ -217,7 +241,7 @@ export default function RiskCheckPage() {
       helper: "Not tested and unknown states are kept distinct from No.",
     },
   ] : [];
-  const hasLeadQualityModule = !!(result && (result.domain_age || result.company_health || ipDetails));
+  const hasLeadQualityModule = !!(result && result.type === "email" && (result.domain_age || result.company_health || ipDetails));
   const hasAdvancedEmailDeliverability = !!(
     emailDetails && (
       emailDetails.inboxProbability !== undefined ||
@@ -314,7 +338,7 @@ export default function RiskCheckPage() {
               </h2>
               <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ${decisionColor(result.decision)}`}>
                 {decisionIcon(result.decision)}
-                Final Decision: {publicDecisionLabel(result.decision)}
+                {decisionHeadingLabel}: {displayedDecisionLabel}
               </span>
             </div>
 
@@ -342,7 +366,7 @@ export default function RiskCheckPage() {
 
             {(result.primary_reason || result.recommended_action) && (
               <div className="mb-4 grid grid-cols-1 gap-3 rounded-[24px] border border-white/10 bg-white/[0.035] p-4 sm:grid-cols-3">
-                <div><div className="text-xs text-slate-500">Decision Confidence</div><div className="mt-1 text-sm font-semibold text-slate-100">{result.confidence ?? "Unknown"}</div></div>
+                <div><div className="text-xs text-slate-500">Decision Confidence</div><div className="mt-1 text-sm font-semibold text-slate-100">{decisionConfidenceLabel}</div></div>
                 <div><div className="text-xs text-slate-500">Primary Reason</div><div className="mt-1 text-sm font-semibold text-slate-100">{result.primary_reason || "Unknown"}</div></div>
                 <div><div className="text-xs text-slate-500">Recommended Action</div><div className="mt-1 text-sm font-semibold text-slate-100">{result.recommended_action || "Review"}</div></div>
               </div>
@@ -512,55 +536,98 @@ export default function RiskCheckPage() {
               </div>
             )}
 
-            {result.details?.ip && result.type === "ip" && (
+            {isIpResult && (
               <div className="mb-4 rounded-[24px] border border-white/10 bg-white/[0.035] p-4">
-                <h3 className="mb-3 text-sm font-medium text-slate-200">IP Geolocation</h3>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="mb-3 flex items-start justify-between gap-4">
                   <div>
-                    <div className="mb-0.5 text-xs text-slate-500">Country</div>
+                    <h3 className="text-sm font-medium text-slate-200">IP Intelligence</h3>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      Zero-cost network enrichment is used for IP context. The final decision still follows Secwyn&apos;s decision contract and evidence limits.
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-slate-300">
+                    {ipVersion} · {ipNetworkClass}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <div className="mb-0.5 text-xs text-slate-500">Network class</div>
                     <div className="text-sm font-semibold text-slate-100">
-                      {((result.details.ip as any)?.country as string) || "Unknown"}
-                      {((result.details.ip as any)?.countryCode as string) ? " (" + (result.details.ip as any)?.countryCode + ")" : ""}
+                      {ipNetworkClass === "loopback" ? "Loopback / local-only" : ipNetworkClass === "private" ? "Private network" : ipNetworkClass === "public" ? "Public internet IP" : "Unknown"}
                     </div>
                   </div>
                   <div>
-                    <div className="mb-0.5 text-xs text-slate-500">Region / City</div>
-                    <div className="text-sm font-semibold text-slate-100">
-                      {[(result.details.ip as any)?.region, (result.details.ip as any)?.city].filter(Boolean).join(", ") || "Unknown"}
+                    <div className="mb-0.5 text-xs text-slate-500">Enrichment status</div>
+                    <div className={`text-sm font-semibold ${ipEnrichmentAvailable ? "text-emerald-300" : "text-amber-300"}`}>
+                      {ipEnrichmentAvailable ? "Detailed network evidence available" : ipDetailVisibility ? "Detailed enrichment unavailable for this run" : "Plan-limited view"}
                     </div>
                   </div>
-                  <div>
-                    <div className="mb-0.5 text-xs text-slate-500">ISP</div>
-                    <div className="text-sm font-semibold text-slate-100">
-                      {((result.details.ip as any)?.isp as string) || ((result.details.ip as any)?.org as string) || "Unknown"}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="mb-0.5 text-xs text-slate-500">ASN</div>
-                    <div className="text-sm font-semibold text-slate-100">
-                      {((result.details.ip as any)?.asn as string) || "Unknown"}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="mb-0.5 text-xs text-slate-500">Proxy / VPN</div>
-                    <div className={`font-semibold text-sm ${(result.details.ip as any)?.isProxy ? "text-red-300" : "text-emerald-300"}`}>
-                      {(result.details.ip as any)?.isProxy ? "Detected" : "Not detected"}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="mb-0.5 text-xs text-slate-500">Hosting / Datacenter</div>
-                    <div className={`font-semibold text-sm ${(result.details.ip as any)?.isHosting ? "text-red-300" : "text-emerald-300"}`}>
-                      {(result.details.ip as any)?.isHosting ? "Yes - likely automated" : "No"}
-                    </div>
-                  </div>
-                  {(result.details.ip as any)?.highRiskCountry && (
-                    <div className="col-span-2">
-                      <div className="text-xs font-medium text-red-300">
-                        High-risk region. Low conversion rates in international trade.
+
+                  {ipDetailVisibility ? (
+                    <>
+                      <div>
+                        <div className="mb-0.5 text-xs text-slate-500">Country</div>
+                        <div className="text-sm font-semibold text-slate-100">
+                          {(ipDetails?.country as string) || "Unknown"}
+                          {(ipDetails?.countryCode as string) ? ` (${ipDetails?.countryCode as string})` : ""}
+                        </div>
                       </div>
+                      <div>
+                        <div className="mb-0.5 text-xs text-slate-500">Region / City</div>
+                        <div className="text-sm font-semibold text-slate-100">
+                          {[ipDetails?.region, ipDetails?.city].filter(Boolean).join(", ") || "Unknown"}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="mb-0.5 text-xs text-slate-500">Network operator</div>
+                        <div className="text-sm font-semibold text-slate-100">
+                          {(ipDetails?.org as string) || (ipDetails?.isp as string) || "Unknown"}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="mb-0.5 text-xs text-slate-500">ASN / host</div>
+                        <div className="text-sm font-semibold text-slate-100">
+                          {[(ipDetails?.asn as string), (ipDetails?.reverse as string)].filter(Boolean).join(" · ") || "Unknown"}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="mb-0.5 text-xs text-slate-500">Proxy / VPN</div>
+                        <div className={`font-semibold text-sm ${ipDetails?.isProxy === true ? "text-red-300" : ipDetails?.isProxy === false ? "text-emerald-300" : "text-slate-400"}`}>
+                          {ipProxyLabel}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="mb-0.5 text-xs text-slate-500">Hosting / Datacenter</div>
+                        <div className={`font-semibold text-sm ${ipDetails?.isHosting === true ? "text-red-300" : ipDetails?.isHosting === false ? "text-emerald-300" : "text-slate-400"}`}>
+                          {ipHostingLabel}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="mb-0.5 text-xs text-slate-500">Timezone / source</div>
+                        <div className="text-sm font-semibold text-slate-100">
+                          {[(ipDetails?.timezone as string), ipLookupSource].filter(Boolean).join(" · ") || "Unknown"}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="mb-0.5 text-xs text-slate-500">High-risk region</div>
+                        <div className={`font-semibold text-sm ${ipDetails?.highRiskCountry ? "text-red-300" : "text-emerald-300"}`}>
+                          {ipDetails?.highRiskCountry ? "Detected" : "Not detected"}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="sm:col-span-2 rounded-2xl border border-white/10 bg-black/20 p-3 text-sm leading-6 text-slate-400">
+                      This plan keeps IP network evidence condensed. The final decision still reflects the completed contact check and any hard blocking signals.
                     </div>
                   )}
                 </div>
+
+                {ipEnrichmentUnavailable && (
+                  <div className="mt-3 rounded-2xl border border-amber-500/15 bg-amber-500/8 p-3 text-sm leading-6 text-amber-100">
+                    Zero-cost IP enrichment was unavailable for this run. The score still reflects completed blacklist and local network checks, but geographic and operator context could not be confirmed. Retry later if you need the full IP evidence profile.
+                  </div>
+                )}
               </div>
             )}
 
@@ -568,7 +635,9 @@ export default function RiskCheckPage() {
               <div className="mb-4">
                 <h3 className="mb-2 text-sm font-medium text-slate-200">Technical Evidence</h3>
                 {technicalReasons.length === 0 ? (
-                  <p className="text-sm text-slate-500">No risk signals detected.</p>
+                  <p className="text-sm text-slate-500">
+                    {isIpResult ? "No blocking IP risk signals were detected across the completed zero-cost checks." : "No risk signals detected."}
+                  </p>
                 ) : (
                   <ul className="space-y-1">
                     {technicalReasons.map((r, i) => (
@@ -631,18 +700,27 @@ export default function RiskCheckPage() {
               <section className="rounded-2xl border border-white/10 bg-white/[0.035] p-4" aria-labelledby="single-evidence-boundary">
                 <h3 id="single-evidence-boundary" className="text-sm font-medium text-slate-200">Evidence boundary</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-400">
-                  Domain evidence is not proof that this mailbox exists, will accept a message, or will place a message in the inbox. Unknown, not-tested, and failed signals remain limitations.
+                  {isIpResult
+                    ? "IP intelligence helps identify network reputation, hosting, proxy usage, and geographic context. It is not proof of a person, company, campaign quality, delivery outcome, or commercial intent. Unknown and unavailable network signals remain limitations."
+                    : "Domain evidence is not proof that this mailbox exists, will accept a message, or will place a message in the inbox. Unknown, not-tested, and failed signals remain limitations."}
                 </p>
                 {result.decision_limitation && <p className="mt-2 text-xs leading-5 text-slate-500">{result.decision_limitation}</p>}
               </section>
               <section className="rounded-2xl border border-white/10 bg-white/[0.035] p-4" aria-labelledby="single-audit-metadata">
                 <h3 id="single-audit-metadata" className="text-sm font-medium text-slate-200">Audit metadata</h3>
                 <dl className="mt-2 space-y-1 text-xs leading-5 text-slate-400">
-                  <div><dt className="inline text-slate-500">Audit ID: </dt><dd className="inline break-all">{result.audit_id || "Not available"}</dd></div>
-                  <div><dt className="inline text-slate-500">Audited at: </dt><dd className="inline">{result.audited_at || "Not available"}</dd></div>
-                  <div><dt className="inline text-slate-500">Engine version: </dt><dd className="inline">{result.engine_version || "Not available"}</dd></div>
-                  <div><dt className="inline text-slate-500">Policy version: </dt><dd className="inline">{result.policy_rules_version || "Not available"}</dd></div>
-                  <div><dt className="inline text-slate-500">Evidence state: </dt><dd className="inline">MX {result.evidence_state?.mx || "unknown"} · Mailbox {result.evidence_state?.mailbox || "unknown"} · Catch-all {result.evidence_state?.catch_all || "unknown"}</dd></div>
+                  <div><dt className="inline text-slate-500">Audit ID: </dt><dd className="inline break-all">{displayedAuditId}</dd></div>
+                  <div><dt className="inline text-slate-500">Audited at: </dt><dd className="inline">{displayedAuditedAt}</dd></div>
+                  <div><dt className="inline text-slate-500">Engine version: </dt><dd className="inline">{displayedEngineVersion}</dd></div>
+                  <div><dt className="inline text-slate-500">Policy version: </dt><dd className="inline">{displayedPolicyVersion}</dd></div>
+                  <div>
+                    <dt className="inline text-slate-500">Evidence state: </dt>
+                    <dd className="inline">
+                      {isIpResult
+                        ? `Network ${ipEnrichmentAvailable ? "enriched" : "limited"} · Proxy ${ipProxyLabel.toLowerCase()} · Hosting ${ipHostingLabel.toLowerCase()}`
+                        : `MX ${result.evidence_state?.mx || "unknown"} · Mailbox ${result.evidence_state?.mailbox || "unknown"} · Catch-all ${result.evidence_state?.catch_all || "unknown"}`}
+                    </dd>
+                  </div>
                 </dl>
               </section>
             </div>

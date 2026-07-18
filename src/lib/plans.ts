@@ -277,6 +277,10 @@ const ADVANCED_EMAIL_DETAIL_KEYS = [
 ] as const;
 
 const BASIC_IP_DETAIL_KEYS = [
+  "version",
+  "networkClass",
+  "lookupStatus",
+  "lookupSource",
   "country",
   "countryCode",
   "region",
@@ -300,6 +304,7 @@ const ADVANCED_IP_DETAIL_KEYS = [
   "hosting",
   "as",
   "asname",
+  "source",
 ] as const;
 
 function pickDefinedKeys(source: Record<string, unknown> | null | undefined, keys: readonly string[]) {

@@ -186,17 +186,137 @@ function getLocalExplanationFromTags(reasonTags: string[], riskScore: number): s
 
 // ============ LAYER 3: EXTERNAL API HELPERS ============
 
+function hasHostingFingerprint(value: unknown): boolean {
+  const text = String(value || "").toLowerCase();
+  if (!text) return false;
+  return [
+    "hosting",
+    "datacenter",
+    "data center",
+    "server",
+    "cloud",
+    "digitalocean",
+    "linode",
+    "vultr",
+    "hetzner",
+    "aws",
+    "amazon",
+    "azure",
+    "google cloud",
+    "gcp",
+    "oracle cloud",
+  ].some((keyword) => text.includes(keyword));
+}
+
+function normalizeIpWhoIsPayload(data: Record<string, any>): Record<string, unknown> | null {
+  if (!data?.success) return null;
+
+  const isp = data.connection?.isp || data.connection?.org || null;
+  const org = data.connection?.org || data.connection?.isp || null;
+  const asnNumber = data.connection?.asn;
+  const asn = asnNumber ? `AS${asnNumber}` : null;
+  const hostDomain = data.connection?.domain || null;
+  const hosting = hasHostingFingerprint([isp, org, hostDomain].filter(Boolean).join(" "));
+
+  return {
+    country: data.country || null,
+    countryCode: data.country_code || null,
+    region: data.region || null,
+    regionName: data.region || null,
+    city: data.city || null,
+    zip: data.postal || null,
+    lat: data.latitude ?? null,
+    lon: data.longitude ?? null,
+    timezone: data.timezone?.id || null,
+    isp,
+    org,
+    as: asn,
+    asname: org,
+    reverse: hostDomain,
+    proxy: undefined,
+    hosting,
+    mobile: undefined,
+    source: "ipwho.is",
+  };
+}
+
+function normalizeIpApiPayload(data: Record<string, any>): Record<string, unknown> | null {
+  if (data?.status !== "success") return null;
+  return {
+    country: data.country || null,
+    countryCode: data.countryCode || null,
+    region: data.region || null,
+    regionName: data.regionName || null,
+    city: data.city || null,
+    zip: data.zip || null,
+    lat: data.lat ?? null,
+    lon: data.lon ?? null,
+    timezone: data.timezone || null,
+    isp: data.isp || null,
+    org: data.org || null,
+    as: data.as || null,
+    asname: data.asname || null,
+    reverse: data.reverse || null,
+    proxy: data.proxy,
+    hosting: data.hosting,
+    mobile: data.mobile,
+    source: "ip-api",
+  };
+}
+
+function isLoopbackIp(ip: string): boolean {
+  return ip === "127.0.0.1" || ip === "::1" || ip === "localhost";
+}
+
+function isPrivateIpv4(ip: string): boolean {
+  return ip.startsWith("10.") || ip.startsWith("192.168.") || /^172\.(1[6-9]|2\d|3[01])\./.test(ip);
+}
+
+function classifyIpInput(ip: string): { version: "ipv4" | "ipv6" | "unknown"; networkClass: "loopback" | "private" | "public" | "unknown" } {
+  const trimmed = ip.trim();
+  const version = trimmed.includes(":") ? "ipv6" : /^\d{1,3}(?:\.\d{1,3}){3}$/.test(trimmed) ? "ipv4" : "unknown";
+  if (isLoopbackIp(trimmed)) return { version, networkClass: "loopback" };
+  if (version === "ipv4" && isPrivateIpv4(trimmed)) return { version, networkClass: "private" };
+  return { version, networkClass: version === "unknown" ? "unknown" : "public" };
+}
+
 export async function lookupIP(ip: string): Promise<Record<string, unknown> | null> {
   const cached = ipCache.get(ip);
   if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data;
-  if (ip === "127.0.0.1" || ip === "::1" || ip === "localhost" || ip.startsWith("192.168.") || ip.startsWith("10.") || ip.startsWith("172.")) {
+  if (isLoopbackIp(ip) || isPrivateIpv4(ip)) {
     return null;
   }
   try {
-    const res = await fetch("http://ip-api.com/json/" + ip + "?fields=status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,asname,reverse,proxy,hosting,mobile", { signal: AbortSignal.timeout(3000) });
+    const primary = await fetch("https://ipwho.is/" + encodeURIComponent(ip), { signal: AbortSignal.timeout(3000) });
+    if (primary.ok) {
+      const primaryData = normalizeIpWhoIsPayload(await primary.json());
+      if (primaryData) {
+        try {
+          const fallback = await fetch("http://ip-api.com/json/" + encodeURIComponent(ip) + "?fields=status,message,reverse,proxy,hosting,mobile,as,asname,isp,org", { signal: AbortSignal.timeout(2000) });
+          if (fallback.ok) {
+            const fallbackData = normalizeIpApiPayload(await fallback.json());
+            if (fallbackData) {
+              const merged = { ...primaryData, ...fallbackData, source: "ipwho.is+ip-api" };
+              ipCache.set(ip, { data: merged, ts: Date.now() });
+              return merged;
+            }
+          }
+        } catch {
+          // Secondary enrichment is optional. Keep the free HTTPS result.
+        }
+        ipCache.set(ip, { data: primaryData, ts: Date.now() });
+        return primaryData;
+      }
+    }
+  } catch {
+    // Fall through to the legacy zero-cost fallback.
+  }
+
+  try {
+    const res = await fetch("http://ip-api.com/json/" + encodeURIComponent(ip) + "?fields=status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,asname,reverse,proxy,hosting,mobile", { signal: AbortSignal.timeout(3000) });
     if (!res.ok) return null;
-    const data = await res.json();
-    if (data.status !== "success") return null;
+    const data = normalizeIpApiPayload(await res.json());
+    if (!data) return null;
     ipCache.set(ip, { data, ts: Date.now() });
     return data;
   } catch { return null; }
@@ -641,7 +761,13 @@ export async function calculateRiskScore({
   // ============ CATEGORY 3: IP ANALYSIS ============
 
   if (ip) {
-    ipDetails = {};
+    const ipClass = classifyIpInput(ip);
+    ipDetails = {
+      version: ipClass.version,
+      networkClass: ipClass.networkClass,
+      lookupStatus: "unavailable",
+      lookupSource: null,
+    };
     const blIP = await checkBlacklist("ip", ip);
     if (blIP) {
       riskScore += 50;
@@ -651,6 +777,8 @@ export async function calculateRiskScore({
 
     const geoData = await lookupIP(ip);
     if (geoData) {
+      ipDetails.lookupStatus = "available";
+      ipDetails.lookupSource = geoData.source || null;
       ipDetails.country = geoData.country;
       ipDetails.countryCode = geoData.countryCode;
       ipDetails.region = geoData.regionName;
@@ -696,6 +824,7 @@ export async function calculateRiskScore({
       ipDetails.highRiskCountry = highRiskCountries.has(countryCode);
     } else {
       riskScore += 5;
+      reasons.push("IP enrichment unavailable - base decision reflects completed zero-cost checks only");
     }
   }
 

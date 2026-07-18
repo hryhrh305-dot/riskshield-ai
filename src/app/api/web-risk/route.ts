@@ -5,7 +5,7 @@ import { getSupabaseProjectRef, readAccessTokenFromCookieHeader } from "@/lib/au
 import { getResultCacheScope, sanitizeSingleRiskPayloadForPlan, shouldUseAiExplanation, shouldUseDeepDetection } from "@/lib/plans";
 import { consumeLegacyCredits } from "@/lib/legacy-credits";
 import { buildCreditRequestId } from "@/lib/credit-accounting";
-import { attachCanonicalDecisionResult } from "@/lib/decision-contract";
+import { attachCanonicalDecisionResult, DECISION_ENGINE_VERSION, SIGNAL_SNAPSHOT_VERSION } from "@/lib/decision-contract";
 import { getPlanEntitlements } from "@/lib/plan-entitlements";
 
 const NEXT_PUBLIC_SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co");
@@ -92,6 +92,27 @@ function buildDNSHealthFromEmailDetails(emailDetails: Record<string, unknown> | 
   return { score: Math.min(100, score), mx, spf, dmarc, dmarcPolicy, dkim, dkimSelector: (detailsSource.dkimSelector as string) || "", details };
 }
 
+function attachIpAuditMetadata(record: Record<string, any>, requestIP: string | null, auditedAt?: string) {
+  const resolvedAuditedAt = typeof record.audited_at === "string" && record.audited_at.trim()
+    ? record.audited_at
+    : (auditedAt || new Date().toISOString());
+  const input = requestIP || String(record.input || "unknown");
+
+  return {
+    ...record,
+    engine_version: typeof record.engine_version === "string" && record.engine_version.trim()
+      ? record.engine_version
+      : DECISION_ENGINE_VERSION,
+    policy_rules_version: typeof record.policy_rules_version === "string" && record.policy_rules_version.trim()
+      ? record.policy_rules_version
+      : SIGNAL_SNAPSHOT_VERSION,
+    audit_id: typeof record.audit_id === "string" && record.audit_id.trim()
+      ? record.audit_id
+      : `ip-audit:${input}:${resolvedAuditedAt}`,
+    audited_at: resolvedAuditedAt,
+  };
+}
+
 export async function POST(request: NextRequest) {
 try {
   const user = await getUserFromRequest(request);
@@ -172,7 +193,9 @@ try {
   if (cachedResult) {
     console.log("[RiskCheck] cache HIT for", cacheKey, "credit deducted");
     const sanitizedCached = sanitizeSingleRiskPayloadForPlan(cachedResult, plan);
-    const cachedDecision = email ? attachCanonicalDecisionResult(sanitizedCached, { ...cachedResult, email }).record : sanitizedCached;
+    const cachedDecision = email
+      ? attachCanonicalDecisionResult(sanitizedCached, { ...cachedResult, email }).record
+      : attachIpAuditMetadata(sanitizedCached, requestIP);
     return NextResponse.json({
       ...cachedDecision,
       cached: true,
@@ -249,6 +272,8 @@ try {
   }
   if (email) {
     Object.assign(cacheData, attachCanonicalDecisionResult(cacheData, { ...cacheData, email }).record);
+  } else {
+    Object.assign(cacheData, attachIpAuditMetadata(cacheData, requestIP));
   }
   setCachedResult(cacheKey, cacheData);
   console.log("[RiskCheck] cached result for", cacheKey, "(24h TTL)");

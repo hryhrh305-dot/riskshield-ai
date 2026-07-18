@@ -88,7 +88,8 @@ describe("Phase B.6B sample audit conversion path", () => {
   it("publishes noindex metadata and the required disclaimer", () => {
     expect(page).toContain("Sample Contact Risk Audit | Secwyn");
     expect(page).toContain("robots: { index: false, follow: true }");
-    expect(page).toContain("This sample uses synthetic contacts for demonstration.");
+    expect(page).toContain("This page is a simplified synthetic demonstration.");
+    expect(page).toContain("A real Secwyn audit returns materially more detail");
   });
 });
 
