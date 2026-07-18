@@ -31,6 +31,7 @@ export function buildPricingCatalogResponse(
     ...env,
     SECWYN_PREMIUM_PRICING_V2_ENABLED: "false",
   };
+  const checkoutEnv = generation === "premium_v2" ? env : legacyEnv;
 
   const plans = Object.fromEntries((['starter', 'growth', 'scale'] as BillingPlan[]).map((plan) => {
     const monthly = getBillingCatalogEntry(generation, plan, "monthly");
@@ -42,8 +43,8 @@ export function buildPricingCatalogResponse(
       monthlyCheckout = testCanaryCheckout ? "checkout" : "unavailable";
       annualCheckout = plan === "scale" ? "contact" : testCanaryCheckout ? "checkout" : "unavailable";
     } else {
-      monthlyCheckout = getCheckoutAvailability(plan, "monthly", legacyEnv).kind;
-      annualCheckout = getCheckoutAvailability(plan, "yearly", legacyEnv).kind;
+      monthlyCheckout = getCheckoutAvailability(plan, "monthly", checkoutEnv).kind;
+      annualCheckout = getCheckoutAvailability(plan, "yearly", checkoutEnv).kind;
     }
 
     return [plan, {
@@ -58,7 +59,10 @@ export function buildPricingCatalogResponse(
   return {
     generation,
     purchaseMode: testCanaryCheckout ? "test_canary" : decision.checkoutLocked ? "canary_locked" : "live",
-    annualSelfServe: false,
+    annualSelfServe:
+      generation === "premium_v2"
+      && !decision.checkoutLocked
+      && env.SECWYN_V2_ANNUAL_SELF_SERVE_ENABLED === "true",
     plans,
   };
 }

@@ -28,6 +28,10 @@ export function getAdminV2CanaryDecision(
   actor: VerifiedCanaryActor,
   env: NodeJS.ProcessEnv = process.env,
 ): AdminV2CanaryDecision {
+  if (env.SECWYN_PREMIUM_PRICING_V2_ENABLED === "true") {
+    return { enabled: false, generation: "premium_v2", checkoutLocked: false };
+  }
+
   if (env.SECWYN_ADMIN_V2_CANARY_ENABLED !== "true" || !actor.verified || !actor.email) {
     return { enabled: false, generation: "legacy", checkoutLocked: false };
   }

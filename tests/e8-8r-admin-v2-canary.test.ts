@@ -72,6 +72,13 @@ describe("E8.8R Phase B admin-only Premium V2 canary", () => {
     )).toEqual({ enabled: true, generation: "premium_v2", checkoutLocked: true });
   });
 
+  it("returns unlocked Premium V2 for every visitor when the global V2 flag is enabled", () => {
+    expect(getAdminV2CanaryDecision(
+      { verified: false, email: null },
+      env({ SECWYN_PREMIUM_PRICING_V2_ENABLED: "true" }),
+    )).toEqual({ enabled: false, generation: "premium_v2", checkoutLocked: false });
+  });
+
   it("ignores forged URL, cookie and client admin hints because they are not authorization inputs", () => {
     const forgedActor = {
       verified: false,
@@ -115,6 +122,33 @@ describe("E8.8R Phase B admin-only Premium V2 canary", () => {
         starter: { monthlyPrice: 199, annualPrice: 2189, monthlyCredits: 500, monthlyCheckout: "unavailable", annualCheckout: "unavailable" },
         growth: { monthlyPrice: 999, annualPrice: 10989, monthlyCredits: 2500, monthlyCheckout: "unavailable", annualCheckout: "unavailable" },
         scale: { monthlyPrice: 3999, annualPrice: 43989, monthlyCredits: 10000, monthlyCheckout: "unavailable", annualCheckout: "contact" },
+      },
+    });
+  });
+
+  it("returns the public Premium V2 catalog with matching live checkout availability", () => {
+    const catalog = buildPricingCatalogResponse(
+      { enabled: false, generation: "premium_v2", checkoutLocked: false },
+      env({
+        SECWYN_PREMIUM_PRICING_V2_ENABLED: "true",
+        SECWYN_V2_ANNUAL_SELF_SERVE_ENABLED: "true",
+        CREEM_STARTER_MONTHLY_V2_PRODUCT_ID: "v2_starter_monthly",
+        CREEM_STARTER_ANNUAL_V2_PRODUCT_ID: "v2_starter_annual",
+        CREEM_GROWTH_MONTHLY_V2_PRODUCT_ID: "v2_growth_monthly",
+        CREEM_GROWTH_ANNUAL_V2_PRODUCT_ID: "v2_growth_annual",
+        CREEM_SCALE_MONTHLY_V2_PRODUCT_ID: "v2_scale_monthly",
+        CREEM_SCALE_ANNUAL_V2_PRODUCT_ID: "v2_scale_annual",
+      }),
+    );
+
+    expect(catalog).toMatchObject({
+      generation: "premium_v2",
+      purchaseMode: "live",
+      annualSelfServe: true,
+      plans: {
+        starter: { monthlyPrice: 199, annualPrice: 2189, monthlyCredits: 500, monthlyCheckout: "checkout", annualCheckout: "checkout" },
+        growth: { monthlyPrice: 999, annualPrice: 10989, monthlyCredits: 2500, monthlyCheckout: "checkout", annualCheckout: "checkout" },
+        scale: { monthlyPrice: 3999, annualPrice: 43989, monthlyCredits: 10000, monthlyCheckout: "checkout", annualCheckout: "contact" },
       },
     });
   });
