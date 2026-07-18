@@ -47,16 +47,9 @@ export function AuditReportPreview({
   return (
     <section className="secwyn-print-report rs-card rs-card-hover mb-6 overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-white/[0.045] to-black/[0.2]" aria-labelledby="audit-report-title">
       <header className="border-b border-white/8 px-5 py-5 sm:px-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0 flex-1">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-400">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" /> Secwyn client-ready report
-            </div>
-            <h2 id="audit-report-title" className="mt-3 text-xl font-semibold text-white sm:text-2xl">Campaign Contact Risk Audit</h2>
-            <p className="mt-2 text-sm font-medium text-slate-200">Executive Summary PDF · {pdfManifest.includedDetailRecords.toLocaleString()} of {pdfManifest.totalDetailRecords.toLocaleString()} detailed results included</p>
-            <p className="mt-2 text-sm leading-6 text-slate-300">{report.summaryLine}</p>
-            <p className="mt-2 text-xs leading-5 text-slate-500">Download the full HTML, CSV, or XLSX export for all {pdfManifest.totalDetailRecords.toLocaleString()} row-level results.</p>
-            <p className="mt-2 text-xs leading-5 text-slate-500">Decision support based on available evidence; not a delivery, inbox, revenue, or compliance guarantee.</p>
+        <div className="report-header-tools flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-400">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" /> Secwyn client-ready report
           </div>
           <div className="report-actions no-print flex flex-col gap-2 sm:flex-row">
             <button type="button" onClick={onDownloadHtml} className="rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-medium text-slate-100 hover:bg-white/10">
@@ -66,6 +59,13 @@ export function AuditReportPreview({
               <span className="inline-flex items-center gap-2"><Printer className="h-4 w-4" /> Print / Save Summary PDF · {previewContacts.length.toLocaleString()} sample rows</span>
             </button>
           </div>
+        </div>
+        <div className="report-header-summary w-full min-w-0">
+          <h2 id="audit-report-title" className="mt-4 text-xl font-semibold text-white sm:text-2xl">Campaign Contact Risk Audit</h2>
+          <p className="mt-2 text-sm font-medium text-slate-200">Executive Summary PDF · {pdfManifest.includedDetailRecords.toLocaleString()} of {pdfManifest.totalDetailRecords.toLocaleString()} detailed results included</p>
+          <p className="mt-2 text-sm leading-6 text-slate-300">{report.summaryLine}</p>
+          <p className="mt-2 text-xs leading-5 text-slate-500">Download the full HTML, CSV, or XLSX export for all {pdfManifest.totalDetailRecords.toLocaleString()} row-level results.</p>
+          <p className="mt-2 text-xs leading-5 text-slate-500">Decision support based on available evidence; not a delivery, inbox, revenue, or compliance guarantee.</p>
         </div>
       </header>
 

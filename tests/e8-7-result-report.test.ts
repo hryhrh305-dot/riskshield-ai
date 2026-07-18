@@ -299,7 +299,9 @@ describe("E8.7 artifact and surface safety", () => {
     expect(markup).toContain("Executive Summary PDF");
     expect(markup).toContain("3 of 3 detailed results included");
     expect(markup).toContain("Download the full HTML, CSV, or XLSX export for all 3 row-level results.");
-    expect(markup).toContain('class="min-w-0 flex-1"');
+    expect(markup).toContain('class="report-header-tools flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"');
+    expect(markup).toContain('class="report-header-summary w-full min-w-0"');
+    expect(markup).not.toContain("lg:flex-row lg:items-start lg:justify-between");
     expect(markup).not.toContain("max-w-2xl");
     expect(globals).toMatch(/\.report-decision-allow[^}]*color: #15763a !important;/);
     expect(globals).toMatch(/\.report-decision-review[^}]*color: #955b08 !important;/);
