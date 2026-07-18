@@ -10,7 +10,6 @@ export function SampleAuditActions({ location }: { location: "hero" | "summary" 
   const [primaryHref, setPrimaryHref] = useState("/signup?source=sample-audit");
 
   useEffect(() => {
-    if (location === "hero") trackE8Event("sample_audit_viewed", { location });
     void (async () => {
       try {
         const { data: { session } } = await createClient().auth.getSession();

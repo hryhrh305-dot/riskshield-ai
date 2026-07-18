@@ -35,7 +35,7 @@ export function AttributionObserver() {
       const browserSession = sessionStorage.getItem(sessionKey) || crypto.randomUUID();
       sessionStorage.setItem(sessionKey, browserSession);
       const pathKey = url.pathname.slice(0, 64).replace(/[^A-Za-z0-9_-]/g, "_") || "root";
-      const acquisitionPage = url.pathname === "/" || url.pathname === "/signup" || url.pathname === "/pricing";
+      const acquisitionPage = url.pathname === "/" || url.pathname === "/signup" || url.pathname === "/pricing" || url.pathname === "/sample-audit";
       let sessionReady = false;
       void fetch("/api/e8/attribution/session", {
         method: "POST",
@@ -63,6 +63,7 @@ export function AttributionObserver() {
           trackE8Event("register_page_view", {}, `register-view:${safeLandingKey || browserSession}`);
         }
         if (url.pathname === "/pricing") trackE8Event("pricing_viewed", {}, `pricing-view:${safeLandingKey || browserSession}`);
+        if (url.pathname === "/sample-audit") trackE8Event("sample_audit_viewed", {}, `sample-audit-view:${safeLandingKey || browserSession}`);
       }).catch(() => undefined);
       if (cid) {
         url.searchParams.delete("cid");

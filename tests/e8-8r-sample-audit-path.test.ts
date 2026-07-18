@@ -8,6 +8,7 @@ function read(path: string) {
 const home = read("src/components/home/HomePageClient.tsx");
 const page = read("src/app/sample-audit/page.tsx");
 const actions = read("src/components/sample-audit/SampleAuditActions.tsx");
+const observer = read("src/components/e8/AttributionObserver.tsx");
 const fixture = read("src/lib/sample-audit-data.ts");
 const middleware = read("src/middleware.ts");
 const login = read("src/app/(auth)/login/page.tsx");
@@ -69,7 +70,8 @@ describe("Phase B.6B sample audit conversion path", () => {
     expect(actions).toContain('"/signup?source=sample-audit"');
     expect(actions).toContain('"/risk-check"');
     expect(actions).toContain('href="/pricing"');
-    expect(actions).toContain('trackE8Event("sample_audit_viewed"');
+    expect(observer).toContain('trackE8Event("sample_audit_viewed"');
+    expect(actions).not.toContain('trackE8Event("sample_audit_viewed"');
     expect(actions).toContain('trackE8Event("sample_audit_primary_cta_clicked"');
     expect(actions).toContain('trackE8Event("sample_audit_pricing_clicked"');
     expect(actions).not.toMatch(/bulk-check|create-checkout|product[_ -]?id|checkout/i);
