@@ -7,7 +7,8 @@ import { Upload, FileText, Download, CheckCircle, AlertTriangle, XCircle, ArrowR
 import { buildCsvContent, downloadCsvFile, sanitizeSpreadsheetCell, type CsvColumn } from "@/lib/export/csv";
 import type { AuditEvidence, ListAuditSummary } from "@/lib/list-audit";
 import { AuditReportPreview } from "@/components/audit/AuditReportPreview";
-import { buildAuditReportModel, buildClientReportHtml } from "@/lib/audit/report-format";
+import { buildAuditReportModel, buildClientReportHtml, publicDecisionNarrative } from "@/lib/audit/report-format";
+import { formatVisibleResultRange } from "@/lib/audit/result-manifest";
 import { chunkWebBulkEmails, getDroppedWebBulkFile, mergeWebBulkResponses, readWebBulkFileInput, reconcileWebBulkText, runWebBulkBatches, type WebBulkFile } from "@/lib/bulk-web-batching";
 import { trackE8Event } from "@/components/e8/AttributionObserver";
 import { finalizeInputReconciliation, getPlanAuditCta, publicDecisionLabel, statusLabel, type InputReconciliation } from "@/lib/decision-integrity";
@@ -117,7 +118,7 @@ export default function BulkCheckPage() {
     if (key === "primary_reason") return result.primary_reason || "";
     if (key === "recommended_action") return result.recommended_action || "";
     if (key === "business_impact") return result.business_impact || "";
-    if (key === "decision_explanation") return result.decision_explanation || "";
+    if (key === "decision_explanation") return publicDecisionNarrative(result.decision_explanation || "");
     if (key === "confidence") return result.confidence ?? "";
     if (key === "evidence_summary") {
       if (result.evidence?.length) {
@@ -488,6 +489,7 @@ export default function BulkCheckPage() {
     return matchesDecision && matchesSearch;
   });
   const visibleResults = filteredResults.slice(0, visibleResultLimit);
+  const visibleResultRange = formatVisibleResultRange(visibleResults.length, filteredResults.length, results?.length || 0);
   const visibleExportColumns = exportColumns.filter((column) => {
     if (column.key === "risk_level" && exportColumns.some((item) => item.key === "decision")) return false;
     if (["engine_version", "policy_rules_version", "audit_id", "audited_at"].includes(column.key)) return false;
@@ -654,22 +656,22 @@ sales@domain.com`}</pre>
                   )}
                 </div>
                 <div className="flex flex-col gap-2 px-3 sm:flex-row sm:flex-wrap">
-                  <button onClick={downloadXLSX} disabled={xlsxDownloading} className="rounded-full border border-white/12 bg-white/6 px-3 py-2 text-xs font-medium text-slate-100 transition hover:border-white/20 hover:bg-white/10 disabled:opacity-50">{xlsxDownloading ? "Generating..." : <span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Export XLSX</span>}</button>
-                  <button onClick={() => exportCSV("all")} className="rounded-full border border-white/12 bg-white/6 px-3 py-2 text-xs font-medium text-slate-100 transition hover:border-white/20 hover:bg-white/10"><span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Full CSV export</span></button>
-                  <button onClick={() => exportCSV("clean")} className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-200 transition hover:bg-emerald-500/15"><span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Export clean report</span></button>
-                  <button onClick={() => exportCSV("risky")} className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-200 transition hover:bg-red-500/15"><span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Risk review list</span></button>
+                  <button onClick={downloadXLSX} disabled={xlsxDownloading} className="rounded-full border border-white/12 bg-white/6 px-3 py-2 text-xs font-medium text-slate-100 transition hover:border-white/20 hover:bg-white/10 disabled:opacity-50">{xlsxDownloading ? "Generating…" : <span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Export Full XLSX · {(results?.length || 0).toLocaleString()} results</span>}</button>
+                  <button onClick={() => exportCSV("all")} className="rounded-full border border-white/12 bg-white/6 px-3 py-2 text-xs font-medium text-slate-100 transition hover:border-white/20 hover:bg-white/10"><span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Export Full CSV · {(results?.length || 0).toLocaleString()} results</span></button>
+                  <button onClick={() => exportCSV("clean")} className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-200 transition hover:bg-emerald-500/15"><span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Export clean report · {sendCount.toLocaleString()}</span></button>
+                  <button onClick={() => exportCSV("risky")} className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-200 transition hover:bg-red-500/15"><span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Risk review list · {(reviewCount + suppressCount).toLocaleString()}</span></button>
                 </div>
                 {hasClientReadyReport && <div className="rs-client-delivery-files mt-3 rounded-2xl border border-white/8 bg-white/[0.02] p-3">
                   <div className="mb-2 text-xs uppercase tracking-[0.22em] text-slate-500">Client delivery files</div>
                   <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                     <button onClick={() => downloadAuditCsv("send")} disabled={!results} className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-200 transition hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-50">
-                      <span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Download Send Queue ({sendCount})</span>
+                      <span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Download Send Queue · {sendCount.toLocaleString()}</span>
                     </button>
                     <button onClick={() => downloadAuditCsv("review")} disabled={!results} className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-200 transition hover:bg-amber-500/15 disabled:cursor-not-allowed disabled:opacity-50">
-                      <span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Download Review Queue ({reviewCount})</span>
+                      <span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Download Review Queue · {reviewCount.toLocaleString()}</span>
                     </button>
                     <button onClick={() => downloadAuditCsv("suppress")} disabled={!results} className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-200 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50">
-                      <span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Download Suppression List ({suppressCount})</span>
+                      <span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Download Suppression List · {suppressCount.toLocaleString()}</span>
                     </button>
                     <button onClick={downloadRiskSummaryCsv} disabled={!auditSummary} className="rounded-full border border-white/12 bg-white/6 px-3 py-2 text-xs font-medium text-slate-100 transition hover:border-white/20 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50">
                       <span className="inline-flex items-center gap-1"><Download className="h-3 w-3" /> Download Risk Summary</span>
@@ -723,6 +725,9 @@ sales@domain.com`}</pre>
                   <h3 className="text-base font-semibold text-white">Detailed results</h3>
                   <p className="mt-1 text-sm text-slate-500">
                     Base signal score, final decision, and supporting evidence for each contact in the uploaded list.
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {visibleResultRange}
                   </p>
                 </div>
                 <div className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-xs text-slate-400">

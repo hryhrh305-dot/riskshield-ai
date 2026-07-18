@@ -44,6 +44,24 @@ No network request, database read, risk calculation, credit consumer, LLM or pai
 - `Results produced = unique processed` for a complete normal run.
 - `Credits consumed` is copied from the finalized server reconciliation; report/download code never changes it.
 
+## Cross-format result manifest
+
+`src/lib/audit/result-manifest.ts` keeps result totals separate from the number of detail records included by a specific surface or artifact. Its shared contract records input rows, syntax acceptance, rejected rows, duplicate occurrences, unique processed results, result and credit counts, Send/Review/Suppress counts, total/included detail records, format mode and whether the artifact contains the full detail set.
+
+- Web progressively reveals the filtered canonical result collection and reports `Showing X–Y of N unique results`.
+- Downloaded HTML is a full detailed report and includes every canonical result row.
+- Print/PDF is an executive summary and includes at most the first 20 canonical results in uploaded order.
+- Full CSV and XLSX exports use the complete canonical result collection.
+- Send, Review and Suppression queue exports partition that same collection.
+- `First source row` is the first accepted position of the normalized address in the uploaded input. It is not a result count and can be non-consecutive after rejection and deduplication.
+
+The locked invariants are:
+
+- `syntaxAccepted - duplicateOccurrences = uniqueProcessed`
+- `uniqueProcessed = resultCount`
+- `resultCount = creditsConsumed`
+- `sendCount + reviewCount + suppressCount = resultCount`
+
 ## Artifact safety
 
 - React escapes visible result values.

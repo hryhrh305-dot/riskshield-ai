@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
-import ts from "typescript";
+import { buildSync } from "esbuild";
 import assert from "node:assert/strict";
 
 const cwd = process.cwd();
@@ -11,16 +11,16 @@ const tempFile = path.join(tempDir, "audit-report-format.test.cjs");
 
 fs.mkdirSync(tempDir, { recursive: true });
 
-const source = fs.readFileSync(sourcePath, "utf8");
-const transpiled = ts.transpileModule(source, {
-  compilerOptions: {
-    module: ts.ModuleKind.CommonJS,
-    target: ts.ScriptTarget.ES2022,
-    esModuleInterop: true,
-  },
-}).outputText;
-
-fs.writeFileSync(tempFile, transpiled, "utf8");
+buildSync({
+  entryPoints: [sourcePath],
+  outfile: tempFile,
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  target: "node20",
+  absWorkingDir: cwd,
+  logLevel: "silent",
+});
 
 const require = createRequire(import.meta.url);
 const { buildAuditReportModel, buildClientReportHtml } = require(tempFile);

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import * as XLSXLib from "xlsx";
 import { AuditReportPreview } from "@/components/audit/AuditReportPreview";
 import {
   buildAuditReportModel,
@@ -9,6 +10,12 @@ import {
   buildEvidenceCoverage,
   buildRequiredActions,
 } from "@/lib/audit/report-format";
+import {
+  buildResultManifest,
+  formatVisibleResultRange,
+  getResultManifestInvariantErrors,
+  scopeResultManifest,
+} from "@/lib/audit/result-manifest";
 import { buildCsvContent, sanitizeSpreadsheetCell } from "@/lib/export/csv";
 import { buildListAuditSummary, type ContactAuditDecision } from "@/lib/list-audit";
 
@@ -59,6 +66,34 @@ function result(overrides: Record<string, unknown> = {}) {
 }
 
 describe("E8.7 report truth contract", () => {
+  it("reconciles the full result manifest independently from format detail limits", () => {
+    const manifest = buildResultManifest({
+      inputRows: 4005,
+      syntaxAccepted: 4004,
+      rejectedRows: 1,
+      duplicateOccurrences: 1885,
+      uniqueProcessed: 2119,
+      resultCount: 2119,
+      creditsConsumed: 2119,
+      sendCount: 1288,
+      reviewCount: 451,
+      suppressCount: 380,
+      totalDetailRecords: 2119,
+      includedDetailRecords: 2119,
+      formatMode: "canonical",
+    });
+
+    expect(getResultManifestInvariantErrors(manifest)).toEqual([]);
+    expect(scopeResultManifest(manifest, "pdf_summary", 20)).toMatchObject({
+      resultCount: 2119,
+      totalDetailRecords: 2119,
+      includedDetailRecords: 20,
+      formatMode: "pdf_summary",
+      isFullResultSet: false,
+    });
+    expect(scopeResultManifest(manifest, "html_full", 2119).isFullResultSet).toBe(true);
+  });
+
   it("derives required actions and negative risk drivers from real result rows", () => {
     const decisions = [
       decision(),
@@ -169,6 +204,11 @@ describe("E8.7 report truth contract", () => {
     expect(html).toContain("@media print");
     expect(html).toContain("<thead>");
     expect(html).toContain("Technical context");
+    expect(html).toContain("Full detailed HTML report");
+    expect(html).toContain("1 of 1 unique results included");
+    expect(html).toContain("Result #");
+    expect(html).toContain("First source row");
+    expect(html).toContain("Source row refers to the position in the uploaded file.");
     expect(html).toContain("Available domain evidence does not confirm the mailbox.");
     expect(html).toContain("Engine: secwyn-decision-integrity-v1");
     expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
@@ -177,6 +217,42 @@ describe("E8.7 report truth contract", () => {
     expect(html).toContain("support@secwyn.com");
     expect(html).toContain(".scroll{width:100%;max-width:100%;overflow-x:auto}");
     expect(html).toContain("overflow-wrap:anywhere");
+  });
+
+  it("keeps every synthetic result in full HTML and removes internal decision prefixes", () => {
+    const total = 37;
+    const results = Array.from({ length: total }, (_, index) => result({
+      email: `synthetic-${index}@example.test`,
+      normalized_email: `synthetic-${index}@example.test`,
+      decision: index % 2 === 0 ? "ALLOW" : "BLOCK",
+      decision_explanation: index % 2 === 0 ? "ALLOW: No blocking signal detected." : "BLOCK: No usable MX.",
+      audit_id: `synthetic-audit-${index}`,
+    }));
+    const summary = buildListAuditSummary(Array.from({ length: total }, (_, index) => decision({
+      email: `synthetic-${index}@example.test`,
+      normalizedEmail: `synthetic-${index}@example.test`,
+      decision: index % 2 === 0 ? "ALLOW" : "BLOCK",
+      queue: index % 2 === 0 ? "send" : "suppress",
+    })));
+    const html = buildClientReportHtml(buildAuditReportModel({
+      summary,
+      results,
+      reconciliation: {
+        inputRows: total,
+        syntaxAccepted: total,
+        rejectedBeforeScreening: 0,
+        duplicatesRemoved: 0,
+        uniqueValidAddressesProcessed: total,
+        resultsProduced: total,
+        creditsConsumed: total,
+      },
+    }));
+
+    expect(html.match(/<tr data-result-row=/g)).toHaveLength(total);
+    expect(html).toContain(`${total} of ${total} unique results included`);
+    expect(html).toContain("Decision basis: No blocking signal detected.");
+    expect(html).toContain("Decision basis: No usable MX.");
+    expect(html).not.toMatch(/\b(?:ALLOW|BLOCK):/u);
   });
 
   it("handles empty and 5,000-row fixtures without NaN or a second billing model", () => {
@@ -213,17 +289,81 @@ describe("E8.7 artifact and surface safety", () => {
     const globals = readFileSync("src/app/globals.css", "utf8");
 
     expect(globals).toContain("margin: 22mm 14mm 14mm;");
-    expect(globals).toMatch(/\.secwyn-print-report\s*\{[^}]*overflow: visible !important;/s);
+    expect(globals).toMatch(/\.secwyn-print-report\s*\{[^}]*overflow: visible !important;/);
     expect(globals).toContain("box-decoration-break: clone;");
     expect(globals).toContain("-webkit-box-decoration-break: clone;");
-    expect(globals).toMatch(/\.report-contact-table tr[^}]*box-shadow: inset 0 2px 0 #d8dee7 !important;/s);
+    expect(globals).toMatch(/\.report-contact-table tr[^}]*box-shadow: inset 0 2px 0 #d8dee7 !important;/);
     expect(markup).toMatch(/report-decision-allow[^>]*>SEND</);
     expect(markup).toMatch(/report-decision-review[^>]*>REVIEW</);
     expect(markup).toMatch(/report-decision-block[^>]*>SUPPRESS</);
-    expect(globals).toMatch(/\.report-decision-allow[^}]*color: #15763a !important;/s);
-    expect(globals).toMatch(/\.report-decision-review[^}]*color: #955b08 !important;/s);
-    expect(globals).toMatch(/\.report-decision-block[^}]*color: #b42336 !important;/s);
+    expect(markup).toContain("Executive Summary PDF");
+    expect(markup).toContain("3 of 3 detailed results included");
+    expect(markup).toContain("Download the full HTML, CSV, or XLSX export for all 3 row-level results.");
+    expect(globals).toMatch(/\.report-decision-allow[^}]*color: #15763a !important;/);
+    expect(globals).toMatch(/\.report-decision-review[^}]*color: #955b08 !important;/);
+    expect(globals).toMatch(/\.report-decision-block[^}]*color: #b42336 !important;/);
     expect(globals).toContain("html .secwyn-print-report .report-decision.report-decision-allow");
+  });
+
+  it("reports progressive and filtered Web result ranges without treating source rows as totals", () => {
+    expect(formatVisibleResultRange(250, 2119)).toBe("Showing 1–250 of 2,119 unique results.");
+    expect(formatVisibleResultRange(500, 2119)).toBe("Showing 1–500 of 2,119 unique results.");
+    expect(formatVisibleResultRange(250, 451, 2119)).toBe("Showing 1–250 of 451 matching unique results · 2,119 total unique results.");
+    expect(formatVisibleResultRange(0, 0, 2119)).toBe("Showing 0–0 of 0 matching unique results · 2,119 total unique results.");
+  });
+
+  it("keeps full CSV/XLSX row counts and decision queues reconciled without a billing call", () => {
+    const rows = Array.from({ length: 37 }, (_, index) => ({
+      email: `synthetic-${index}@example.test`,
+      decision: index < 20 ? "SEND" : index < 30 ? "REVIEW" : "SUPPRESS",
+    }));
+    const csv = buildCsvContent(rows, [
+      { key: "email", label: "Email" },
+      { key: "decision", label: "Decision" },
+    ]);
+    const worksheet = XLSXLib.utils.json_to_sheet(rows);
+    const workbook = XLSXLib.utils.book_new();
+    XLSXLib.utils.book_append_sheet(workbook, worksheet, "Secwyn Results");
+    const xlsxRows = XLSXLib.utils.sheet_to_json(workbook.Sheets["Secwyn Results"]);
+    const queueTotal = ["SEND", "REVIEW", "SUPPRESS"]
+      .reduce((sum, queue) => sum + rows.filter((row) => row.decision === queue).length, 0);
+
+    expect(csv.split("\n")).toHaveLength(rows.length + 1);
+    expect(xlsxRows).toHaveLength(rows.length);
+    expect(queueTotal).toBe(rows.length);
+    const bulkPage = readFileSync("src/app/(dashboard)/bulk-check/page.tsx", "utf8");
+    expect(bulkPage).not.toMatch(/(?:downloadXLSX|exportCSV|downloadAuditCsv)[\s\S]{0,800}(?:consumeLegacyCredits|consume_grant_credits)/i);
+  });
+
+  it("labels a PDF with more than 20 results as a 20-row executive summary", () => {
+    const total = 25;
+    const markup = renderToStaticMarkup(createElement(AuditReportPreview, {
+      summary: buildListAuditSummary(Array.from({ length: total }, (_, index) => decision({
+        email: `synthetic-${index}@example.test`,
+        normalizedEmail: `synthetic-${index}@example.test`,
+      }))),
+      results: Array.from({ length: total }, (_, index) => result({
+        email: `synthetic-${index}@example.test`,
+        normalized_email: `synthetic-${index}@example.test`,
+        audit_id: `synthetic-audit-${index}`,
+      })),
+      reconciliation: {
+        inputRows: total,
+        syntaxAccepted: total,
+        uniqueValidAddressesProcessed: total,
+        rejectedBeforeScreening: 0,
+        duplicatesRemoved: 0,
+        resultsProduced: total,
+        creditsConsumed: total,
+      },
+      onDownloadHtml: () => undefined,
+      onPrint: () => undefined,
+    }));
+
+    expect(markup).toContain("Executive Summary PDF · 20 of 25 detailed results included");
+    expect(markup).toContain("Executive summary: 20 of 25 detailed results included.");
+    expect(markup.match(/data-label="Result #"/g)).toHaveLength(20);
+    expect(markup).not.toMatch(/Full Report|Complete Results/iu);
   });
 
   it("neutralizes spreadsheet formulas while retaining ordinary emails", () => {
@@ -250,7 +390,7 @@ describe("E8.7 artifact and surface safety", () => {
     const globals = readFileSync("src/app/globals.css", "utf8");
     const publicRuntime = `${bulkPage}\n${singlePage}\n${report}`;
 
-    for (const expected of ["Required Actions", "Top Risk Drivers", "Evidence Coverage", "Download HTML", "Print / Save PDF", "Decision tabs", "Search contacts"]) {
+    for (const expected of ["Required Actions", "Top Risk Drivers", "Evidence Coverage", "Download Full HTML Report", "Print / Save Summary PDF", "Decision tabs", "Search contacts"]) {
       expect(publicRuntime).toContain(expected);
     }
     expect(singlePage).toContain("Audit metadata");
@@ -260,7 +400,10 @@ describe("E8.7 artifact and surface safety", () => {
     expect(globals).toContain(".rs-bulk-results-head");
     expect(globals).toMatch(/@media print and \(orientation: portrait\)[\s\S]*\.report-contact-table/);
     expect(report).toContain('className="report-contact-table');
-    expect(report).toContain("Showing the first {previewContacts.length.toLocaleString()} accepted unique contacts in uploaded order");
+    expect(report).toContain("Executive summary: {previewContacts.length.toLocaleString()} of {report.contacts.length.toLocaleString()} detailed results included.");
+    expect(report).toContain("First source row");
+    expect(report).toContain("Result #");
+    expect(bulkPage).toContain("visibleResultRange");
     expect(report).toContain('data-label="Technical context"');
     expect(report).toContain('className="report-contact-detail"');
     expect(report).toContain("{item.count.toLocaleString()} {item.count === 1 ? \"contact\" : \"contacts\"}");

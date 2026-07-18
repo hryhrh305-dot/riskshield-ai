@@ -1,20 +1,26 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { chromium } from "@playwright/test";
-import ts from "typescript";
+import { buildSync } from "esbuild";
 
 const baseUrl = process.env.E8_7_BASE_URL || "http://127.0.0.1:3105";
-const outputDir = "docs/e8-7/screenshots";
+const outputDir = process.env.E8_7_OUTPUT_DIR || "docs/e8-7/screenshots";
 const tempDir = ".codex-temp";
 const compiledReport = path.join(tempDir, "e8-7-report-format.cjs");
 
 await mkdir(outputDir, { recursive: true });
 await mkdir(tempDir, { recursive: true });
-const reportSource = await readFile("src/lib/audit/report-format.ts", "utf8");
-await writeFile(compiledReport, ts.transpileModule(reportSource, {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
-}).outputText, "utf8");
+buildSync({
+  entryPoints: ["src/lib/audit/report-format.ts"],
+  outfile: compiledReport,
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  target: "node20",
+  absWorkingDir: process.cwd(),
+  logLevel: "silent",
+});
 const require = createRequire(import.meta.url);
 const { buildAuditReportModel, buildClientReportHtml } = require(path.resolve(compiledReport));
 

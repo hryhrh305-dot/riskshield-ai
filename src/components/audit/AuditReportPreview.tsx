@@ -4,7 +4,8 @@ import { BadgeInfo, Download, FileText, Printer, ShieldCheck, TriangleAlert } fr
 import { useMemo } from "react";
 import { publicDecisionLabel, type InputReconciliation } from "@/lib/decision-integrity";
 import type { ListAuditSummary } from "@/lib/list-audit";
-import { buildAuditReportModel, type AuditReportResult } from "@/lib/audit/report-format";
+import { buildAuditReportModel, publicDecisionNarrative, type AuditReportResult } from "@/lib/audit/report-format";
+import { scopeResultManifest } from "@/lib/audit/result-manifest";
 
 type AuditReportPreviewProps = {
   summary: ListAuditSummary;
@@ -41,6 +42,7 @@ export function AuditReportPreview({
 }: AuditReportPreviewProps) {
   const report = useMemo(() => buildAuditReportModel({ summary, results, reconciliation }), [summary, results, reconciliation]);
   const previewContacts = report.contacts.slice(0, 20);
+  const pdfManifest = scopeResultManifest(report.resultManifest, "pdf_summary", previewContacts.length);
 
   return (
     <section className="secwyn-print-report rs-card rs-card-hover mb-6 overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-white/[0.045] to-black/[0.2]" aria-labelledby="audit-report-title">
@@ -51,15 +53,17 @@ export function AuditReportPreview({
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" /> Secwyn client-ready report
             </div>
             <h2 id="audit-report-title" className="mt-3 text-xl font-semibold text-white sm:text-2xl">Campaign Contact Risk Audit</h2>
+            <p className="mt-2 text-sm font-medium text-slate-200">Executive Summary PDF · {pdfManifest.includedDetailRecords.toLocaleString()} of {pdfManifest.totalDetailRecords.toLocaleString()} detailed results included</p>
             <p className="mt-2 text-sm leading-6 text-slate-300">{report.summaryLine}</p>
+            <p className="mt-2 text-xs leading-5 text-slate-500">Download the full HTML, CSV, or XLSX export for all {pdfManifest.totalDetailRecords.toLocaleString()} row-level results.</p>
             <p className="mt-2 text-xs leading-5 text-slate-500">Decision support based on available evidence; not a delivery, inbox, revenue, or compliance guarantee.</p>
           </div>
           <div className="report-actions no-print flex flex-col gap-2 sm:flex-row">
             <button type="button" onClick={onDownloadHtml} className="rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-medium text-slate-100 hover:bg-white/10">
-              <span className="inline-flex items-center gap-2"><Download className="h-4 w-4" /> Download HTML</span>
+              <span className="inline-flex items-center gap-2"><Download className="h-4 w-4" /> Download Full HTML Report · {report.contacts.length.toLocaleString()} results</span>
             </button>
             <button type="button" onClick={onPrint} className="rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-medium text-slate-100 hover:bg-white/10">
-              <span className="inline-flex items-center gap-2"><Printer className="h-4 w-4" /> Print / Save PDF</span>
+              <span className="inline-flex items-center gap-2"><Printer className="h-4 w-4" /> Print / Save Summary PDF · {previewContacts.length.toLocaleString()} sample rows</span>
             </button>
           </div>
         </div>
@@ -136,16 +140,17 @@ export function AuditReportPreview({
 
         <section className="report-section report-contact-results" aria-labelledby="contact-evidence-title">
           <div className="flex items-end justify-between gap-3">
-            <div><h3 id="contact-evidence-title" className="text-sm font-semibold text-white">Contact-level Results</h3><p className="mt-1 text-xs text-slate-500">Showing the first {previewContacts.length.toLocaleString()} accepted unique contacts in uploaded order ({report.contacts.length.toLocaleString()} total). The HTML and CSV/XLSX exports retain the full result set.</p></div>
+            <div><h3 id="contact-evidence-title" className="text-sm font-semibold text-white">Contact-level Results</h3><p className="mt-1 text-xs text-slate-500"><span className="font-medium text-slate-300">Executive summary: {previewContacts.length.toLocaleString()} of {report.contacts.length.toLocaleString()} detailed results included.</span> Download the full HTML, CSV, or XLSX export for all {report.contacts.length.toLocaleString()} row-level results.</p><p className="mt-1 text-xs text-slate-500">Source row refers to the position in the uploaded file. Source row numbers may be non-consecutive because rejected and duplicate rows are not repeated in the unique result set.</p></div>
           </div>
           <div className="report-contact-scroll mt-3 overflow-x-auto rounded-2xl border border-white/10">
             <table className="report-contact-table w-full min-w-[900px] text-left text-xs">
-              <thead className="bg-black/40 text-slate-400"><tr><th className="p-3">Row</th><th className="p-3">Original input</th><th className="p-3">Normalized email</th><th className="p-3">Decision</th><th className="p-3">Score</th><th className="p-3">Primary reason</th><th className="p-3">Recommended action</th><th className="p-3">Evidence state</th><th className="p-3">Technical context</th></tr></thead>
+              <thead className="bg-black/40 text-slate-400"><tr><th className="p-3">Result #</th><th className="p-3">First source row</th><th className="p-3">Original input</th><th className="p-3">Normalized email</th><th className="p-3">Decision</th><th className="p-3">Score</th><th className="p-3">Primary reason</th><th className="p-3">Recommended action</th><th className="p-3">Evidence state</th><th className="p-3">Technical context</th></tr></thead>
               <tbody>
                 {previewContacts.map((item, index) => {
                   const decision = publicDecisionLabel(item.decision || item.risk_level);
                   return <tr key={`${String(item.audit_id || item.email)}:${index}`} className="border-t border-white/8">
-                    <td data-label="Row" className="p-3 text-slate-500">{String(item.row_number ?? index + 1)}</td>
+                    <td data-label="Result #" className="p-3 text-slate-500">{index + 1} of {report.contacts.length.toLocaleString()}</td>
+                    <td data-label="First source row" className="p-3 text-slate-500">{String(item.row_number ?? index + 1)}</td>
                     <td data-label="Original input" className="break-all p-3 font-mono text-slate-200">{String(item.original_input || item.email || "Not available")}</td>
                     <td data-label="Normalized email" className="break-all p-3 font-mono text-slate-300">{String(item.normalized_email || item.email || "Not available")}</td>
                     <td data-label="Decision" className={`report-decision report-decision-${reportDecisionTone(decision)} p-3 font-semibold text-slate-200`}>{decision}</td>
@@ -155,7 +160,7 @@ export function AuditReportPreview({
                     <td data-label="Evidence state" className="p-3 text-slate-400">MX {String(item.mx_status || "unknown")} · Mailbox {String(item.mailbox_status || "unknown")} · Catch-all {String(item.catch_all_status || "unknown")}</td>
                     <td data-label="Technical context" className="p-3 text-slate-400">
                       <div className="report-contact-detail">
-                        <div>{String(item.decision_explanation || "No additional explanation recorded")}</div>
+                        <div>{publicDecisionNarrative(item.decision_explanation || "No additional explanation recorded")}</div>
                         <div className="mt-1">Disposable {item.disposable === true ? "Yes" : item.disposable === false ? "No" : "Unknown"} · Role-based {item.role_based === true ? "Yes" : item.role_based === false ? "No" : "Unknown"}</div>
                         <div className="mt-1">Engine {String(item.engine_version || "Not available")} · Policy {String(item.policy_rules_version || "Not available")} · Audited {String(item.audited_at || "Not available")}</div>
                       </div>

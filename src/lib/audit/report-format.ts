@@ -1,5 +1,6 @@
 import { publicDecisionLabel, type InputReconciliation } from "@/lib/decision-integrity";
 import type { AuditQueue, ListAuditSummary } from "@/lib/list-audit";
+import { buildResultManifest, scopeResultManifest, type ResultManifest } from "@/lib/audit/result-manifest";
 
 export type AuditReportResult = Record<string, unknown> & {
   email?: string | null;
@@ -71,6 +72,7 @@ export type AuditReportModel = {
     source: string;
   };
   limitations: string[];
+  resultManifest: ResultManifest;
 };
 
 function readText(value: unknown, fallback = "Not available"): string {
@@ -79,6 +81,11 @@ function readText(value: unknown, fallback = "Not available"): string {
 
 function readDecision(result: AuditReportResult): string {
   return publicDecisionLabel(result.decision ?? result.risk_level);
+}
+
+export function publicDecisionNarrative(value: unknown): string {
+  const text = typeof value === "string" ? value.trim() : "";
+  return text.replace(/\b(?:ALLOW|BLOCK)\s*:/giu, "Decision basis:");
 }
 
 function resultQueue(result: AuditReportResult): AuditQueue {
@@ -223,6 +230,21 @@ export function buildAuditReportModel({
       source: "Secwyn Web List Audit",
     },
     limitations,
+    resultManifest: buildResultManifest({
+      inputRows: Number(reconciliation?.inputRows ?? total),
+      syntaxAccepted: Number(reconciliation?.syntaxAccepted ?? total),
+      rejectedRows: rejected,
+      duplicateOccurrences: Number(reconciliation?.duplicatesRemoved ?? 0),
+      uniqueProcessed: Number(reconciliation?.uniqueValidAddressesProcessed ?? total),
+      resultCount: total,
+      creditsConsumed: Number(reconciliation?.creditsConsumed ?? 0),
+      sendCount,
+      reviewCount,
+      suppressCount,
+      totalDetailRecords: total,
+      includedDetailRecords: total,
+      formatMode: "canonical",
+    }),
   };
 }
 
@@ -245,7 +267,7 @@ function booleanEvidence(value: unknown): string {
 
 function technicalContext(item: AuditReportResult): string {
   return [
-    `Explanation: ${readText(item.decision_explanation)}`,
+    `Explanation: ${publicDecisionNarrative(item.decision_explanation) || "Not available"}`,
     `Disposable: ${booleanEvidence(item.disposable)}`,
     `Role-based: ${booleanEvidence(item.role_based)}`,
     `Engine: ${readText(item.engine_version)}`,
@@ -255,6 +277,7 @@ function technicalContext(item: AuditReportResult): string {
 }
 
 export function buildClientReportHtml(model: AuditReportModel): string {
+  const manifest = scopeResultManifest(model.resultManifest, "html_full", model.contacts.length);
   const queueCards = model.distribution.map((item) => `<article class="card keep"><h3>${escapeHtml(item.label)}</h3><strong>${item.count.toLocaleString("en-US")} (${item.percentage}%)</strong><p>${escapeHtml(item.meaning)}</p><p><b>Next:</b> ${escapeHtml(item.nextStep)}</p></article>`).join("");
   const actions = model.requiredActions.length
     ? model.requiredActions.map((item) => `<li><b>${item.count.toLocaleString("en-US")} ${escapeHtml(item.queue)}</b> - ${escapeHtml(item.action)}</li>`).join("")
@@ -263,8 +286,22 @@ export function buildClientReportHtml(model: AuditReportModel): string {
     ? tableRows(model.topRiskDrivers.map((item) => [item.reason, item.count, `${item.percentage}%`, item.decisionImpact, item.recommendedAction]))
     : '<tr><td colspan="5">No negative primary reason was recorded.</td></tr>';
   const contacts = model.contacts.length
-    ? tableRows(model.contacts.map((item) => [item.row_number, item.original_input, item.normalized_email ?? item.email, readDecision(item), item.risk_score ?? "", item.primary_reason, item.recommended_action, item.mx_status, item.mailbox_status, item.catch_all_status, technicalContext(item), item.audit_id]))
-    : '<tr><td colspan="12">No contact results are available.</td></tr>';
+    ? model.contacts.map((item, index) => `<tr data-result-row="${index + 1}">${[
+      `${index + 1} of ${model.contacts.length.toLocaleString("en-US")}`,
+      item.row_number,
+      item.original_input,
+      item.normalized_email ?? item.email,
+      readDecision(item),
+      item.risk_score ?? "",
+      item.primary_reason,
+      item.recommended_action,
+      item.mx_status,
+      item.mailbox_status,
+      item.catch_all_status,
+      technicalContext(item),
+      item.audit_id,
+    ].map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")
+    : '<tr><td colspan="13">No contact results are available.</td></tr>';
   const stateList = (counts: EvidenceCounts) => Object.entries(counts).map(([state, count]) => `${state.replace(/_/gu, " ")}: ${count}`).join("; ") || "No results";
 
   return `<!doctype html>
@@ -272,13 +309,13 @@ export function buildClientReportHtml(model: AuditReportModel): string {
 <style>
 @page{margin:14mm}*{box-sizing:border-box}body{margin:0;background:#f5f1e8;color:#101a2b;font:14px/1.55 Arial,sans-serif}.report{max-width:1120px;margin:0 auto;padding:32px}.brand{background:#081424;color:#fff;padding:24px;border-radius:18px}.brand small{color:#a8bacb}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.card,.section{background:#fff;border:1px solid #d8dee7;border-radius:16px;padding:16px;margin-top:16px}.section h2{margin-top:0}.scroll{width:100%;max-width:100%;overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #d8dee7;padding:7px;text-align:left;vertical-align:top;overflow-wrap:anywhere;word-break:break-word}th{background:#eef3f7}thead{display:table-header-group}.muted{color:#5a687a}.meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.keep{break-inside:avoid}.page-break{break-before:page}footer{margin-top:24px;border-top:1px solid #d8dee7;padding-top:12px;color:#5a687a}@media(max-width:720px){.report{padding:16px}.grid,.meta{grid-template-columns:1fr}}@media print{body{background:#fff}.report{max-width:none;padding:0}.brand{border-radius:0}.section,.card{box-shadow:none}.no-print{display:none!important}a{color:inherit;text-decoration:none}}
 </style></head><body><main class="report">
-<header class="brand keep"><small>SECWYN · PRE-SEND RISK GOVERNANCE</small><h1>${escapeHtml(model.title)}</h1><p>${escapeHtml(model.summaryLine)}</p></header>
+<header class="brand keep"><small>SECWYN · PRE-SEND RISK GOVERNANCE</small><h1>${escapeHtml(model.title)}</h1><p><b>Full detailed HTML report</b> · ${manifest.includedDetailRecords.toLocaleString("en-US")} of ${manifest.totalDetailRecords.toLocaleString("en-US")} unique results included</p><p>${escapeHtml(model.summaryLine)}</p></header>
 <section class="section keep"><h2>Executive Audit Summary</h2><div class="grid">${queueCards}</div></section>
 <section class="section keep"><h2>Input Reconciliation</h2><div class="meta"><div>Input rows: <b>${model.reconciliation.inputRows}</b></div><div>Syntax accepted: <b>${model.reconciliation.syntaxAccepted}</b></div><div>Rejected: <b>${model.reconciliation.rejected}</b></div><div>Duplicates: <b>${model.reconciliation.duplicates}</b></div><div>Unique processed: <b>${model.reconciliation.uniqueProcessed}</b></div><div>Results: <b>${model.reconciliation.resultsProduced}</b></div><div>Credits consumed by audit: <b>${model.reconciliation.creditsConsumed}</b></div></div></section>
 <section class="section keep"><h2>Required Actions</h2><ol>${actions}</ol></section>
 <section class="section"><h2>Top Risk Drivers</h2><div class="scroll"><table><thead><tr><th>Reason</th><th>Count</th><th>Affected</th><th>Decision impact</th><th>Recommended action</th></tr></thead><tbody>${drivers}</tbody></table></div></section>
 <section class="section keep"><h2>Evidence Coverage</h2><p>MX: ${escapeHtml(stateList(model.evidenceCoverage.mx))}</p><p>Mailbox: ${escapeHtml(stateList(model.evidenceCoverage.mailbox))}</p><p>Catch-all: ${escapeHtml(stateList(model.evidenceCoverage.catch_all))}</p><p class="muted">${escapeHtml(model.evidenceCoverage.statement)}</p></section>
-<section class="section page-break"><h2>Contact-level Results</h2><div class="scroll"><table><thead><tr><th>Row</th><th>Original input</th><th>Normalized email</th><th>Decision</th><th>Score</th><th>Primary reason</th><th>Recommended action</th><th>MX</th><th>Mailbox</th><th>Catch-all</th><th>Technical context</th><th>Audit ID</th></tr></thead><tbody>${contacts}</tbody></table></div></section>
+<section class="section page-break"><h2>Contact-level Results</h2><p><b>${manifest.includedDetailRecords.toLocaleString("en-US")} of ${manifest.totalDetailRecords.toLocaleString("en-US")} unique results included.</b> Source row refers to the position in the uploaded file. Source row numbers may be non-consecutive because rejected and duplicate rows are not repeated in the unique result set.</p><div class="scroll"><table><thead><tr><th>Result #</th><th>First source row</th><th>Original input</th><th>Normalized email</th><th>Decision</th><th>Score</th><th>Primary reason</th><th>Recommended action</th><th>MX</th><th>Mailbox</th><th>Catch-all</th><th>Technical context</th><th>Audit ID</th></tr></thead><tbody>${contacts}</tbody></table></div></section>
 <section class="section keep"><h2>Methodology and Evidence Limitations</h2><p>Secwyn applies the recorded engine and policy versions to available contact, domain, DNS and mailbox evidence. Send, Review and Suppress are operational decisions, not outcome guarantees.</p><ul>${model.limitations.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>
 <section class="section keep"><h2>Audit Metadata</h2><div class="meta"><div>Audit ID: <b>${escapeHtml(model.metadata.auditId)}</b></div><div>Audited at: <b>${escapeHtml(model.metadata.auditedAt)}</b></div><div>Engine version: <b>${escapeHtml(model.metadata.engineVersion)}</b></div><div>Policy version: <b>${escapeHtml(model.metadata.policyVersion)}</b></div><div>Report generated: <b>${escapeHtml(model.metadata.generatedAt)}</b></div><div>Result source: <b>${escapeHtml(model.metadata.source)}</b></div></div></section>
 <footer><b>Secwyn</b> · support@secwyn.com<br>Generated from the recorded audit results. Viewing, downloading, or printing this report does not consume contact credits.</footer>
