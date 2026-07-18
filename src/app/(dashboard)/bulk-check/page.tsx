@@ -10,7 +10,7 @@ import { AuditReportPreview } from "@/components/audit/AuditReportPreview";
 import { buildAuditReportModel, buildClientReportHtml } from "@/lib/audit/report-format";
 import { chunkWebBulkEmails, getDroppedWebBulkFile, mergeWebBulkResponses, readWebBulkFileInput, reconcileWebBulkText, runWebBulkBatches, type WebBulkFile } from "@/lib/bulk-web-batching";
 import { trackE8Event } from "@/components/e8/AttributionObserver";
-import { finalizeInputReconciliation, getPlanAuditCta, statusLabel, type InputReconciliation } from "@/lib/decision-integrity";
+import { finalizeInputReconciliation, getPlanAuditCta, publicDecisionLabel, statusLabel, type InputReconciliation } from "@/lib/decision-integrity";
 
 interface BulkResult extends Record<string, unknown> {
   audit_queue?: string;
@@ -106,13 +106,13 @@ export default function BulkCheckPage() {
   const hasClientReadyReport = ["growth", "scale", "business"].includes(resultPlan.toLowerCase());
 
   function readExportValue(result: BulkResult, key: string) {
-    if (key === "risk_level") return result.risk_level || result.decision || "";
+    if (key === "risk_level" || key === "decision") return publicDecisionLabel(result.risk_level || result.decision);
     if (key === "disposable") return statusLabel(result.disposable, "Unknown");
     if (key === "role_based") return statusLabel(result.role_based, "Unknown");
     if (key === "reasons") return (result.reasons || []).join("; ");
     if (key === "impact") return (result.impact || []).join(" | ");
     if (key === "risk_factors") return (result.risk_factors || []).join(" | ");
-    if (key === "audit_queue") return result.audit_queue || result.decision || result.risk_level || "";
+    if (key === "audit_queue") return publicDecisionLabel(result.audit_queue || result.decision || result.risk_level);
     if (key === "reason_codes") return (result.reason_codes || []).join("; ");
     if (key === "primary_reason") return result.primary_reason || "";
     if (key === "recommended_action") return result.recommended_action || "";
@@ -164,7 +164,7 @@ export default function BulkCheckPage() {
     }
 
     if (column.key === "risk_level" || column.key === "decision") {
-      return <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${decisionBadge(decision)}`}>{String(value)}</span>;
+      return <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${decisionBadge(decision)}`}>{publicDecisionLabel(value)}</span>;
     }
 
     if (column.key === "reasons" || column.key === "risk_factors" || column.key === "impact") {
@@ -390,9 +390,9 @@ export default function BulkCheckPage() {
         { key: "primary_reason", label: "Primary Reason", format: (row) => row.primary_reason || readExportValue(row, "primary_reason") },
         { key: "recommended_action", label: "Recommended Action", format: (row) => row.recommended_action || readExportValue(row, "recommended_action") },
         { key: "business_impact", label: "Business Impact", format: (row) => row.business_impact || readExportValue(row, "business_impact") },
-        { key: "decision", label: "Decision", format: (row) => row.decision || row.risk_level || "" },
+        { key: "decision", label: "Decision", format: (row) => publicDecisionLabel(row.decision || row.risk_level) },
         { key: "risk_score", label: "Base Signal Score", format: (row) => row.risk_score ?? "" },
-        { key: "risk_level", label: "Final Decision", format: (row) => row.risk_level || row.decision || "" },
+        { key: "risk_level", label: "Final Decision", format: (row) => publicDecisionLabel(row.risk_level || row.decision) },
       ],
       review: [
         { key: "email", label: "Email" },
@@ -403,9 +403,9 @@ export default function BulkCheckPage() {
         { key: "business_impact", label: "Business Impact", format: (row) => row.business_impact || readExportValue(row, "business_impact") },
         { key: "recommended_action", label: "Recommended Action", format: (row) => row.recommended_action || readExportValue(row, "recommended_action") },
         { key: "evidence_summary", label: "Evidence Summary", format: (row) => readExportValue(row, "evidence_summary") },
-        { key: "decision", label: "Decision", format: (row) => row.decision || row.risk_level || "" },
+        { key: "decision", label: "Decision", format: (row) => publicDecisionLabel(row.decision || row.risk_level) },
         { key: "risk_score", label: "Base Signal Score", format: (row) => row.risk_score ?? "" },
-        { key: "risk_level", label: "Final Decision", format: (row) => row.risk_level || row.decision || "" },
+        { key: "risk_level", label: "Final Decision", format: (row) => publicDecisionLabel(row.risk_level || row.decision) },
       ],
       suppress: [
         { key: "email", label: "Email" },
@@ -416,9 +416,9 @@ export default function BulkCheckPage() {
         { key: "business_impact", label: "Business Impact", format: (row) => row.business_impact || readExportValue(row, "business_impact") },
         { key: "recommended_action", label: "Recommended Action", format: (row) => row.recommended_action || readExportValue(row, "recommended_action") },
         { key: "evidence_summary", label: "Evidence Summary", format: (row) => readExportValue(row, "evidence_summary") },
-        { key: "decision", label: "Decision", format: (row) => row.decision || row.risk_level || "" },
+        { key: "decision", label: "Decision", format: (row) => publicDecisionLabel(row.decision || row.risk_level) },
         { key: "risk_score", label: "Base Signal Score", format: (row) => row.risk_score ?? "" },
-        { key: "risk_level", label: "Final Decision", format: (row) => row.risk_level || row.decision || "" },
+        { key: "risk_level", label: "Final Decision", format: (row) => publicDecisionLabel(row.risk_level || row.decision) },
       ],
     };
 

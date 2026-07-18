@@ -2,7 +2,7 @@
 
 import { BadgeInfo, Download, FileText, Printer, ShieldCheck, TriangleAlert } from "lucide-react";
 import { useMemo } from "react";
-import type { InputReconciliation } from "@/lib/decision-integrity";
+import { publicDecisionLabel, type InputReconciliation } from "@/lib/decision-integrity";
 import type { ListAuditSummary } from "@/lib/list-audit";
 import { buildAuditReportModel, type AuditReportResult } from "@/lib/audit/report-format";
 
@@ -29,7 +29,7 @@ function stateLine(counts: Record<string, number>) {
 
 function reportDecisionTone(value: unknown): "allow" | "review" | "block" {
   const decision = String(value || "REVIEW").toUpperCase();
-  return decision === "ALLOW" ? "allow" : decision === "BLOCK" ? "block" : "review";
+  return decision === "ALLOW" || decision === "SEND" ? "allow" : decision === "BLOCK" || decision === "SUPPRESS" ? "block" : "review";
 }
 
 export function AuditReportPreview({
@@ -143,7 +143,7 @@ export function AuditReportPreview({
               <thead className="bg-black/40 text-slate-400"><tr><th className="p-3">Row</th><th className="p-3">Original input</th><th className="p-3">Normalized email</th><th className="p-3">Decision</th><th className="p-3">Score</th><th className="p-3">Primary reason</th><th className="p-3">Recommended action</th><th className="p-3">Evidence state</th><th className="p-3">Technical context</th></tr></thead>
               <tbody>
                 {previewContacts.map((item, index) => {
-                  const decision = String(item.decision || item.risk_level || "REVIEW").toUpperCase();
+                  const decision = publicDecisionLabel(item.decision || item.risk_level);
                   return <tr key={`${String(item.audit_id || item.email)}:${index}`} className="border-t border-white/8">
                     <td data-label="Row" className="p-3 text-slate-500">{String(item.row_number ?? index + 1)}</td>
                     <td data-label="Original input" className="break-all p-3 font-mono text-slate-200">{String(item.original_input || item.email || "Not available")}</td>

@@ -323,6 +323,13 @@ export function statusLabel(value: unknown, unknownLabel = "Unknown"): string {
   return unknownLabel;
 }
 
+export function publicDecisionLabel(value: unknown): "SEND" | "REVIEW" | "SUPPRESS" {
+  const decision = String(value || "REVIEW").trim().toUpperCase();
+  if (decision === "ALLOW" || decision === "SEND") return "SEND";
+  if (decision === "BLOCK" || decision === "SUPPRESS") return "SUPPRESS";
+  return "REVIEW";
+}
+
 export function sanitizeDecisionText(value: string): string {
   return value.replace(/\s*\?\s*/g, " - ").replace(/\s+/g, " ").trim();
 }

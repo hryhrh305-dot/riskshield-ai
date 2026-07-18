@@ -35,7 +35,6 @@ const icps = [
   ["RevOps teams", "Create a repeatable approval step between list preparation and campaign launch."],
   ["Lead-generation firms", "Separate sendable records from those that need review or suppression."],
   ["High-value account teams", "Apply more discipline when each contact and sender relationship carries greater value."],
-  ["Signup and form-abuse teams", "Developing: signup and form-abuse review is a future direction, not a current production capability."],
 ] as const;
 
 const workflow = [
@@ -55,9 +54,8 @@ const faqs = [
   ["What counts as one audit?", "One unique contact evaluation consumes one credit. Cached results are still charged because they provide the same usable decision while returning faster."],
   ["Do downloads use additional credits?", "No. Exporting results that have already been audited does not consume an additional credit."],
   ["How does Secwyn handle unknown signals?", "Unknown or unavailable signals stay explicit. Secwyn does not convert missing evidence into a confident claim."],
-  ["Are the 50 free audits monthly?", "No. A new account receives 50 one-time credits for evaluation; they are not a recurring monthly allowance."],
+  ["Are the 50 free checks monthly?", "No. A new account receives 50 one-time checks for evaluation; they are not a recurring monthly allowance."],
   ["Which plans include API and Google Sheets access?", "Growth and Scale include API and Google Sheets access. Business arrangements can be tailored to agreed requirements."],
-  ["Does Secwyn review signup or form abuse today?", "Not as a released production workflow. Developing: signup and form-abuse review remains a clearly labeled future direction."],
   ["When does Secwyn use paid vendor data?", "Paid vendor enrichment is used only when the relevant production feature and commercial configuration are enabled. Secwyn does not imply paid-vendor coverage when it was not used."],
 ] as const;
 
@@ -122,7 +120,7 @@ export default function HomePageClient() {
             ) : (
               <>
                 <Link href="/login" className="rounded-full px-3 py-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white">Sign In</Link>
-                <Link href="/signup" className="rs-button-primary inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold">Audit 50 Contacts Free</Link>
+                <Link href="/signup" className="rs-button-primary inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold">Start with 50 Free Checks</Link>
               </>
             ))}
           </div>
@@ -146,7 +144,7 @@ export default function HomePageClient() {
               ) : (
                 <>
                   <Link href="/login" onClick={() => setMenuOpen(false)} className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">Sign In</Link>
-                  <Link href="/signup" onClick={() => setMenuOpen(false)} className="rs-button-primary flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold">Audit 50 Contacts Free</Link>
+                  <Link href="/signup" onClick={() => setMenuOpen(false)} className="rs-button-primary flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold">Start with 50 Free Checks</Link>
                 </>
               ))}
             </div>
@@ -172,7 +170,7 @@ export default function HomePageClient() {
               Built for outbound agencies, deliverability specialists, RevOps teams, and operators protecting high-value accounts.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <Link href={ctaHref} className="rs-button-primary rs-link-arrow inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold">Audit 50 Contacts Free <ArrowRight className="h-4 w-4" /></Link>
+              <Link href={ctaHref} className="rs-button-primary rs-link-arrow inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold">Start with 50 Free Checks <ArrowRight className="h-4 w-4" /></Link>
               <Link href="#sample-audit" className="rs-button-secondary rs-link-arrow inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold">View a Sample Audit <FileCheck2 className="h-4 w-4" /></Link>
             </div>
             <p className="mt-3 text-xs text-slate-500">No credit card required. New accounts receive 50 one-time contact checks as a non-recurring evaluation allowance.</p>
@@ -235,12 +233,11 @@ export default function HomePageClient() {
             <h2 className="rs-marketing-title mt-3 text-3xl font-semibold tracking-[-0.04em] text-white">A second line of judgment for teams with more at stake.</h2>
           </div>
           <div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {icps.map(([title, description], index) => (
+            {icps.map(([title, description]) => (
               <article key={title} className="rounded-[26px] border border-white/10 bg-black/20 p-6">
                 <Users className="h-5 w-5 text-slate-300" />
                 <h3 className="mt-5 text-lg font-semibold text-white">{title}</h3>
                 <p className="mt-3 text-sm leading-6 text-slate-300">{description}</p>
-                {index === 5 && <span className="mt-4 inline-flex rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs text-amber-200">Future direction</span>}
               </article>
             ))}
           </div>
@@ -299,7 +296,6 @@ export default function HomePageClient() {
                 "No inbox-placement or revenue guarantees",
                 "No hidden conversion of missing evidence into certainty",
                 "No claim that a paid vendor was queried unless it was actually used",
-                "No claim that future signup or form-abuse workflows are production-ready",
               ].map((item) => <li key={item} className="flex gap-3"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />{item}</li>)}
             </ul>
           </article>
@@ -326,7 +322,7 @@ export default function HomePageClient() {
             <h2 className="rs-marketing-title mt-5 text-3xl font-semibold tracking-[-0.04em] text-white">Put a governed decision between list preparation and launch.</h2>
             <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-300">Start with 50 one-time credits, then choose the monthly capacity that fits your audit workflow.</p>
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-              <Link href={ctaHref} className="rs-button-primary inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold">Audit 50 Contacts Free <ArrowRight className="h-4 w-4" /></Link>
+              <Link href={ctaHref} className="rs-button-primary inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold">Start with 50 Free Checks <ArrowRight className="h-4 w-4" /></Link>
               <Link href="/pricing" className="rs-button-secondary inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold">Compare Plans</Link>
             </div>
           </div>

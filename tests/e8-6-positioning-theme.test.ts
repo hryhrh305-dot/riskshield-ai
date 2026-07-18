@@ -20,7 +20,7 @@ describe("E8.6 positioning contract", () => {
   it("leads with the approved pre-send governance message", () => {
     expect(home).toContain("Second-line pre-send risk governance");
     expect(home).toContain("Approve high-value campaigns before the first send.");
-    expect(home).toContain("Audit 50 Contacts Free");
+    expect(home).toContain("Start with 50 Free Checks");
     expect(home).toContain("View a Sample Audit");
     expect(home).toContain("Valid is not a launch decision.");
   });
@@ -33,9 +33,9 @@ describe("E8.6 positioning contract", () => {
     expect(billingSuccess).toMatch(/<Link href="\/" className="flex items-center gap-3">[\s\S]*?<SecwynMark/);
   });
 
-  it("labels illustrative and future-state material honestly", () => {
+  it("labels illustrative material honestly and keeps future workflows out of the current ICP", () => {
     expect(home).toContain("Illustrative sample — not a real customer report");
-    expect(home).toContain("Developing: signup and form-abuse review");
+    expect(home).not.toContain("Developing: signup and form-abuse review");
     expect(home).toContain("We do not guarantee inbox placement");
   });
 
@@ -48,9 +48,8 @@ describe("E8.6 positioning contract", () => {
       "What counts as one audit?",
       "Do downloads use additional credits?",
       "How does Secwyn handle unknown signals?",
-      "Are the 50 free audits monthly?",
+      "Are the 50 free checks monthly?",
       "Which plans include API and Google Sheets access?",
-      "Does Secwyn review signup or form abuse today?",
       "When does Secwyn use paid vendor data?",
     ]) {
       expect(home).toContain(question);

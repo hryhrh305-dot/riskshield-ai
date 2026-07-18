@@ -27,7 +27,7 @@ export default function DocsPage() {
           </div>
           <h1 className="rs-marketing-title rs-title-settle text-3xl font-semibold text-white sm:text-4xl">Pre-Send Decision API</h1>
           <p className="rs-fade-up rs-fade-up-delay-1 mt-3 max-w-2xl text-slate-400">
-            Integrate email and IP risk intelligence in minutes. All endpoints require a Bearer token.
+            Add Secwyn pre-send decisions to your workflow. All endpoints require a Bearer token.
           </p>
           <p className="mt-3 text-xs uppercase tracking-[0.22em] text-amber-300">API access is available on Growth and above</p>
         </div>
@@ -51,7 +51,7 @@ export default function DocsPage() {
                 <span className="rs-method rs-method-post">POST</span>
                 <code className="rs-code rounded-full px-3 py-1 text-sm">/api/v1/email/check</code>
               </div>
-              <p className="mb-4 text-sm text-slate-400">Check if an email is valid, disposable, or risky.</p>
+              <p className="mb-4 text-sm text-slate-400">Assess email syntax, domain signals, and available mailbox evidence.</p>
               <div className="mb-2 text-xs font-medium uppercase tracking-[0.22em] text-slate-500">Request</div>
               <pre className="rs-code overflow-x-auto rounded-2xl p-3 text-xs text-slate-300">{`{
   "email": "test@mailinator.com"
@@ -61,9 +61,10 @@ export default function DocsPage() {
   "success": true,
   "email": "test@mailinator.com",
   "valid": true,
-  "disposable": true,
-  "domain": "mailinator.com",
-  "risk_score": 40
+  "risk_score": 70,
+  "audit_queue": "suppress",
+  "primary_reason": "Disposable mailbox",
+  "recommended_action": "Suppress"
 }`}</pre>
             </div>
 
@@ -92,7 +93,7 @@ export default function DocsPage() {
                 <span className="rs-method rs-method-post">POST</span>
                 <code className="rs-code rounded-full px-3 py-1 text-sm">/api/v1/risk/check</code>
               </div>
-              <p className="mb-4 text-sm text-slate-400">Run a combined email + IP risk check with recommendation output.</p>
+              <p className="mb-4 text-sm text-slate-400">Evaluate available email and IP signals with a recommended action.</p>
               <div className="mb-2 text-xs font-medium uppercase tracking-[0.22em] text-slate-500">Request</div>
               <pre className="rs-code overflow-x-auto rounded-2xl p-3 text-xs text-slate-300">{`{
   "email": "spam@mailinator.com",
@@ -102,9 +103,9 @@ export default function DocsPage() {
               <pre className="rs-code overflow-x-auto rounded-2xl p-3 text-xs text-slate-300">{`{
   "success": true,
   "risk_score": 70,
-  "decision": "BLOCK",
-  "reasons": ["Disposable email detected"],
-  "ai_reason": "The email is from a disposable domain, indicating potential abuse.",
+  "audit_queue": "suppress",
+  "primary_reason": "Disposable mailbox",
+  "recommended_action": "Suppress",
   "email": "spam@mailinator.com",
   "ip": "1.1.1.1"
 }`}</pre>
@@ -117,7 +118,7 @@ export default function DocsPage() {
               <span className="rs-method rs-method-post">POST</span>
               <code className="rs-code rounded-full px-3 py-1 text-sm">/api/v1/pre-send/check</code>
             </div>
-            <p className="mb-4 text-sm text-slate-400">Real-time screening before campaigns go out through Gmail, Outlook, HubSpot, or your own sender workflow.</p>
+            <p className="mb-4 text-sm text-slate-400">Run a pre-send list check before contacts enter your sender workflow.</p>
             <div className="mb-2 text-xs font-medium uppercase tracking-[0.22em] text-slate-500">Request (legacy pre-send endpoint)</div>
             <pre className="rs-code overflow-x-auto rounded-2xl p-3 text-xs text-slate-300">{`{
   "emails": ["lead1@company.com", "spam@temp.com", "..."],
@@ -128,10 +129,10 @@ export default function DocsPage() {
   "success": true,
   "summary": { "total": 1000, "allowed": 820, "blocked": 180 },
   "campaign_risk": "LOW",
-  "results": [{ "email": "...", "decision": "ALLOW" }]
+  "results": [{ "email": "...", "audit_queue": "send" }]
 }`}</pre>
             <div className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-200">
-              <strong>Integration tip:</strong> call this endpoint before sending. If decision = BLOCK, skip that recipient.
+              <strong>Integration tip:</strong> call this endpoint before sending. Keep Suppress contacts out of the send queue and resolve Review contacts with operator context.
             </div>
           </section>
 

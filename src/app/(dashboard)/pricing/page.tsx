@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Check, Clock3, Minus } from "lucide-react";
+import { Check, Minus } from "lucide-react";
 import { SecwynMark } from "@/components/brand/SecwynMark";
 import { plans, type PlanKey } from "@/lib/plans";
 import { getCreemAnnualOffer, getCreemSubscriptionCopy } from "@/lib/creem";
 import type { BillingCatalogGeneration } from "@/lib/billing-catalog";
 import { createClient } from "@/lib/supabase";
 
-type Availability = "included" | "limited" | "unavailable" | "soon" | "custom";
+type Availability = "included" | "limited" | "unavailable" | "custom";
 type BillingInterval = "monthly" | "yearly";
 type CheckoutKind = "checkout" | "contact" | "unavailable";
 type PublicPricingCatalog = {
@@ -52,7 +52,6 @@ type ComparisonSection = {
 const included = (text = "Included"): FeatureValue => ({ text, availability: "included" });
 const limited = (text: string): FeatureValue => ({ text, availability: "limited" });
 const unavailable = (): FeatureValue => ({ text: "-", availability: "unavailable" });
-const soon = (): FeatureValue => ({ text: "Coming soon", availability: "soon" });
 const custom = (text = "Custom"): FeatureValue => ({ text, availability: "custom" });
 
 const planHighlights: Record<PlanKey, string[]> = {
@@ -113,7 +112,7 @@ const comparisonSections: ComparisonSection[] = [
         },
       },
       {
-        label: "Audit runs per day",
+        label: "Daily contact processing limit",
         values: {
           free: included("5/day"),
           starter: included("300/day"),
@@ -182,16 +181,6 @@ const comparisonSections: ComparisonSection[] = [
           business: included(),
         },
       },
-      {
-        label: "Extended audit history retention",
-        values: {
-          free: unavailable(),
-          starter: unavailable(),
-          growth: soon(),
-          scale: soon(),
-          business: custom(),
-        },
-      },
     ],
   },
   {
@@ -238,13 +227,13 @@ const comparisonSections: ComparisonSection[] = [
         },
       },
       {
-        label: "MX mail-server verification",
+        label: "MX mail-server evidence",
         values: {
-          free: limited("Basic"),
-          starter: included("Deep"),
-          growth: included("Deep"),
-          scale: included("Deep"),
-          business: included("Deep"),
+          free: limited("Standard"),
+          starter: included("Standard"),
+          growth: included("Extended"),
+          scale: included("Extended"),
+          business: included("Custom"),
         },
       },
       {
@@ -308,9 +297,9 @@ const comparisonSections: ComparisonSection[] = [
         },
       },
       {
-        label: "Detailed risk factors",
+        label: "Detailed evidence and risk factors",
         values: {
-          free: limited("Basic signals only"),
+          free: unavailable(),
           starter: unavailable(),
           growth: included(),
           scale: included(),
@@ -318,17 +307,17 @@ const comparisonSections: ComparisonSection[] = [
         },
       },
       {
-        label: "Recommended actions and remediation",
+        label: "Recommended actions",
         values: {
           free: unavailable(),
-          starter: limited("Recommendation only"),
-          growth: included(),
-          scale: included(),
-          business: included(),
+          starter: limited("Recommended action"),
+          growth: included("Detailed actions"),
+          scale: included("Detailed actions"),
+          business: included("Custom"),
         },
       },
       {
-        label: "Company health score",
+        label: "Domain health context",
         values: {
           free: unavailable(),
           starter: unavailable(),
@@ -403,7 +392,7 @@ const comparisonSections: ComparisonSection[] = [
           free: unavailable(),
           starter: unavailable(),
           growth: included("Standard"),
-          scale: included("Higher limits"),
+          scale: included("Scale limits"),
           business: custom(),
         },
       },
@@ -427,131 +416,6 @@ const comparisonSections: ComparisonSection[] = [
           business: custom(),
         },
       },
-      {
-        label: "Campaign reporting dashboard",
-        values: {
-          free: unavailable(),
-          starter: unavailable(),
-          growth: soon(),
-          scale: soon(),
-          business: custom(),
-        },
-      },
-      {
-        label: "Risk settings",
-        values: {
-          free: unavailable(),
-          starter: unavailable(),
-          growth: included(),
-          scale: included(),
-          business: custom(),
-        },
-      },
-      {
-        label: "Blacklist management",
-        values: {
-          free: unavailable(),
-          starter: unavailable(),
-          growth: included(),
-          scale: included(),
-          business: custom(),
-        },
-      },
-      {
-        label: "Webhook delivery",
-        values: {
-          free: unavailable(),
-          starter: unavailable(),
-          growth: unavailable(),
-          scale: soon(),
-          business: custom(),
-        },
-      },
-      {
-        label: "Multiple API keys and key permissions",
-        values: {
-          free: unavailable(),
-          starter: unavailable(),
-          growth: unavailable(),
-          scale: soon(),
-          business: custom(),
-        },
-      },
-      {
-        label: "Custom risk rules and allowlists",
-        values: {
-          free: unavailable(),
-          starter: unavailable(),
-          growth: unavailable(),
-          scale: soon(),
-          business: custom(),
-        },
-      },
-    ],
-  },
-  {
-    title: "Operations and service",
-    rows: [
-      {
-        label: "API throughput",
-        values: {
-          free: unavailable(),
-          starter: unavailable(),
-          growth: included("Standard"),
-          scale: included("Higher"),
-          business: custom(),
-        },
-      },
-      {
-        label: "Team workspace and member roles",
-        values: {
-          free: unavailable(),
-          starter: unavailable(),
-          growth: soon(),
-          scale: soon(),
-          business: custom(),
-        },
-      },
-      {
-        label: "Priority processing queue",
-        values: {
-          free: unavailable(),
-          starter: unavailable(),
-          growth: unavailable(),
-          scale: soon(),
-          business: custom(),
-        },
-      },
-      {
-        label: "Implementation assistance",
-        values: {
-          free: unavailable(),
-          starter: unavailable(),
-          growth: unavailable(),
-          scale: soon(),
-          business: custom("Dedicated"),
-        },
-      },
-      {
-        label: "SLA and enterprise procurement",
-        values: {
-          free: unavailable(),
-          starter: unavailable(),
-          growth: unavailable(),
-          scale: unavailable(),
-          business: custom(),
-        },
-      },
-      {
-        label: "White-label reporting",
-        values: {
-          free: unavailable(),
-          starter: unavailable(),
-          growth: unavailable(),
-          scale: unavailable(),
-          business: custom("Optional"),
-        },
-      },
     ],
   },
 ];
@@ -562,15 +426,6 @@ function AvailabilityCell({ value }: { value: FeatureValue }) {
       <span className="inline-flex items-center gap-1.5 text-slate-600">
         <Minus className="h-4 w-4" />
         <span className="sr-only">Not included</span>
-      </span>
-    );
-  }
-
-  if (value.availability === "soon") {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-1 text-xs font-medium text-amber-200">
-        <Clock3 className="h-3.5 w-3.5" />
-        {value.text}
       </span>
     );
   }
@@ -708,9 +563,9 @@ export default function PricingPage() {
             Choose the decision capacity your campaign approval workflow needs.
           </h1>
           <p className="mt-4 text-base leading-7 text-slate-300">
-            Start with 50 one-time contact audits, then add repeatable list reviews, client-ready evidence, and API or Google Sheets access as your operating model grows.
+            Start with 50 one-time checks, then add repeatable list reviews, client-ready evidence, and API or Google Sheets access as your operating model grows.
           </p>
-          <p className="mt-4 text-sm text-slate-500">Less than the cost of one wasted campaign launch.</p>
+          <p className="mt-4 text-sm text-slate-500">Choose capacity based on the contacts you audit during each service month.</p>
         </section>
 
         <section className="mb-8 flex justify-center">
@@ -748,6 +603,8 @@ export default function PricingPage() {
         <section className="mb-12 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
           {planEntries.map(([key, plan]) => {
             const isPopular = key === "growth";
+            const badge = "badge" in plan ? plan.badge : null;
+            const contactOnly = "contactOnly" in plan && plan.contactOnly;
             const isPaidSelfServe = selfServePaidPlans.includes(key);
             const catalogPlan = publicCatalog && (key === "starter" || key === "growth" || key === "scale") ? publicCatalog.plans[key] : null;
             const annualOffer = getCreemAnnualOffer(key, publicCatalog?.generation ?? "legacy");
@@ -778,9 +635,9 @@ export default function PricingPage() {
                     : "border-white/10 bg-black/20 text-white"
                 }`}
               >
-                {plan.badge && (
+                {badge && (
                   <div className="rs-pricing-popular-badge absolute right-4 top-4 rounded-full border border-white/10 bg-white px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-950">
-                    {plan.badge}
+                    {badge}
                   </div>
                 )}
 
@@ -793,9 +650,9 @@ export default function PricingPage() {
 
                 <div className="mt-5">
                   <span className="text-4xl font-semibold tracking-[-0.05em]">{displayedPrice}</span>
-                  {!plan.contactOnly && key !== "free" && <span className={isPopular ? "text-slate-200" : "text-slate-500"}>{displayedPeriod}</span>}
+                  {!contactOnly && key !== "free" && <span className={isPopular ? "text-slate-200" : "text-slate-500"}>{displayedPeriod}</span>}
                   <p className={`mt-2 text-sm font-medium ${isPopular ? "text-slate-100" : "text-slate-300"}`}>
-                    {catalogPlan ? `${catalogPlan.monthlyCredits.toLocaleString("en-US")} contacts audited / month` : isPaidSelfServe ? "Loading plan details..." : plan.creditsLabel}
+                    {catalogPlan ? `${catalogPlan.monthlyCredits.toLocaleString("en-US")} contacts audited / month` : isPaidSelfServe ? "Loading plan details…" : plan.creditsLabel}
                   </p>
                   {showYearly && annualDiscountPercentLabel && annualSavingsAmountLabel && (
                     <div className={`mt-3 flex flex-wrap gap-2 text-xs font-semibold ${
@@ -841,7 +698,7 @@ export default function PricingPage() {
                 <ul className="mt-5 flex-1 space-y-2.5">
                   {(catalogPlan
                     ? [`${catalogPlan.monthlyCredits.toLocaleString("en-US")} contacts audited / month`, ...planHighlights[key].slice(1)]
-                    : isPaidSelfServe ? ["Loading plan details..."] : planHighlights[key]
+                    : isPaidSelfServe ? ["Loading plan details…"] : planHighlights[key]
                   ).map((item) => (
                     <li key={item} className={`flex items-start gap-2 text-sm ${isPopular ? "text-slate-100" : "text-slate-300"}`}>
                       <Check className={`mt-0.5 h-4 w-4 shrink-0 ${isPopular ? "text-white" : "text-emerald-300"}`} />
@@ -882,13 +739,13 @@ export default function PricingPage() {
                       : isCanaryCheckoutLocked
                         ? "Checkout validation pending"
                       : catalogPlan && (billingInterval === "yearly" ? catalogPlan.annualCheckout : catalogPlan.monthlyCheckout) === "unavailable"
-                        ? "Coming soon"
+                        ? "Not available"
                       : isPaidSelfServe && !catalogPlan
-                        ? "Loading..."
+                        ? "Loading…"
                       : key === currentPlan
                         ? "Current plan"
                         : checkoutLoading === checkoutLoadingKey
-                          ? "Redirecting..."
+                          ? "Redirecting…"
                           : key === "starter"
                             ? "Start Starter"
                             : key === "growth"
@@ -898,7 +755,7 @@ export default function PricingPage() {
 
                 {isCanaryCheckoutLocked && (
                   <p className={`mt-3 text-xs ${isPopular ? "text-slate-200" : "text-slate-500"}`}>
-                    Test checkout not enabled. No payment will be started during this acceptance stage.
+                    Administrator test checkout is currently disabled. This button will not start a payment.
                   </p>
                 )}
 
@@ -932,12 +789,11 @@ export default function PricingPage() {
           <div className="border-b border-white/10 bg-white/[0.03] px-5 py-5 sm:px-6">
             <h2 className="text-xl font-semibold text-white">Detailed audit plan comparison</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Features marked &quot;Coming soon&quot; are roadmap items and are not presented as currently available.
+              This table lists capabilities that are available now under the shown plan or an agreed Business arrangement.
             </p>
             <div className="mt-3 flex flex-wrap gap-3 text-xs">
               <span className="inline-flex items-center gap-1.5 text-emerald-300"><Check className="h-3.5 w-3.5" /> Included</span>
               <span className="inline-flex items-center gap-1.5 text-slate-300"><Check className="h-3.5 w-3.5" /> Limited or plan-specific</span>
-              <span className="inline-flex items-center gap-1.5 text-amber-200"><Clock3 className="h-3.5 w-3.5" /> Coming soon</span>
               <span className="inline-flex items-center gap-1.5 text-slate-200">Custom enterprise terms</span>
             </div>
           </div>

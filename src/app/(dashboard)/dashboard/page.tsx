@@ -835,13 +835,13 @@ export default function DashboardPage() {
           <h2 className="mb-1 flex items-center gap-2 font-semibold text-white">
             <Settings className="h-5 w-5 text-slate-300" /> Protection Settings
           </h2>
-          <p className="mb-4 text-xs text-slate-500">Toggle which risks should force BLOCK or REVIEW. Applies to web checks and API.</p>
+          <p className="mb-4 text-xs text-slate-500">Choose which risks should force Suppress or Review. Applies to Web checks and API checks.</p>
 
           <div className="mb-4 space-y-3">
             {(settings || defaultSettings) &&
               [
-                { key: "block_disposable", label: "Block disposable emails", desc: "Force BLOCK on temporary/disposable email addresses" },
-                { key: "block_high_risk", label: "Block high base signal score", desc: "Force BLOCK when the base signal score is 66 or above" },
+                { key: "block_disposable", label: "Suppress disposable emails", desc: "Force Suppress for temporary or disposable email addresses" },
+                { key: "block_high_risk", label: "Suppress high base signal scores", desc: "Force Suppress when the base signal score is 66 or above" },
                 { key: "review_catch_all", label: "Review catch-all domains", desc: "Force REVIEW on domains that accept all mailboxes" },
                 { key: "review_new_domain", label: "Review new domains", desc: "Force REVIEW on domains less than 90 days old" },
               ].map(({ key, label, desc }) => (

@@ -217,9 +217,9 @@ describe("E8.7 artifact and surface safety", () => {
     expect(globals).toContain("box-decoration-break: clone;");
     expect(globals).toContain("-webkit-box-decoration-break: clone;");
     expect(globals).toMatch(/\.report-contact-table tr[^}]*box-shadow: inset 0 2px 0 #d8dee7 !important;/s);
-    expect(markup).toMatch(/report-decision-allow[^>]*>ALLOW</);
+    expect(markup).toMatch(/report-decision-allow[^>]*>SEND</);
     expect(markup).toMatch(/report-decision-review[^>]*>REVIEW</);
-    expect(markup).toMatch(/report-decision-block[^>]*>BLOCK</);
+    expect(markup).toMatch(/report-decision-block[^>]*>SUPPRESS</);
     expect(globals).toMatch(/\.report-decision-allow[^}]*color: #15763a !important;/s);
     expect(globals).toMatch(/\.report-decision-review[^}]*color: #955b08 !important;/s);
     expect(globals).toMatch(/\.report-decision-block[^}]*color: #b42336 !important;/s);

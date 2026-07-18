@@ -1,4 +1,4 @@
-import type { InputReconciliation } from "@/lib/decision-integrity";
+import { publicDecisionLabel, type InputReconciliation } from "@/lib/decision-integrity";
 import type { AuditQueue, ListAuditSummary } from "@/lib/list-audit";
 
 export type AuditReportResult = Record<string, unknown> & {
@@ -78,12 +78,12 @@ function readText(value: unknown, fallback = "Not available"): string {
 }
 
 function readDecision(result: AuditReportResult): string {
-  return readText(result.decision ?? result.risk_level, "REVIEW").toUpperCase();
+  return publicDecisionLabel(result.decision ?? result.risk_level);
 }
 
 function resultQueue(result: AuditReportResult): AuditQueue {
   const decision = readDecision(result);
-  return decision === "ALLOW" ? "send" : decision === "BLOCK" ? "suppress" : "review";
+  return decision === "SEND" ? "send" : decision === "SUPPRESS" ? "suppress" : "review";
 }
 
 function percent(count: number, total: number): number {

@@ -6,7 +6,7 @@ import { Shield, Mail, Globe, AlertTriangle, CheckCircle, XCircle, ArrowRight, Z
 import Link from "next/link";
 import { getResultVisibility } from "@/lib/plans";
 import { trackE8Event } from "@/components/e8/AttributionObserver";
-import { statusLabel } from "@/lib/decision-integrity";
+import { publicDecisionLabel, statusLabel } from "@/lib/decision-integrity";
 
 interface RiskResult {
   impact?: string[];
@@ -305,7 +305,7 @@ export default function RiskCheckPage() {
               </h2>
               <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ${decisionColor(result.decision)}`}>
                 {decisionIcon(result.decision)}
-                Final Decision: {result.decision}
+                Final Decision: {publicDecisionLabel(result.decision)}
               </span>
             </div>
 
@@ -444,10 +444,10 @@ export default function RiskCheckPage() {
 
             {hasAdvancedEmailDeliverability && (
               <div className="mb-4 rounded-[24px] border border-white/10 bg-white/[0.035] p-4">
-                <h3 className="mb-3 text-sm font-medium text-slate-200">Email Deliverability</h3>
+                <h3 className="mb-3 text-sm font-medium text-slate-200">Mailbox Evidence</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <div className="mb-0.5 text-xs text-slate-500">Inbox Probability</div>
+                    <div className="mb-0.5 text-xs text-slate-500">Mailbox Evidence Status</div>
                     <div className={`font-semibold text-sm ${
                       emailDetails?.inboxProbability === "confirmed" ? "text-emerald-300" :
                       emailDetails?.inboxProbability === "none" ? "text-red-300" : "text-slate-400"

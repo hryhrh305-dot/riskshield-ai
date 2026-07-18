@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Pre-send Audit History - Secwyn",
   description:
-    "Review past Secwyn pre-send audits, campaign readiness decisions, and list risk breakdowns before launch.",
+    "Review past Secwyn pre-send audits, approval decisions, and list risk breakdowns before launch.",
   alternates: {
     canonical: "/pre-send",
   },

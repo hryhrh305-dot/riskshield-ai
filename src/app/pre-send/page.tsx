@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Shield, ChevronDown, ChevronUp, BarChart3, ArrowRight, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { publicDecisionLabel } from "@/lib/decision-integrity";
 
 interface Campaign {
   id: string;
@@ -98,7 +99,7 @@ export default function PreSendPage() {
 
         {loading && (
           <div className="rs-card rounded-[28px] p-10 text-center text-sm text-slate-400">
-            Loading audit history...
+            Loading audit history…
           </div>
         )}
 
@@ -139,7 +140,7 @@ export default function PreSendPage() {
                     <div className={`mt-1 text-sm font-semibold ${scoreColor(campaign.risk_score_avg)}`}>{campaign.risk_score_avg}</div>
                   </div>
                   <div className="rounded-2xl border border-red-500/15 bg-red-500/8 px-3 py-2 text-center">
-                    <div className="text-[11px] uppercase tracking-[0.18em] text-red-200/70">Blocked</div>
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-red-200/70">Suppressed</div>
                     <div className="mt-1 text-sm font-semibold text-red-300">{campaign.blocked_count}</div>
                   </div>
                   {expandedId === campaign.id ? <ChevronUp className="h-5 w-5 text-slate-400" /> : <ChevronDown className="h-5 w-5 text-slate-400" />}
@@ -149,7 +150,7 @@ export default function PreSendPage() {
               {expandedId === campaign.id && (
                 <div className="border-t border-white/10 px-5 py-4">
                   {!results[campaign.id] ? (
-                    <div className="text-sm text-slate-500">Loading campaign results...</div>
+                    <div className="text-sm text-slate-500">Loading campaign results…</div>
                   ) : results[campaign.id].length === 0 ? (
                     <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-5 text-sm text-slate-400">
                       No saved contact-level results were returned for this campaign.
@@ -173,7 +174,7 @@ export default function PreSendPage() {
                             <div className={`text-lg font-semibold ${scoreColor(result.risk_score)}`}>{result.risk_score}</div>
                             <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${decisionBadge(result.decision)}`}>
                               {result.decision === "BLOCK" ? <AlertTriangle className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                              {result.decision}
+                              {publicDecisionLabel(result.decision)}
                             </span>
                           </div>
                         </div>
