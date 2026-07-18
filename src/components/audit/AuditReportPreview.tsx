@@ -48,7 +48,7 @@ export function AuditReportPreview({
     <section className="secwyn-print-report rs-card rs-card-hover mb-6 overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-white/[0.045] to-black/[0.2]" aria-labelledby="audit-report-title">
       <header className="border-b border-white/8 px-5 py-5 sm:px-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-2xl">
+          <div className="min-w-0 flex-1">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-400">
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" /> Secwyn client-ready report
             </div>
