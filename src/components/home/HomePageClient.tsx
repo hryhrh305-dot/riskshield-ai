@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { SecwynMark } from "@/components/brand/SecwynMark";
+import { trackE8Event } from "@/components/e8/AttributionObserver";
 import { createClient } from "@/lib/supabase";
 
 const outcomes = [
@@ -171,7 +172,7 @@ export default function HomePageClient() {
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <Link href={ctaHref} className="rs-button-primary rs-link-arrow inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold">Start with 50 Free Checks <ArrowRight className="h-4 w-4" /></Link>
-              <Link href="#sample-audit" className="rs-button-secondary rs-link-arrow inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold">View a Sample Audit <FileCheck2 className="h-4 w-4" /></Link>
+              <Link href="/sample-audit" onClick={() => trackE8Event("sample_audit_home_cta_clicked", { destination: "sample_audit" })} className="rs-button-secondary rs-link-arrow inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold">Explore a Sample Audit <FileCheck2 className="h-4 w-4" /></Link>
             </div>
             <p className="mt-3 text-xs text-slate-500">No credit card required. New accounts receive 50 one-time contact checks as a non-recurring evaluation allowance.</p>
           </div>

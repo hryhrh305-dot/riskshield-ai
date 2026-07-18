@@ -21,7 +21,7 @@ describe("E8.6 positioning contract", () => {
     expect(home).toContain("Second-line pre-send risk governance");
     expect(home).toContain("Approve high-value campaigns before the first send.");
     expect(home).toContain("Start with 50 Free Checks");
-    expect(home).toContain("View a Sample Audit");
+    expect(home).toContain("Explore a Sample Audit");
     expect(home).toContain("Valid is not a launch decision.");
   });
 

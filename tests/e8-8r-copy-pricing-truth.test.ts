@@ -42,6 +42,11 @@ describe("E8.8R Phase B.5 public copy truth", () => {
 });
 
 describe("E8.8R Phase B.5 pricing entitlement truth", () => {
+  it("aligns every plan price row beneath an equal positioning block", () => {
+    expect(pricing).toContain('className={`mt-1 min-h-[60px] text-sm');
+    expect(pricing).not.toContain('className={`mt-1 min-h-10 text-sm');
+  });
+
   it("keeps Legacy and Premium V2 pricing generations distinct", () => {
     expect(getBillingCatalogEntry("legacy", "scale", "monthly")).toMatchObject({
       priceUsd: 1499,

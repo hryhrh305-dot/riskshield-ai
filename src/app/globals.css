@@ -714,6 +714,10 @@ html[data-theme="light"] :where(.rs-shell, .rs-app) .rs-bulk-plan-notice {
   color: #24527a !important;
 }
 
+html[data-theme="light"] :where(.rs-shell, .rs-app) .rs-auth-info-message {
+  color: #24527a !important;
+}
+
 html[data-theme="light"] :where(.rs-shell, .rs-app) .rs-bulk-results-head th {
   color: #f8fafc !important;
 }

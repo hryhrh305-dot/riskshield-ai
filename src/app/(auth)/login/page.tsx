@@ -103,7 +103,7 @@ export default function LoginPage() {
 
         <form onSubmit={handleLogin} className="rs-card rs-card-hover space-y-4 rounded-[28px] p-6 sm:p-7">
           {error && <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-200">{error}</div>}
-          {infoMessage && <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-3 text-sm text-blue-200">{infoMessage}</div>}
+          {infoMessage && <div className="rs-auth-info-message rounded-2xl border border-blue-500/20 bg-blue-500/10 p-3 text-sm text-blue-200">{infoMessage}</div>}
           {resendMessage && <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-3 text-sm text-blue-200">{resendMessage}</div>}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-300">Email</label>

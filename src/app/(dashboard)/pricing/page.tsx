@@ -677,7 +677,7 @@ export default function PricingPage() {
 
                 <div>
                   <h2 className="text-lg font-semibold tracking-[-0.02em]">{plan.name}</h2>
-                  <p className={`mt-1 min-h-10 text-sm ${isPopular ? "text-slate-200" : "text-slate-400"}`}>
+                  <p className={`mt-1 min-h-[60px] text-sm ${isPopular ? "text-slate-200" : "text-slate-400"}`}>
                     {planPositioning[key]}
                   </p>
                 </div>
