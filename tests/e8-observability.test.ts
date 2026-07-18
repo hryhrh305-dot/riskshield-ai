@@ -123,6 +123,9 @@ describe("E8 Creem metadata contract", () => {
 describe("E8 strict validation", () => {
   it("accepts the supported product events and rejects unknown/PII-shaped values", () => {
     expect(parseProductEvent({ event_name: "pricing_viewed", anonymous_id: crypto.randomUUID(), idempotency_key: crypto.randomUUID() })?.eventName).toBe("pricing_viewed");
+    for (const eventName of ["sample_audit_home_cta_clicked", "sample_audit_viewed", "sample_audit_primary_cta_clicked", "sample_audit_pricing_clicked"]) {
+      expect(parseProductEvent({ event_name: eventName, anonymous_id: crypto.randomUUID(), idempotency_key: crypto.randomUUID() })?.eventName).toBe(eventName);
+    }
     expect(parseProductEvent({ event_name: "made_up", anonymous_id: crypto.randomUUID(), idempotency_key: crypto.randomUUID() })).toBeNull();
     expect(parseProductEvent({ event_name: "pricing_viewed", anonymous_id: "email@example.com", idempotency_key: crypto.randomUUID() })).toBeNull();
   });
