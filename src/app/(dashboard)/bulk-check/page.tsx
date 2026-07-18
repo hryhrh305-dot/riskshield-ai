@@ -230,21 +230,31 @@ export default function BulkCheckPage() {
   async function scanInBatches(reconciliation: InputReconciliation) {
     const e8RunId = crypto.randomUUID();
     const chunks = chunkWebBulkEmails(reconciliation.accepted);
-    const responses = await runWebBulkBatches(chunks, async (chunk) => {
+    const responses = await runWebBulkBatches(chunks, async (chunk, index) => {
       const res = await fetch("/api/bulk-check", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "idempotency-key": `bulk:${e8RunId}:${index}`,
+        },
         body: JSON.stringify({ emails: chunk }),
       });
       const data: BulkApiResponse = await res.json();
       if (!res.ok) {
-        const failure = new Error(data.message || data.error || "Check failed") as Error & { upgradeNeeded?: boolean };
+        const failure = new Error(data.message || data.error || "Check failed") as Error & { upgradeNeeded?: boolean; retryable?: boolean };
         failure.upgradeNeeded = !!data.upgradeNeeded;
+        failure.retryable = res.status === 408 || res.status === 429 || res.status >= 500;
         throw failure;
       }
       return data;
     }, (completed, total) => {
       setStatusMessage(`Scanning batch ${completed} of ${total}...`);
+    }, {
+      maxAttempts: 3,
+      baseDelayMs: 750,
+      onRetry: (chunkIndex, nextAttempt, maxAttempts) => {
+        setStatusMessage(`Connection interrupted. Retrying batch ${chunkIndex + 1} (attempt ${nextAttempt} of ${maxAttempts})...`);
+      },
     });
     const merged = mergeWebBulkResponses(responses);
     setResults(merged.results as BulkResult[]);

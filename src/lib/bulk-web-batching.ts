@@ -3,9 +3,15 @@ import { attachCanonicalDecisionResult } from "@/lib/decision-contract";
 import { reconcileInputRows, splitScreeningTextRows, type InputReconciliation } from "@/lib/decision-integrity";
 import * as XLSXLib from "xlsx";
 
-export const WEB_BULK_BATCH_SIZE = 100;
+export const WEB_BULK_BATCH_SIZE = 50;
 export const WEB_BULK_MAX_CONTACTS = 5000;
 export const WEB_BULK_CONCURRENCY = 10;
+
+export type WebBulkRetryOptions = {
+  maxAttempts?: number;
+  baseDelayMs?: number;
+  onRetry?: (chunkIndex: number, nextAttempt: number, maxAttempts: number) => void;
+};
 
 export type WebBulkResult = Record<string, unknown> & {
   email: string;
@@ -95,14 +101,33 @@ export async function runWebBulkBatches<T>(
   chunks: string[][],
   request: (chunk: string[], index: number) => Promise<T>,
   onProgress?: (completed: number, total: number) => void,
+  retryOptions?: WebBulkRetryOptions,
 ): Promise<T[]> {
   const responses = new Array<T>(chunks.length);
   let cursor = 0;
   let completed = 0;
+  const maxAttempts = Math.max(1, Math.trunc(retryOptions?.maxAttempts ?? 3));
+  const baseDelayMs = Math.max(0, retryOptions?.baseDelayMs ?? 750);
+
+  async function requestWithRetry(chunk: string[], index: number) {
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await request(chunk, index);
+      } catch (error) {
+        const retryable = (error as { retryable?: boolean })?.retryable !== false;
+        if (!retryable || attempt >= maxAttempts) throw error;
+        retryOptions?.onRetry?.(index, attempt + 1, maxAttempts);
+        const delayMs = baseDelayMs * (2 ** (attempt - 1));
+        if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+    throw new Error("Bulk batch retry limit reached.");
+  }
+
   async function worker() {
     while (cursor < chunks.length) {
       const index = cursor++;
-      responses[index] = await request(chunks[index], index);
+      responses[index] = await requestWithRetry(chunks[index], index);
       completed += 1;
       onProgress?.(completed, chunks.length);
     }

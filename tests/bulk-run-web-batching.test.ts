@@ -44,11 +44,11 @@ describe("web bulk batching", () => {
     expect(reconciliation.rows[0]).toMatchObject({ originalValue: "space inlocal@example.com", status: "REJECT_BEFORE_SCREENING" });
   });
 
-  it("deduplicates and splits 5,000 contacts into 100-contact requests", () => {
+  it("deduplicates and splits 5,000 contacts into shorter 50-contact requests", () => {
     const emails = Array.from({ length: 5000 }, (_, index) => `USER${index}@example.com`);
     const chunks = chunkWebBulkEmails([...emails, "user0@example.com"]);
-    expect(chunks).toHaveLength(50);
-    expect(chunks.every((chunk) => chunk.length === 100)).toBe(true);
+    expect(chunks).toHaveLength(100);
+    expect(chunks.every((chunk) => chunk.length === 50)).toBe(true);
     expect(chunks[0][0]).toBe("user0@example.com");
     expect(() => chunkWebBulkEmails([...emails, "extra@example.com"])).toThrow(/5,000/);
   });
@@ -120,6 +120,50 @@ describe("web bulk batching", () => {
     });
     expect(maximum).toBe(10);
     expect(responses.map((response) => response.results?.[0].email)).toEqual(chunks.flat());
+  });
+
+  it("retries transient batch failures without retrying deterministic failures", async () => {
+    let attempts = 0;
+    const retries: string[] = [];
+    const responses = await runWebBulkBatches(
+      [["first@example.com"]],
+      async () => {
+        attempts += 1;
+        if (attempts < 3) throw new TypeError("Failed to fetch");
+        return { results: [{ email: "first@example.com", risk_score: 1, risk_level: "ALLOW" }] };
+      },
+      undefined,
+      {
+        maxAttempts: 3,
+        baseDelayMs: 0,
+        onRetry: (chunkIndex, nextAttempt, maxAttempts) => {
+          retries.push(`${chunkIndex}:${nextAttempt}:${maxAttempts}`);
+        },
+      },
+    );
+
+    expect(attempts).toBe(3);
+    expect(retries).toEqual(["0:2:3", "0:3:3"]);
+    expect(responses[0].results?.[0].email).toBe("first@example.com");
+
+    let deterministicAttempts = 0;
+    await expect(runWebBulkBatches(
+      [["second@example.com"]],
+      async () => {
+        deterministicAttempts += 1;
+        throw Object.assign(new Error("Insufficient credits"), { retryable: false });
+      },
+      undefined,
+      { maxAttempts: 3, baseDelayMs: 0 },
+    )).rejects.toThrow("Insufficient credits");
+    expect(deterministicAttempts).toBe(1);
+  });
+
+  it("uses one upload path and a stable idempotency key for every retryable chunk", () => {
+    const page = readFileSync("src/app/(dashboard)/bulk-check/page.tsx", "utf8");
+    expect(page).toContain('"idempotency-key": `bulk:${e8RunId}:${index}`');
+    expect(page).toContain("onDrop={handleDrop}");
+    expect(page).toMatch(/onChange=\{\([^)]*\).*handleFile\(file\)/s);
   });
 
   it("merges every detailed result and keeps the server export columns", () => {
