@@ -9,6 +9,11 @@ const pricing = readFileSync("src/app/(dashboard)/pricing/page.tsx", "utf8");
 const docs = readFileSync("src/app/docs/page.tsx", "utf8");
 
 describe("E8.8R Phase B.5 public copy truth", () => {
+  it("keeps plan names visible while scrolling the detailed comparison", () => {
+    expect(pricing).toContain('className="rs-pricing-comparison-head sticky top-0 z-30"');
+    expect(pricing).toContain('className="overflow-x-auto min-[1100px]:overflow-visible"');
+  });
+
   it("describes the free allowance as one-time checks without implying a list audit", () => {
     expect(home).toContain("Start with 50 Free Checks");
     expect(home).toContain("50 one-time checks");

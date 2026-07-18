@@ -785,7 +785,7 @@ export default function PricingPage() {
           </section>
         )}
 
-        <section className="overflow-hidden rounded-[28px] border border-white/10 bg-black/20 shadow-[0_18px_50px_rgba(2,6,23,0.24)]">
+        <section className="overflow-clip rounded-[28px] border border-white/10 bg-black/20 shadow-[0_18px_50px_rgba(2,6,23,0.24)]">
           <div className="border-b border-white/10 bg-white/[0.03] px-5 py-5 sm:px-6">
             <h2 className="text-xl font-semibold text-white">Detailed audit plan comparison</h2>
             <p className="mt-1 text-sm text-slate-400">
@@ -798,18 +798,18 @@ export default function PricingPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto min-[1100px]:overflow-visible">
             <table className="min-w-[1040px] w-full border-collapse text-sm">
-              <thead>
+              <thead className="rs-pricing-comparison-head sticky top-0 z-30">
                 <tr className="border-b border-white/10 bg-black/20">
-                  <th className="min-w-64 bg-[var(--rs-bg-elevated)] px-5 py-4 text-left font-semibold text-white sm:sticky sm:left-0 sm:z-10">
+                  <th className="min-w-64 bg-[var(--rs-bg-elevated)] px-5 py-4 text-left font-semibold text-white shadow-[inset_0_-1px_0_var(--rs-border)] sm:sticky sm:left-0 sm:z-10">
                     Capability
                   </th>
                   {planEntries.map(([key, plan]) => (
                     <th
                       key={key}
-                      className={`min-w-36 px-4 py-4 text-left font-semibold ${
-                        key === "growth" ? "bg-white/[0.07] text-white" : "text-slate-200"
+                      className={`min-w-36 px-4 py-4 text-left font-semibold shadow-[inset_0_-1px_0_var(--rs-border)] ${
+                        key === "growth" ? "bg-[var(--rs-surface)] text-white" : "bg-[var(--rs-surface-strong)] text-slate-200"
                       }`}
                     >
                       {plan.name}
