@@ -14,6 +14,7 @@ describe("E8.8R Phase B.5 public copy truth", () => {
     expect(pricing).toContain('className="rs-app relative min-h-screen overflow-x-clip"');
     expect(pricing).toContain("comparisonStickyHeaderRef.current.scrollLeft = event.currentTarget.scrollLeft");
     expect(pricing).toContain('<ComparisonColGroup planEntries={planEntries} />');
+    expect(pricing).toContain('key === "free" ? "px-4" : "pl-9 pr-4"');
   });
 
   it("describes the free allowance as one-time checks without implying a list audit", () => {

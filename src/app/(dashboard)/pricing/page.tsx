@@ -469,7 +469,7 @@ function ComparisonTableHead({ planEntries, visuallyHidden = false }: { planEntr
         {planEntries.map(([key, plan]) => (
           <th
             key={key}
-            className={`px-4 py-4 text-left font-semibold shadow-[inset_0_-1px_0_var(--rs-border)] ${
+            className={`${key === "free" ? "px-4" : "pl-9 pr-4"} py-4 text-left font-semibold shadow-[inset_0_-1px_0_var(--rs-border)] ${
               key === "growth" ? "bg-[var(--rs-surface)] text-white" : "bg-[var(--rs-surface-strong)] text-slate-200"
             }`}
           >
