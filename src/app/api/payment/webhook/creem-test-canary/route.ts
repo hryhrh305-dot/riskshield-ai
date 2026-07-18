@@ -2,42 +2,44 @@ import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminV2CanaryDecision } from "@/lib/admin-v2-canary";
 import { verifyCreemWebhookSignature } from "@/lib/creem";
-import { extractEventType, extractPaymentIdentifiers, type CreemWebhookEvent } from "@/lib/creem-webhook";
+import type { CreemWebhookEvent } from "@/lib/creem-webhook";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { findTestCanaryProductById } from "@/lib/test-canary-billing";
+import { parseTestCanaryWebhookPayload } from "@/lib/test-canary-webhook-payload";
 
 type JsonRecord = Record<string, unknown>;
 
-function record(value: unknown): JsonRecord {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as JsonRecord : {};
-}
+const PROCESSABLE_TEST_EVENT_TYPES = new Set([
+  "checkout.completed",
+  "subscription.active",
+  "subscription.paid",
+  "subscription.update",
+  "subscription.canceled",
+  "subscription.scheduled_cancel",
+  "subscription.past_due",
+  "subscription.paused",
+  "subscription.expired",
+  "refund.created",
+  "dispute.created",
+]);
 
 function stringValue(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function eventMetadata(event: CreemWebhookEvent): JsonRecord {
-  const object = record(event.object);
-  const subscription = record(object.subscription);
-  return { ...record(subscription.metadata), ...record(object.metadata) };
-}
-
-function eventProductId(event: CreemWebhookEvent): string | null {
-  const object = record(event.object);
-  const subscription = record(object.subscription);
-  return stringValue(record(object.product).id)
-    || stringValue(record(subscription.product).id)
-    || stringValue(record(object.order).product)
-    || stringValue(object.product_id);
-}
-
-function minorAmount(event: CreemWebhookEvent): number | null {
-  const object = record(event.object);
-  const transaction = record(object.transaction);
-  const order = record(object.order);
-  const raw = object.amount_paid ?? transaction.amount_paid ?? order.amount_paid ?? order.amount;
-  const value = Number(raw);
-  return Number.isFinite(value) && value >= 0 ? value / 100 : null;
+function safeProcessingError(error: unknown): string {
+  if (!error || typeof error !== "object") return "processing_failed";
+  const message = stringValue((error as JsonRecord).message);
+  const allowlisted = new Set([
+    "TEST_CANARY_CHECKOUT_ID_REQUIRED",
+    "INVALID_TEST_CANARY_PAID_EVENT",
+    "TEST_CANARY_PENDING_PAYMENT_REQUIRED",
+    "TEST_CANARY_SUBSCRIPTION_CONFLICT",
+    "TEST_CANARY_GRANT_CONFLICT",
+    "TEST_CANARY_EVENT_ID_PAYLOAD_CONFLICT",
+    "INVALID_TEST_CANARY_WEBHOOK_CONTEXT",
+  ]);
+  return message && allowlisted.has(message) ? message : "processing_failed";
 }
 
 export async function POST(request: NextRequest) {
@@ -59,9 +61,10 @@ export async function POST(request: NextRequest) {
 
   try {
     const eventId = stringValue(event.id);
-    const eventType = extractEventType(event);
-    const metadata = eventMetadata(event);
-    const productId = eventProductId(event);
+    const parsed = parseTestCanaryWebhookPayload(event);
+    const eventType = parsed.eventType;
+    const metadata = parsed.metadata;
+    const productId = parsed.productId;
     const userId = stringValue(metadata.user_id);
     const correlationId = stringValue(metadata.correlation_id);
     const metadataEnvironment = stringValue(metadata.billing_environment);
@@ -76,6 +79,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid Test Canary event context." }, { status: 400 });
     }
 
+    if (!PROCESSABLE_TEST_EVENT_TYPES.has(eventType)) {
+      return NextResponse.json({ received: true, ignored: true });
+    }
+
     const admin = getSupabaseAdminClient();
     const { data: userResult, error: userError } = await admin.auth.admin.getUserById(userId);
     const user = userResult?.user;
@@ -84,39 +91,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Test Canary actor rejected." }, { status: 403 });
     }
 
-    const object = record(event.object);
-    const subscription = record(object.subscription);
-    const customer = record(object.customer);
-    const identifiers = extractPaymentIdentifiers(event);
-    const periodStart = stringValue(object.current_period_start_date ?? subscription.current_period_start_date);
-    const periodEnd = stringValue(object.current_period_end_date ?? subscription.current_period_end_date);
-    const currency = stringValue(record(object.product).currency ?? object.currency ?? record(object.order).currency) || "USD";
-    const amount = minorAmount(event);
-
     const { data, error } = await admin.rpc("process_test_canary_webhook_event", {
       p_event_id: eventId,
       p_event_type: eventType,
       p_payload_hash: createHash("sha256").update(payload).digest("hex"),
       p_user_id: userId,
-      p_checkout_id: identifiers.checkoutId,
-      p_transaction_id: identifiers.transactionId,
-      p_subscription_id: identifiers.subscriptionId,
-      p_customer_id: identifiers.customerId || stringValue(customer.id),
+      p_checkout_id: parsed.checkoutId,
+      p_transaction_id: parsed.transactionId,
+      p_subscription_id: parsed.subscriptionId,
+      p_customer_id: parsed.customerId,
       p_product_id: product.productId,
       p_correlation_id: correlationId,
       p_plan: product.plan,
       p_billing_interval: product.interval,
-      p_amount: amount,
-      p_currency: currency,
-      p_period_start: periodStart,
-      p_period_end: periodEnd,
+      p_amount: parsed.amount,
+      p_currency: parsed.currency,
+      p_period_start: parsed.periodStart,
+      p_period_end: parsed.periodEnd,
       p_monthly_credits: product.entry.monthlyCredits,
     });
     if (error) throw error;
 
     return NextResponse.json({ received: true, result: data });
   } catch (error) {
-    console.error("[test-canary-webhook]", error instanceof Error ? error.message : "processing_failed");
+    console.error("[test-canary-webhook]", safeProcessingError(error));
     return NextResponse.json({ error: "Test Canary webhook failed." }, { status: 500 });
   }
 }

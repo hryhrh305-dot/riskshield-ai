@@ -32,6 +32,22 @@ vi.mock("@/lib/creem-webhook", () => ({
   }),
 }));
 
+vi.mock("@/lib/test-canary-webhook-payload", () => ({
+  parseTestCanaryWebhookPayload: (event: ReturnType<typeof testEvent>) => ({
+    eventType: event.eventType,
+    metadata: event.object.metadata,
+    productId: event.object.product.id,
+    checkoutId: "checkout_test",
+    transactionId: "transaction_test",
+    subscriptionId: "subscription_test",
+    customerId: "customer_test",
+    amount: 999,
+    currency: "USD",
+    periodStart: event.object.current_period_start_date,
+    periodEnd: event.object.current_period_end_date,
+  }),
+}));
+
 vi.mock("@/lib/admin-v2-canary", () => ({
   getAdminV2CanaryDecision: () => ({ enabled: state.canaryEnabled }),
 }));
@@ -124,6 +140,15 @@ describe("E8.8R Test Canary webhook route", () => {
     expect(state.rpc).not.toHaveBeenCalled();
   });
 
+  it("acknowledges an unknown signed Test event without writing billing evidence", async () => {
+    const event = testEvent();
+    event.eventType = "synthetic.unknown";
+    const response = await post(requestFor(event));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ received: true, ignored: true });
+    expect(state.rpc).not.toHaveBeenCalled();
+  });
+
   it("sends a valid event only to the isolated idempotent RPC", async () => {
     const response = await post(requestFor(testEvent()));
     expect(response.status).toBe(200);
@@ -135,6 +160,7 @@ describe("E8.8R Test Canary webhook route", () => {
       p_plan: "growth",
       p_billing_interval: "monthly",
       p_monthly_credits: 2500,
+      p_amount: 999,
     }));
     expect(state.from).not.toHaveBeenCalled();
   });

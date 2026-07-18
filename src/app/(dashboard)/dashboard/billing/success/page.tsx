@@ -8,7 +8,16 @@ import { createClient } from "@/lib/supabase";
 import { getPlanRank, isPlanAtLeast, type PlanKey } from "@/lib/plans";
 import { findCreemProductById, hasActiveSubscriptionAccess } from "@/lib/creem";
 
-type BillingState = "loading" | "active" | "syncing" | "test_canary" | "error";
+type BillingState =
+  | "loading"
+  | "active"
+  | "syncing"
+  | "test_redirect_unverified"
+  | "test_webhook_pending"
+  | "test_provisioning_pending"
+  | "test_confirmed"
+  | "test_failed"
+  | "error";
 
 type ProfileRow = {
   plan: string;
@@ -47,10 +56,30 @@ const BANNER_COPY: Record<
     description: "Payment succeeded. Your subscription will be activated automatically after the Creem webhook finishes syncing.",
     tone: "amber",
   },
-  test_canary: {
-    title: "Test checkout received",
-    description: "This Test Mode checkout is isolated from your live subscription and contact credits.",
+  test_redirect_unverified: {
+    title: "Test checkout could not be verified",
+    description: "The return link could not be verified. No Test or Live billing entitlement was activated from this page.",
+    tone: "red",
+  },
+  test_webhook_pending: {
+    title: "Test payment received — webhook confirmation pending",
+    description: "The signed Test return was verified. Secwyn is waiting for the authoritative Test webhook before recording the isolated subscription evidence.",
+    tone: "amber",
+  },
+  test_provisioning_pending: {
+    title: "Test webhook received — isolated records are still syncing",
+    description: "The Test payment was recorded, but the isolated subscription and evidence-only credit grant are not both confirmed yet.",
+    tone: "amber",
+  },
+  test_confirmed: {
+    title: "Test billing flow confirmed",
+    description: "The Test payment, isolated subscription, and evidence-only credit grant are confirmed without changing Live access or credits.",
     tone: "blue",
+  },
+  test_failed: {
+    title: "Test billing flow needs review",
+    description: "The Test payment did not reach a confirmed isolated state. No Live entitlement was activated from this page.",
+    tone: "red",
   },
   error: {
     title: "Unable to load billing status",
@@ -104,8 +133,17 @@ export default function BillingSuccessPage() {
               body: JSON.stringify({ rawQuery }),
             });
             const redirectResult = await redirectResponse.json().catch(() => null);
-            if (redirectResponse.ok && redirectResult?.billingEnvironment === "test_canary") {
-              if (mounted) setState("test_canary");
+            if (redirectResult?.billingEnvironment === "test_canary") {
+              const testState: BillingState = redirectResult.testStatus === "confirmed"
+                ? "test_confirmed"
+                : redirectResult.testStatus === "provisioning_pending"
+                  ? "test_provisioning_pending"
+                  : redirectResult.testStatus === "webhook_pending"
+                    ? "test_webhook_pending"
+                    : redirectResult.testStatus === "failed"
+                      ? "test_failed"
+                      : "test_redirect_unverified";
+              if (mounted) setState(testState);
               return;
             }
           } catch {}
@@ -277,7 +315,7 @@ export default function BillingSuccessPage() {
               </div>
             )}
 
-            {state === "test_canary" && (
+            {state.startsWith("test_") && (
               <div className="rounded-[24px] border border-sky-500/20 bg-sky-500/10 p-5 text-sm text-sky-200">
                 No live plan, credit balance, referral reward, or production billing record was changed.
               </div>

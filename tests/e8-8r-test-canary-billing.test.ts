@@ -179,7 +179,8 @@ describe("E8.8R Phase C1 Test Canary billing contract", () => {
     expect(liveWebhook).not.toContain("CREEM_CANARY_TEST_");
     expect(livePortal).not.toContain("test_canary");
     expect(livePortal).not.toContain("CREEM_CANARY_TEST_");
-    expect(redirect).not.toMatch(/billingEnvironment:\s*"test_canary"[\s\S]*?(?:credit|referral|grant)/i);
+    expect(redirect).not.toMatch(/\.(?:insert|update|upsert|delete)\s*\(/i);
+    expect(redirect).not.toContain("process_test_canary_webhook_event");
   });
 
   it("keeps every Test evidence write out of Live balances, entitlements and referral maturity", () => {
@@ -198,7 +199,8 @@ describe("E8.8R Phase C1 Test Canary billing contract", () => {
   it("keeps the browser success page from reading Live billing rows after a Test Canary redirect", () => {
     const successPage = readFileSync("src/app/(dashboard)/dashboard/billing/success/page.tsx", "utf8");
     expect(successPage).toContain('billingEnvironment === "test_canary"');
-    expect(successPage).toContain("Test checkout received");
+    expect(successPage).toContain("Test payment received — webhook confirmation pending");
+    expect(successPage).toContain("Test billing flow confirmed");
     expect(successPage).toMatch(/billingEnvironment === "test_canary"[\s\S]*?return;/);
   });
 

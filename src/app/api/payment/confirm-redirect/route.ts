@@ -4,12 +4,15 @@ import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
 import { findPlanByCreemProductId, verifyCreemRedirectSignature } from "@/lib/creem";
 import { getAdminV2CanaryDecision } from "@/lib/admin-v2-canary";
 import { findTestCanaryProductById } from "@/lib/test-canary-billing";
+import { resolveTestCanarySuccessState } from "@/lib/test-canary-success-state";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://njhjiavnidssjvnkcxfo.supabase.co";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SECRET_KEY || "";
 const CREEM_API_KEY = process.env.CREEM_API_KEY || "";
 
-type TestPaymentRow = { status: string; plan: string; billing_interval: string };
+type TestPaymentRow = { id: string; status: string; plan: string; billing_interval: string; correlation_id: string };
+type TestSubscriptionRow = { status: string };
+type TestGrantRow = { status: string };
 type LivePaymentRow = { id: string; plan: string | null; status: string };
 type LiveProfileRow = { plan: string; subscription_status: string };
 
@@ -56,11 +59,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Supabase is not configured." }, { status: 500 });
     }
 
-    const user = await getUserFromRequest(request);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     let body: { rawQuery?: string };
     try {
       body = await request.json();
@@ -82,19 +80,38 @@ export async function POST(request: NextRequest) {
     }
 
     const testProduct = findTestCanaryProductById(productId, process.env);
+    const user = await getUserFromRequest(request);
+    if (!user) {
+      return NextResponse.json({
+        error: "Unauthorized",
+        code: "REDIRECT_AUTH_REQUIRED",
+        ...(testProduct ? { billingEnvironment: "test_canary", testStatus: "redirect_unverified" } : {}),
+      }, { status: 401 });
+    }
+
     if (testProduct) {
       const testApiKey = process.env.CREEM_CANARY_TEST_API_KEY || "";
       const canary = getAdminV2CanaryDecision({ verified: true, email: user.email || null }, process.env);
       if (!canary.enabled || !testApiKey) {
-        return NextResponse.json({ error: "Test Canary redirect is not available." }, { status: 403 });
+        return NextResponse.json({
+          error: "Test Canary redirect is not available.",
+          code: "TEST_REDIRECT_NOT_AVAILABLE",
+          billingEnvironment: "test_canary",
+          testStatus: "redirect_unverified",
+        }, { status: 403 });
       }
       if (!verifyCreemRedirectSignature(rawQuery, testApiKey)) {
-        return NextResponse.json({ error: "Invalid redirect signature." }, { status: 401 });
+        return NextResponse.json({
+          error: "Invalid redirect signature.",
+          code: "TEST_REDIRECT_SIGNATURE_INVALID",
+          billingEnvironment: "test_canary",
+          testStatus: "redirect_unverified",
+        }, { status: 401 });
       }
 
       const { data: testPaymentData, error: testPaymentError } = await getSupabaseAdmin()
         .from("test_canary_payments")
-        .select("status,plan,billing_interval")
+        .select("id,status,plan,billing_interval,correlation_id")
         .eq("billing_environment", "test_canary")
         .eq("user_id", user.id)
         .eq("provider_checkout_id", checkoutId)
@@ -102,17 +119,59 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
       if (testPaymentError) throw testPaymentError;
       const testPayment = testPaymentData as TestPaymentRow | null;
-      if (!testPayment) return NextResponse.json({ error: "Matching Test Canary payment not found." }, { status: 404 });
+      if (!testPayment) return NextResponse.json({
+        error: "Matching Test Canary payment not found.",
+        code: "TEST_PAYMENT_NOT_FOUND",
+        billingEnvironment: "test_canary",
+        testStatus: "webhook_pending",
+      }, { status: 404 });
+
+      const [{ data: subscriptionData, error: subscriptionError }, { data: grantData, error: grantError }] = await Promise.all([
+        getSupabaseAdmin()
+          .from("test_canary_subscriptions")
+          .select("status")
+          .eq("billing_environment", "test_canary")
+          .eq("user_id", user.id)
+          .eq("provider_product_id", productId)
+          .eq("correlation_id", testPayment.correlation_id)
+          .eq("plan", testPayment.plan)
+          .eq("billing_interval", testPayment.billing_interval)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        getSupabaseAdmin()
+          .from("test_canary_credit_grants")
+          .select("status")
+          .eq("billing_environment", "test_canary")
+          .eq("user_id", user.id)
+          .eq("provider_product_id", productId)
+          .eq("payment_id", testPayment.id)
+          .eq("plan", testPayment.plan)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+      if (subscriptionError) throw subscriptionError;
+      if (grantError) throw grantError;
+      const subscription = subscriptionData as TestSubscriptionRow | null;
+      const grant = grantData as TestGrantRow | null;
+      const testStatus = resolveTestCanarySuccessState({
+        redirectVerified: true,
+        paymentStatus: testPayment.status,
+        subscriptionActive: subscription?.status === "active",
+        creditGrantRecorded: grant?.status === "evidence_only",
+      });
 
       return NextResponse.json({
-        success: testPayment.status === "completed",
-        pending: testPayment.status !== "completed",
+        success: testStatus === "confirmed",
+        pending: testStatus === "webhook_pending" || testStatus === "provisioning_pending",
         verified: true,
         billingEnvironment: "test_canary",
+        testStatus,
         paymentStatus: testPayment.status,
         plan: testPayment.plan,
         billingInterval: testPayment.billing_interval,
-      }, { status: testPayment.status === "completed" ? 200 : 202 });
+      }, { status: testStatus === "confirmed" ? 200 : 202 });
     }
 
     if (!CREEM_API_KEY) {
