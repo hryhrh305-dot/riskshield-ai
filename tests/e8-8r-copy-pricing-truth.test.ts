@@ -10,8 +10,10 @@ const docs = readFileSync("src/app/docs/page.tsx", "utf8");
 
 describe("E8.8R Phase B.5 public copy truth", () => {
   it("keeps plan names visible while scrolling the detailed comparison", () => {
-    expect(pricing).toContain('className="rs-pricing-comparison-head sticky top-0 z-30"');
-    expect(pricing).toContain('className="overflow-x-auto min-[1100px]:overflow-visible"');
+    expect(pricing).toContain('className="pointer-events-none sticky top-0 z-30 -mb-[53px] h-[53px] overflow-visible"');
+    expect(pricing).toContain('className="rs-app relative min-h-screen overflow-x-clip"');
+    expect(pricing).toContain("comparisonStickyHeaderRef.current.scrollLeft = event.currentTarget.scrollLeft");
+    expect(pricing).toContain('<ComparisonColGroup planEntries={planEntries} />');
   });
 
   it("describes the free allowance as one-time checks without implying a list audit", () => {

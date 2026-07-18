@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Check, Minus } from "lucide-react";
 import { SecwynMark } from "@/components/brand/SecwynMark";
@@ -448,8 +448,42 @@ function AvailabilityCell({ value }: { value: FeatureValue }) {
   );
 }
 
+type PlanEntry = [PlanKey, typeof plans[PlanKey]];
+
+function ComparisonColGroup({ planEntries }: { planEntries: PlanEntry[] }) {
+  return (
+    <colgroup>
+      <col className="w-64" />
+      {planEntries.map(([key]) => <col key={key} />)}
+    </colgroup>
+  );
+}
+
+function ComparisonTableHead({ planEntries, visuallyHidden = false }: { planEntries: PlanEntry[]; visuallyHidden?: boolean }) {
+  return (
+    <thead className={visuallyHidden ? "opacity-0" : undefined}>
+      <tr className="border-b border-white/10">
+        <th className="bg-[var(--rs-bg-elevated)] px-5 py-4 text-left font-semibold text-white shadow-[inset_0_-1px_0_var(--rs-border)] sm:sticky sm:left-0 sm:z-10">
+          Capability
+        </th>
+        {planEntries.map(([key, plan]) => (
+          <th
+            key={key}
+            className={`px-4 py-4 text-left font-semibold shadow-[inset_0_-1px_0_var(--rs-border)] ${
+              key === "growth" ? "bg-[var(--rs-surface)] text-white" : "bg-[var(--rs-surface-strong)] text-slate-200"
+            }`}
+          >
+            {plan.name}
+          </th>
+        ))}
+      </tr>
+    </thead>
+  );
+}
+
 export default function PricingPage() {
-  const planEntries = Object.entries(plans) as [PlanKey, typeof plans[PlanKey]][];
+  const planEntries = Object.entries(plans) as PlanEntry[];
+  const comparisonStickyHeaderRef = useRef<HTMLDivElement>(null);
   const [currentPlan, setCurrentPlan] = useState<PlanKey>("free");
   const [billingInterval, setBillingInterval] = useState<BillingInterval>("monthly");
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
@@ -540,7 +574,7 @@ export default function PricingPage() {
   }
 
   return (
-    <div className="rs-app relative min-h-screen overflow-x-hidden">
+    <div className="rs-app relative min-h-screen overflow-x-clip">
       <header className="border-b border-white/10 bg-black/20 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
           <Link href="/" className="flex items-center gap-3">
@@ -798,25 +832,26 @@ export default function PricingPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto min-[1100px]:overflow-visible">
-            <table className="min-w-[1040px] w-full border-collapse text-sm">
-              <thead className="rs-pricing-comparison-head sticky top-0 z-30">
-                <tr className="border-b border-white/10 bg-black/20">
-                  <th className="min-w-64 bg-[var(--rs-bg-elevated)] px-5 py-4 text-left font-semibold text-white shadow-[inset_0_-1px_0_var(--rs-border)] sm:sticky sm:left-0 sm:z-10">
-                    Capability
-                  </th>
-                  {planEntries.map(([key, plan]) => (
-                    <th
-                      key={key}
-                      className={`min-w-36 px-4 py-4 text-left font-semibold shadow-[inset_0_-1px_0_var(--rs-border)] ${
-                        key === "growth" ? "bg-[var(--rs-surface)] text-white" : "bg-[var(--rs-surface-strong)] text-slate-200"
-                      }`}
-                    >
-                      {plan.name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
+          <div className="pointer-events-none sticky top-0 z-30 -mb-[53px] h-[53px] overflow-visible" aria-hidden="true">
+            <div ref={comparisonStickyHeaderRef} className="overflow-hidden">
+              <table className="min-w-[1040px] w-full table-fixed border-collapse text-sm">
+                <ComparisonColGroup planEntries={planEntries} />
+                <ComparisonTableHead planEntries={planEntries} />
+              </table>
+            </div>
+          </div>
+
+          <div
+            className="overflow-x-auto"
+            onScroll={(event) => {
+              if (comparisonStickyHeaderRef.current) {
+                comparisonStickyHeaderRef.current.scrollLeft = event.currentTarget.scrollLeft;
+              }
+            }}
+          >
+            <table className="min-w-[1040px] w-full table-fixed border-collapse text-sm">
+              <ComparisonColGroup planEntries={planEntries} />
+              <ComparisonTableHead planEntries={planEntries} visuallyHidden />
               <tbody>
                 {comparisonSections.map((section) => (
                   <FragmentRows key={section.title} section={section} planEntries={planEntries} publicCatalog={publicCatalog} />
@@ -922,7 +957,7 @@ function FragmentRows({
   publicCatalog,
 }: {
   section: ComparisonSection;
-  planEntries: [PlanKey, typeof plans[PlanKey]][];
+  planEntries: PlanEntry[];
   publicCatalog: PublicPricingCatalog | null;
 }) {
   return (
