@@ -26,6 +26,40 @@ Secwyn Premium V2 is enabled for the public Production pricing catalog at `https
 
 Annual pricing continues to mean 12 service months for the price of 11. Credits are issued monthly rather than granted upfront for the full term.
 
+## Live Product Verification
+
+The project owner verified all six Creem Live products before cutover. No Product ID is recorded here.
+
+| Product | Environment | Amount | Currency | Period | Mapping | Active | Public behavior |
+| --- | --- | ---: | --- | --- | --- | --- | --- |
+| Starter Monthly | Live | 199 | USD | Monthly | Present | Yes | Checkout |
+| Growth Monthly | Live | 999 | USD | Monthly | Present | Yes | Checkout |
+| Scale Monthly | Live | 3,999 | USD | Monthly | Present | Yes | Checkout |
+| Starter Annual | Live | 2,189 | USD | Annual | Present | Yes | Checkout |
+| Growth Annual | Live | 10,989 | USD | Annual | Present | Yes | Checkout |
+| Scale Annual | Live | 43,989 | USD | Annual | Present | Yes | Contact sales |
+
+Production server-only mappings verified as present:
+
+- `CREEM_STARTER_MONTHLY_V2_PRODUCT_ID`
+- `CREEM_GROWTH_MONTHLY_V2_PRODUCT_ID`
+- `CREEM_SCALE_MONTHLY_V2_PRODUCT_ID`
+- `CREEM_STARTER_ANNUAL_V2_PRODUCT_ID`
+- `CREEM_GROWTH_ANNUAL_V2_PRODUCT_ID`
+- `CREEM_SCALE_ANNUAL_V2_PRODUCT_ID`
+
+The Live API key and Live webhook secret remain present, server-only, and unchanged. Test and Live variables remain separate.
+
+## Feature Flags
+
+| Flag | Before cutover | After cutover | Scope | Client-visible | Rollback value |
+| --- | --- | --- | --- | --- | --- |
+| `SECWYN_PREMIUM_PRICING_V2_ENABLED` | `false` | `true` | Production | No | `false` |
+| `SECWYN_V2_ANNUAL_SELF_SERVE_ENABLED` | `false` | `true` | Production | No | `false` |
+| `SECWYN_ADMIN_TEST_CHECKOUT_ENABLED` | `false` | `false` | Production | No | `false` |
+
+The public generation decision is read in `src/lib/admin-v2-canary.ts`. Checkout availability and annual self-serve state are resolved in `src/lib/pricing-catalog-response.ts` and `src/lib/billing-catalog.ts`.
+
 ## Compatibility Guarantees
 
 - Existing Legacy Product ID snapshots remain immutable.
@@ -65,6 +99,38 @@ Contract coverage:
 - Sensitive provider identifiers in public catalog response: none
 - Unauthenticated checkout request: rejected with HTTP 401
 - Runtime errors after deployment: none during the acceptance window
+
+Browser matrix:
+
+| View | Theme | V2 prices | Horizontal overflow |
+| --- | --- | --- | --- |
+| Desktop | Light | Correct | None |
+| Desktop | Dark | Correct | None |
+| Mobile | Light | Correct | None |
+| Mobile | Dark | Correct | None |
+
+Production routes verified healthy: Homepage, Pricing, Signup, Login, Docs, Google Sheets Docs, Sample Audit, Dashboard authentication redirect, Live/Test Portal rejection without authentication, and Live/Test Webhook rejection without a valid signature.
+
+## Data Delta
+
+No Checkout was created and no payment was attempted during this cutover.
+
+| Store | Baseline | After acceptance window | Delta |
+| --- | ---: | ---: | ---: |
+| Test payments | 26 | 26 | 0 |
+| Test webhook events | 2 | 2 | 0 |
+| Test subscriptions | 1 | 1 | 0 |
+| Test credit grants | 1 | 1 | 0 |
+| Test referral snapshots | 1 | 1 | 0 |
+| Live completed payments | 1 | 1 | 0 |
+| Live subscriptions | 0 | 0 | 0 |
+| Live credit grants | 41 | 41 | 0 |
+
+New abandoned checkout sessions: 0. Existing historical pending or incomplete records were not modified.
+
+## Production Observation
+
+The functional V2 deployment was observed for more than 20 minutes. The acceptance window contained 26 HTTP 200 responses, five expected HTTP 401 safety rejections, one expected HTTP 307 authentication redirect, no 5xx response, and no runtime error cluster. A subsequent documentation-only deployment used the same tested runtime code and passed the final Production Smoke.
 
 Known baseline warnings remain isolated:
 
