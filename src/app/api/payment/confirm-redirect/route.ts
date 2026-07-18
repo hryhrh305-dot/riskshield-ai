@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { readAccessTokenFromSupabaseCookieHeader } from "@/lib/auth-cookie";
-import { findPlanByCreemProductId, verifyCreemRedirectSignature } from "@/lib/creem";
+import {
+  findPlanByCreemProductId,
+  identifyCreemRedirectSignatureVariant,
+  verifyCreemRedirectSignature,
+} from "@/lib/creem";
 import { getAdminV2CanaryDecision } from "@/lib/admin-v2-canary";
 import { findTestCanaryProductById } from "@/lib/test-canary-billing";
 import { resolveTestCanarySuccessState } from "@/lib/test-canary-success-state";
@@ -94,6 +98,9 @@ export async function POST(request: NextRequest) {
         }, { status: 403 });
       }
       if (!verifyCreemRedirectSignature(rawQuery, testApiKey)) {
+        console.warn("Test redirect signature rejected", {
+          variant: identifyCreemRedirectSignatureVariant(rawQuery, testApiKey),
+        });
         return NextResponse.json({
           error: "Invalid redirect signature.",
           code: "TEST_REDIRECT_SIGNATURE_INVALID",

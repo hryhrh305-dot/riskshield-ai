@@ -14,6 +14,7 @@ import {
   hasActiveSubscriptionAccess,
   isCreemSelfServePlan,
   normalizeCreemBillingInterval,
+  identifyCreemRedirectSignatureVariant,
   verifyCreemRedirectSignature,
   verifyCreemWebhookSignature,
 } from "../src/lib/creem.ts";
@@ -162,12 +163,25 @@ test("redirect signature verification follows Creem SHA-256 redirect order and e
   const signature = crypto.createHash("sha256").update(signingString).digest("hex");
   const rawQuery = `${rawQueryWithoutSignature}&signature=${signature}`;
   const reorderedQuery = `checkout_id=ch_123&customer_id=cust_789&product_id=prod_growth&request_id=req_111&subscription_id=sub_321&signature=${signature}`;
-  const legacyHmac = crypto.createHmac("sha256", apiKey).update(signingString).digest("hex");
+  const legacySigningString = [
+    "checkout_id=ch_123",
+    "customer_id=cust_789",
+    "product_id=prod_growth",
+    "request_id=req_111",
+    "subscription_id=sub_321",
+  ].join("&");
+  const legacyHmac = crypto.createHmac("sha256", apiKey).update(legacySigningString).digest("hex");
 
   assert.equal(verifyCreemRedirectSignature(rawQuery, apiKey), true);
   assert.equal(verifyCreemRedirectSignature(reorderedQuery, apiKey), false);
   assert.equal(verifyCreemRedirectSignature(`${rawQueryWithoutSignature}&signature=${legacyHmac}`, apiKey), false);
   assert.equal(verifyCreemRedirectSignature(`${rawQueryWithoutSignature}&signature=bad`, apiKey), false);
+  assert.equal(identifyCreemRedirectSignatureVariant(rawQuery, apiKey), "sha256_ordered");
+  assert.equal(
+    identifyCreemRedirectSignatureVariant(`${rawQueryWithoutSignature}&signature=${legacyHmac}`, apiKey),
+    "legacy_hmac_sorted",
+  );
+  assert.equal(identifyCreemRedirectSignatureVariant(`${rawQueryWithoutSignature}&signature=bad`, apiKey), "unknown");
 });
 
 test("webhook signature verification matches HMAC-SHA256 payload signing", () => {

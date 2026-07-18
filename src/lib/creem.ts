@@ -318,19 +318,37 @@ export function verifyCreemWebhookSignature(payload: string, signature: string, 
   return crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(signature));
 }
 
-export function verifyCreemRedirectSignature(rawQuery: string, apiKey: string): boolean {
-  if (!rawQuery || !apiKey) return false;
+export function identifyCreemRedirectSignatureVariant(
+  rawQuery: string,
+  apiKey: string,
+): "sha256_ordered" | "legacy_hmac_sorted" | "unknown" {
+  if (!rawQuery || !apiKey) return "unknown";
 
   const params = new URLSearchParams(rawQuery);
   const signature = params.get("signature");
-  if (!signature) return false;
+  if (!signature) return "unknown";
 
-  const signingString = Array.from(params.entries())
+  const signedEntries = Array.from(params.entries())
     .filter(([key, value]) => key !== "signature" && value !== "" && value !== "null")
-    .map(([key, value]) => `${key}=${value}`)
-    .concat(`salt=${apiKey}`)
-    .join("|");
+  const signingString = signedEntries.map(([key, value]) => `${key}=${value}`)
+    .concat(`salt=${apiKey}`).join("|");
   const expected = crypto.createHash("sha256").update(signingString).digest("hex");
-  if (expected.length !== signature.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+  if (expected.length === signature.length && crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) {
+    return "sha256_ordered";
+  }
+
+  const legacySigningString = signedEntries
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => `${key}=${value}`)
+    .join("&");
+  const legacyExpected = crypto.createHmac("sha256", apiKey).update(legacySigningString).digest("hex");
+  if (legacyExpected.length === signature.length && crypto.timingSafeEqual(Buffer.from(legacyExpected), Buffer.from(signature))) {
+    return "legacy_hmac_sorted";
+  }
+
+  return "unknown";
+}
+
+export function verifyCreemRedirectSignature(rawQuery: string, apiKey: string): boolean {
+  return identifyCreemRedirectSignatureVariant(rawQuery, apiKey) === "sha256_ordered";
 }
