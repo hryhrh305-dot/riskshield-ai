@@ -1,20 +1,10 @@
-﻿import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { CSSProperties, ReactNode } from "react";
+import type { Metadata } from "next";
 import Script from "next/script";
 import "./globals.css";
 import { AttributionObserver } from "@/components/e8/AttributionObserver";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { getE8Flags } from "@/lib/e8/flags";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.secwyn.com"),
@@ -40,17 +30,23 @@ export const metadata: Metadata = {
   },
 };
 
+const fontVariables: CSSProperties = {
+  "--font-geist-sans": "Arial, Helvetica, sans-serif",
+  "--font-geist-mono": "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: ReactNode;
 }>) {
   const e8Enabled = getE8Flags().observability && getE8Flags().attribution;
   return (
     <html
       lang="en"
       suppressHydrationWarning
-      className={geistSans.variable + " " + geistMono.variable + " h-full antialiased"}
+      className="h-full antialiased"
+      style={fontVariables}
     >
       <body className="min-h-full flex flex-col overflow-x-hidden">
         <Script id="secwyn-theme-init" strategy="beforeInteractive">{`
