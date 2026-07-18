@@ -113,7 +113,7 @@ Production routes verified healthy: Homepage, Pricing, Signup, Login, Docs, Goog
 
 ## Data Delta
 
-No Checkout was created and no payment was attempted during this cutover.
+No payment was completed and no entitlement was provisioned during the authenticated acceptance procedure. Seven unpaid pending/abandoned Live Checkout sessions were created and accepted by the project owner as a HumanOps exception; they were not deleted or modified.
 
 | Store | Baseline | After acceptance window | Delta |
 | --- | ---: | ---: | ---: |
@@ -126,11 +126,29 @@ No Checkout was created and no payment was attempted during this cutover.
 | Live subscriptions | 0 | 0 | 0 |
 | Live credit grants | 41 | 41 | 0 |
 
-New abandoned checkout sessions: 0. Existing historical pending or incomplete records were not modified.
+| Live referral grants | 0 | 0 | 0 |
+
+| Live pending/abandoned Checkout sessions | 0 planned | 7 actual | +7 |
+
+No transaction, subscription, credit grant, referral grant, webhook processing, Test data change, or Live entitlement change occurred. The seven pending records are immutable audit records and were not deleted, status-edited, or backfilled.
+
+### HumanOps Exception — Multiple Unpaid Checkout Sessions
+
+- Intended session count: 1
+- Actual session count: 7
+- Pending/abandoned count: 7
+- Completed count: 0
+- Transactions: 0
+- Subscriptions: 0
+- Credits: 0
+- Referrals: 0
+- Owner acceptance: accepted as a non-blocking HumanOps exception
+
+This is not a payment failure, data pollution, security incident, or Production deployment blocker. Duplicate Checkout Session Prevention remains a separate P2 follow-up and is not implemented in this documentation-only closure.
 
 ## Production Observation
 
-The functional V2 deployment was observed for more than 20 minutes. The acceptance window contained 26 HTTP 200 responses, five expected HTTP 401 safety rejections, one expected HTTP 307 authentication redirect, no 5xx response, and no runtime error cluster. A subsequent documentation-only deployment used the same tested runtime code and passed the final Production Smoke.
+The Live Checkout acceptance window was observed for more than 10 minutes after the final Starter Monthly session. Production contained 149 HTTP 200 responses, 118 HTTP 304 responses, and one expected HTTP 307 redirect in the observation window. There were no 4xx or 5xx responses in the final observation window and no runtime error cluster. No webhook was received because no payment was completed.
 
 Known baseline warnings remain isolated:
 
@@ -146,3 +164,23 @@ Known baseline warnings remain isolated:
 - Production alias: `https://www.secwyn.com`
 
 No Secret, Product ID, allowlist, customer identity, or payment instrument is recorded in this report.
+
+## Phase C3-FR1 Final HumanOps Exception Closure
+
+Final status: **PASS WITH HUMANOPS EXCEPTION**
+
+- Premium V2 Public Catalog: ON
+- Premium V2 Live Checkout: ON
+- Live Checkout Host: VERIFIED
+- Test Checkout: OFF
+- Payment executed: No
+- Seven pending records: Accepted HumanOps exception
+- Completed payment delta: 0
+- Subscription delta: 0
+- Credits delta: 0
+- Referral delta: 0
+- Test pollution: No
+- Live pollution: No
+- Production deployment: Unchanged / READY
+- Controlled GTM: READY
+- SES: Paused
