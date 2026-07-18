@@ -34,7 +34,8 @@ describe("E8.6 positioning contract", () => {
   });
 
   it("labels illustrative material honestly and keeps future workflows out of the current ICP", () => {
-    expect(home).toContain("Illustrative sample — not a real customer report");
+    expect(home).toContain("ILLUSTRATIVE SAMPLE · SYNTHETIC DATA");
+    expect(home).toContain("Synthetic data · No signup · No credits used · Not a real customer report");
     expect(home).not.toContain("Developing: signup and form-abuse review");
     expect(home).toContain("We do not guarantee inbox placement");
   });

@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { SecwynMark } from "@/components/brand/SecwynMark";
 import { trackE8Event } from "@/components/e8/AttributionObserver";
+import { sampleAuditCampaignDecision, sampleAuditReviewDrivers, sampleAuditSummary, sampleAuditTotal } from "@/lib/sample-audit-summary";
 import { createClient } from "@/lib/supabase";
 
 const outcomes = [
@@ -177,31 +178,65 @@ export default function HomePageClient() {
             <p className="mt-3 text-xs text-slate-500">No credit card required. New accounts receive 50 one-time contact checks as a non-recurring evaluation allowance.</p>
           </div>
 
-          <div id="sample-audit" className="rs-panel-strong rs-card-hover rounded-[30px] p-5 sm:p-6">
-            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/10 pb-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Illustrative sample — not a real customer report</p>
-                <h2 className="mt-2 text-xl font-semibold text-white">Northstar Advisory · Q3 Executive Outreach</h2>
+          <article id="sample-audit" aria-labelledby="hero-sample-title" className="rs-panel-strong rs-card-hover rounded-[30px] p-5 sm:p-6">
+            <div className="border-b border-white/10 pb-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">ILLUSTRATIVE SAMPLE · SYNTHETIC DATA</p>
+              <h2 id="hero-sample-title" className="mt-2 text-xl font-semibold text-white">Northstar Advisory · Q3 Executive Outreach</h2>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                <span>{sampleAuditTotal} synthetic contacts</span>
+                <span aria-hidden="true" className="text-slate-600">·</span>
+                <span>Campaign decision:</span>
+                <span className="rs-badge-review rounded-full px-3 py-1 text-[11px] font-semibold tracking-[0.16em]">{sampleAuditCampaignDecision}</span>
+                <span aria-hidden="true" className="text-slate-600">·</span>
+                <span>{sampleAuditSummary.find((item) => item.decision === "REVIEW")?.count} contacts require action before approval.</span>
               </div>
-              <span className="rs-badge-review rounded-full px-3 py-1 text-xs font-semibold">REVIEW</span>
             </div>
             <div className="mt-5 grid grid-cols-3 gap-3">
-              {[['SEND', '612'], ['REVIEW', '74'], ['SUPPRESS', '19']].map(([label, value]) => (
-                <div key={label} className="rounded-2xl border border-white/10 bg-black/20 p-3 text-center">
-                  <div className="text-xl font-semibold text-white">{value}</div><div className="mt-1 text-[10px] tracking-[0.16em] text-slate-500">{label}</div>
-                </div>
-              ))}
+              {sampleAuditSummary.map(({ decision, count, percentage }) => {
+                const toneClass =
+                  decision === "SEND"
+                    ? "rs-sample-card-allow"
+                    : decision === "REVIEW"
+                      ? "rs-sample-card-review"
+                      : "rs-sample-card-block";
+                return (
+                  <div key={decision} className={`rs-sample-card rounded-2xl border p-3 text-center ${toneClass}`}>
+                    <div className="rs-sample-card-value text-xl font-semibold">{count}</div>
+                    <div className="mt-2 flex justify-center">
+                      <span className="rs-sample-card-label rounded-full px-3 py-1 text-[10px] font-semibold tracking-[0.12em]">
+                        {decision}
+                      </span>
+                    </div>
+                    <div className="rs-sample-card-percent mt-1 text-xs">{percentage.toFixed(1)}%</div>
+                  </div>
+                );
+              })}
             </div>
             <div className="mt-4 space-y-3">
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Decision evidence</p>
-                <p className="mt-2 text-sm leading-6 text-slate-200">Available signals support a focused manual review of shared inboxes and records with incomplete domain evidence.</p>
+                <p className="mt-2 text-sm leading-6 text-slate-200">The largest Review drivers include {sampleAuditReviewDrivers[0].count} role-based addresses and {sampleAuditReviewDrivers[1].count} contact with unavailable evidence.</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {sampleAuditReviewDrivers.map((driver) => (
+                    <span key={driver.label} className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-slate-300">{driver.count} {driver.label}</span>
+                  ))}
+                </div>
               </div>
               <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-4 text-sm leading-6 text-slate-200">
-                Recommended next step: resolve the Review queue with account context, document exceptions, then approve the final launch list.
+                Recommended action: Resolve the {sampleAuditSummary.find((item) => item.decision === "REVIEW")?.count} Review contacts, export the {sampleAuditSummary.find((item) => item.decision === "SEND")?.count}-contact Send queue, then approve the campaign.
               </div>
             </div>
-          </div>
+            <div className="mt-5 border-t border-white/10 pt-4">
+              <Link
+                href="/sample-audit"
+                onClick={() => trackE8Event("homepage_sample_card_cta_clicked", { source: "hero_sample_card", destination: "/sample-audit" })}
+                className="rs-link-arrow inline-flex items-center gap-2 rounded-full text-sm font-semibold text-white outline-none transition hover:text-cyan-200 focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+              >
+                Explore the full sample audit <ArrowRight aria-hidden="true" className="h-4 w-4" />
+              </Link>
+              <p className="mt-3 text-[11px] leading-5 text-slate-500">Synthetic data · No signup · No credits used · Not a real customer report</p>
+            </div>
+          </article>
         </section>
 
         <section className="border-y border-white/10 bg-black/20">

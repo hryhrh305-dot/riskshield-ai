@@ -3,7 +3,8 @@ import Link from "next/link";
 import { CheckCircle2, FileCheck2, ShieldCheck } from "lucide-react";
 import { SecwynMark } from "@/components/brand/SecwynMark";
 import { SampleAuditActions } from "@/components/sample-audit/SampleAuditActions";
-import { sampleAuditContacts, sampleAuditRiskDrivers, sampleAuditSummary, type SampleDecision } from "@/lib/sample-audit-data";
+import { sampleAuditContacts, type SampleDecision } from "@/lib/sample-audit-data";
+import { sampleAuditRiskDrivers, sampleAuditSummary } from "@/lib/sample-audit-summary";
 
 export const metadata: Metadata = {
   title: "Sample Contact Risk Audit | Secwyn",
@@ -43,7 +44,12 @@ export default function SampleAuditPage() {
               {["No signup required", "Synthetic data only", "Does not consume credits"].map((tag) => <span key={tag} className="rs-chip rounded-full border px-3 py-1.5 text-xs font-medium">{tag}</span>)}
             </div>
             <div className="mt-8"><SampleAuditActions location="hero" /></div>
-            <p className="mt-5 max-w-3xl text-xs leading-5 text-slate-500">This sample uses synthetic contacts for demonstration. Results in a real audit depend on the evidence available at the time of processing.</p>
+            <div className="mt-5 max-w-3xl rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Sample scope notice</p>
+              <p className="mt-2 text-xs leading-5 text-slate-300">
+                This page is a simplified synthetic demonstration. A real Secwyn audit returns materially more detail, including fuller evidence fields, richer reason context, expanded result packaging, and workflow-ready output for review and export.
+              </p>
+            </div>
           </div>
         </section>
 
@@ -80,7 +86,13 @@ export default function SampleAuditPage() {
         </section>
 
         <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-          <div><p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">All 20 synthetic contacts</p><h2 className="mt-3 text-2xl font-semibold text-white">Contact Results</h2></div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">All 20 synthetic contacts</p>
+            <h2 className="mt-3 text-2xl font-semibold text-white">Contact Results</h2>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
+              This sample keeps the layout intentionally compact. Real audited results in the product are more detailed than this example and include additional evidence, operational context, and export-ready output.
+            </p>
+          </div>
           <div className="mt-7 grid gap-4 lg:grid-cols-2">
             {sampleAuditContacts.map((contact) => {
               const copy = decisionCopy[contact.decision];

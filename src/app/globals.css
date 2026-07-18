@@ -242,6 +242,66 @@ body {
   color: #fca5a5;
 }
 
+.rs-sample-card {
+  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+
+.rs-sample-card-value,
+.rs-sample-card-percent {
+  color: #f8fafc;
+}
+
+.rs-sample-card-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rs-sample-card-allow {
+  border-color: rgba(52, 211, 153, 0.3);
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.rs-sample-card-allow .rs-sample-card-value,
+.rs-sample-card-allow .rs-sample-card-percent {
+  color: #d1fae5;
+}
+
+.rs-sample-card-allow .rs-sample-card-label {
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+}
+
+.rs-sample-card-review {
+  border-color: rgba(251, 191, 36, 0.28);
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.rs-sample-card-review .rs-sample-card-value,
+.rs-sample-card-review .rs-sample-card-percent {
+  color: #fde68a;
+}
+
+.rs-sample-card-review .rs-sample-card-label {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fcd34d;
+}
+
+.rs-sample-card-block {
+  border-color: rgba(251, 113, 133, 0.28);
+  background: rgba(244, 63, 94, 0.11);
+}
+
+.rs-sample-card-block .rs-sample-card-value,
+.rs-sample-card-block .rs-sample-card-percent {
+  color: #fecdd3;
+}
+
+.rs-sample-card-block .rs-sample-card-label {
+  background: rgba(239, 68, 68, 0.14);
+  color: #fda4af;
+}
+
 .rs-link-arrow {
   transition: gap 160ms ease, color 160ms ease;
 }
@@ -770,6 +830,53 @@ html[data-theme="light"] .rs-badge-review {
 html[data-theme="light"] .rs-badge-block {
   background: #fde5e3;
   color: #b42336;
+}
+
+html[data-theme="light"] .rs-sample-card-allow {
+  border-color: #8ed7b0;
+  background: #e5f6ec;
+}
+
+html[data-theme="light"] .rs-sample-card-review {
+  border-color: #efcb73;
+  background: #fff5de;
+}
+
+html[data-theme="light"] .rs-sample-card-block {
+  border-color: #efb9b6;
+  background: #fff0ef;
+}
+
+html[data-theme="light"] .rs-sample-card-allow .rs-sample-card-value {
+  color: #0f7a52;
+}
+
+html[data-theme="light"] .rs-sample-card-review .rs-sample-card-value {
+  color: #a65b00;
+}
+
+html[data-theme="light"] .rs-sample-card-block .rs-sample-card-value {
+  color: #cb2450;
+}
+
+html[data-theme="light"] .rs-sample-card-allow .rs-sample-card-percent,
+html[data-theme="light"] .rs-sample-card-allow .rs-sample-card-label {
+  color: #2f9d6b;
+}
+
+html[data-theme="light"] .rs-sample-card-review .rs-sample-card-percent,
+html[data-theme="light"] .rs-sample-card-review .rs-sample-card-label {
+  color: #c78400;
+}
+
+html[data-theme="light"] .rs-sample-card-block .rs-sample-card-percent,
+html[data-theme="light"] .rs-sample-card-block .rs-sample-card-label {
+  color: #cf5f77;
+}
+
+html[data-theme="light"] .rs-sample-card-label {
+  background: transparent;
+  padding: 0;
 }
 
 html[data-theme="light"] :where(.rs-shell, .rs-app) article.rs-pricing-growth {

@@ -17,6 +17,7 @@ export const PRODUCT_EVENT_NAMES = [
   "sample_audit_viewed",
   "sample_audit_primary_cta_clicked",
   "sample_audit_pricing_clicked",
+  "homepage_sample_card_cta_clicked",
   "checkout_started",
   "contact_check_completed",
   "free_audit_started",

@@ -33,21 +33,3 @@ export const sampleAuditContacts: readonly SampleAuditContact[] = [
   { result: 19, email: "invalid..syntax@example.com", decision: "SUPPRESS", score: 95, primaryReason: "Invalid email syntax", recommendedAction: "Correct or remove the address", evidenceState: "Syntax check failed", riskTags: ["invalid-syntax"] },
   { result: 20, email: "taylr.reed@example.net", decision: "SUPPRESS", score: 70, primaryReason: "Possible domain typo", recommendedAction: "Correct the domain before use", evidenceState: "Domain spelling conflict detected", riskTags: ["domain-typo"] },
 ] as const;
-
-export const sampleAuditSummary = (["SEND", "REVIEW", "SUPPRESS"] as const).map((decision) => {
-  const count = sampleAuditContacts.filter((contact) => contact.decision === decision).length;
-  return { decision, count, percentage: Math.round((count / sampleAuditContacts.length) * 100) };
-});
-
-const driverDefinitions = [
-  ["Manual review required", "manual-review"],
-  ["No usable MX", "no-mx"],
-  ["Possible domain typo", "domain-typo"],
-  ["Disposable mailbox", "disposable"],
-  ["Evidence unavailable", "evidence-unavailable"],
-] as const;
-
-export const sampleAuditRiskDrivers = driverDefinitions.map(([label, tag]) => ({
-  label,
-  count: sampleAuditContacts.filter((contact) => contact.riskTags.includes(tag)).length,
-}));
