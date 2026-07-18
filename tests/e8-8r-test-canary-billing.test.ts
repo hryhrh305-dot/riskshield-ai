@@ -171,6 +171,8 @@ describe("E8.8R Phase C1 Test Canary billing contract", () => {
     expect(webhook).not.toContain("CREEM_WEBHOOK_SECRET");
     expect(webhook).not.toMatch(/\.from\(["'](?:payments|subscriptions|credit_grants|referral_attributions|profiles)["']\)/);
     expect(redirect).toContain("CREEM_CANARY_TEST_API_KEY");
+    expect(redirect).toContain("readAccessTokenFromSupabaseCookieHeader");
+    expect(redirect).not.toContain("readAccessTokenFromCookieHeader");
     expect(portal).toContain("CREEM_CANARY_TEST_API_KEY");
     expect(portal).not.toContain("CREEM_API_KEY");
     expect(portal).toContain('.from("test_canary_subscriptions")');

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { readAccessTokenFromCookieHeader } from "@/lib/auth-cookie";
+import { readAccessTokenFromSupabaseCookieHeader } from "@/lib/auth-cookie";
 import { findPlanByCreemProductId, verifyCreemRedirectSignature } from "@/lib/creem";
 import { getAdminV2CanaryDecision } from "@/lib/admin-v2-canary";
 import { findTestCanaryProductById } from "@/lib/test-canary-billing";
@@ -32,16 +32,9 @@ function getSupabaseAdmin() {
   return supabaseAdmin;
 }
 
-function getProjectRef() {
-  return SUPABASE_URL ? new URL(SUPABASE_URL).hostname.split(".")[0] : "";
-}
-
 async function getUserFromRequest(request: NextRequest) {
-  const projectRef = getProjectRef();
-  if (!projectRef) return null;
-
   const cookieHeader = request.headers.get("cookie") || "";
-  const accessToken = readAccessTokenFromCookieHeader(cookieHeader, projectRef);
+  const accessToken = readAccessTokenFromSupabaseCookieHeader(cookieHeader);
   if (!accessToken) return null;
 
   const {
