@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
-import { Shield, Mail, Globe, AlertTriangle, CheckCircle, XCircle, ArrowRight, Zap, History, ChevronDown } from "lucide-react";
+import { Shield, Mail, Globe, AlertTriangle, CheckCircle, XCircle, ArrowRight, Zap, History, ChevronDown, Star } from "lucide-react";
 import Link from "next/link";
 import { getResultVisibility } from "@/lib/plans";
 import { trackE8Event } from "@/components/e8/AttributionObserver";
@@ -64,6 +64,15 @@ export default function RiskCheckPage() {
   const [user, setUser] = useState<{ email?: string } | null>(null);
 
   const supabase = createClient();
+  const companyHealthStarCount = result?.company_health
+    ? result.company_health.grade === "A" || result.company_health.grade === "B"
+      ? 3
+      : result.company_health.grade === "C"
+        ? 2
+        : result.company_health.grade === "D"
+          ? 1
+          : 0
+    : 0;
 
   useEffect(() => {
     supabase.auth.getSession().then((response: { data: { session: { user: { email?: string } } | null } }) => setUser(response.data.session?.user ?? null));
@@ -409,7 +418,14 @@ export default function RiskCheckPage() {
                 </div>
                 <div className="mb-3 flex items-center gap-4">
                   <div className="text-4xl font-bold text-white">{result.company_health.healthScore}</div>
-                  <div className="text-2xl text-amber-300">{result.company_health.stars}</div>
+                  <div
+                    className="flex items-center gap-1 text-amber-300/75"
+                    aria-label={`Health rating ${companyHealthStarCount} out of 3`}
+                  >
+                    {Array.from({ length: companyHealthStarCount }).map((_, index) => (
+                      <Star key={index} className="h-4 w-4 fill-current stroke-0" />
+                    ))}
+                  </div>
                 </div>
                 <div className="mb-2 text-sm font-semibold text-slate-100">{result.company_health.label}</div>
                 <p className="mb-3 text-sm text-slate-300">{result.company_health.recommendation}</p>
