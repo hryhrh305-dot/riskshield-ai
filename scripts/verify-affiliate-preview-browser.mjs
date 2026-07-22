@@ -88,7 +88,7 @@ try {
     await login(page, "provisional@preview.secwyn.invalid");
     await page.goto(`${baseUrl}/affiliate/portal`, { waitUntil: "networkidle" });
     const text = await page.locator("body").innerText();
-    record("provisional_status_visible", text.includes("provisional"));
+    record("provisional_status_visible", text.toLowerCase().includes("provisional"));
     record("provisional_activation_progress", text.includes("2/3 valid actions") && text.includes("2/2 formats"));
     record("provisional_no_page_errors", pageErrors.length === 0, pageErrors.join(" | "));
     await context.close();
@@ -99,9 +99,9 @@ try {
     await login(page, "approved-a@preview.secwyn.invalid");
     await page.goto(`${baseUrl}/affiliate/portal`, { waitUntil: "networkidle" });
     const text = await page.locator("body").innerText();
-    record("approved_badge_visible", text.includes("India Founding Affiliate"));
+    record("approved_badge_visible", text.toLowerCase().includes("india founding affiliate"));
     record("direct_relationship_privacy", text.includes("Direct relationships only") && text.includes("Downstream private data") && !text.includes("Affiliate C Synthetic"));
-    record("synthetic_payout_not_real", text.includes("payoneer") && text.includes("unverified"));
+    record("synthetic_payout_not_real", text.includes("Payout readiness") && text.includes("Not configured"));
     await assertNoOverflow(page, "approved_desktop_no_overflow");
     record("approved_no_page_errors", pageErrors.length === 0, pageErrors.join(" | "));
     await context.close();

@@ -105,6 +105,12 @@ describe("Affiliate Preview operational acceptance contracts", () => {
     expect(content).toContain("Export JSON");
   });
 
+  it("renders admin application timestamps deterministically in the India timezone", () => {
+    const review = read("src/app/admin/affiliate/AffiliateApplicationReview.tsx");
+    expect(review).toContain('timeZone: "Asia/Kolkata"');
+    expect(review).not.toContain('toLocaleString("en-IN")');
+  });
+
   it("protects application submission with CSRF, rate limiting and replay idempotency", () => {
     const route = read("src/app/api/affiliate/applications/route.ts");
     expect(route).toContain("assertAffiliateSameOrigin");
