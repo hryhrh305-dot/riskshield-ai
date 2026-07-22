@@ -1,0 +1,7 @@
+import { notFound } from "next/navigation";
+import { affiliateFlagEnabled } from "@/modules/affiliate";
+
+export default function AffiliateRulesPage() {
+  if (!affiliateFlagEnabled(process.env, "AFFILIATE_PUBLIC_PAGE")) notFound();
+  return <main className="mx-auto min-h-screen max-w-3xl px-6 py-16 text-slate-900 dark:text-slate-100"><h1 className="text-4xl font-semibold">Affiliate rules</h1><div className="mt-8 space-y-6 text-slate-700 dark:text-slate-300"><p>Secwyn affiliates are independent participants. This is not employment and earnings are never guaranteed.</p><h2 className="text-xl font-semibold text-slate-950 dark:text-white">Allowed promotion</h2><p>Relevant one-to-one professional conversations, organic content, product demonstrations and permitted professional communities.</p><h2 className="text-xl font-semibold text-slate-950 dark:text-white">Prohibited promotion</h2><p>Cold email, automated DMs, scraped lists, robocalls, bulk WhatsApp or Telegram messages, brand impersonation and misleading claims.</p><h2 className="text-xl font-semibold text-slate-950 dark:text-white">Attribution and qualification</h2><p>Registration must normally occur within 30 days of a valid click and the first qualifying payment within 90 days. Renewals and later plan changes do not create another first-sale commission.</p><h2 className="text-xl font-semibold text-slate-950 dark:text-white">Review and payout</h2><p>Refund, chargeback, fraud and attribution review applies. Payout is gated by reconciliation and account verification.</p></div></main>;
+}

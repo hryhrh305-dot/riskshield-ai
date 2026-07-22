@@ -1,0 +1,290 @@
+{
+  "schema_version": "1.0.0",
+  "program": {
+    "id": "secwyn",
+    "country_scope": [
+      "IN"
+    ],
+    "customer_markets": [
+      "global_b2b"
+    ],
+    "primary_currency": "USD",
+    "reference_currency": "INR",
+    "timezone": "Asia/Kolkata",
+    "language": "en",
+    "launch_start_at": "HUMANOPS_REQUIRED",
+    "launch_duration_months": 12
+  },
+  "capabilities": {
+    "provisional_activation": true,
+    "team_rewards": true,
+    "accelerators": true,
+    "cold_start_rewards": true,
+    "monthly_quiz": true,
+    "content_library": true,
+    "telegram_automation": true,
+    "payout_workflow": true,
+    "affiliate_cold_email": false,
+    "automated_dm": false,
+    "bulk_messaging": false,
+    "paid_ads_default": false,
+    "brand_bidding": false
+  },
+  "pricing_snapshot_usd_minor": {
+    "starter": {
+      "monthly": 19900,
+      "annual": 218900
+    },
+    "growth": {
+      "monthly": 99900,
+      "annual": 1098900
+    },
+    "scale": {
+      "monthly": 399900,
+      "annual": 4398900
+    },
+    "business": {
+      "monthly": null,
+      "annual": null,
+      "manual_review": true
+    }
+  },
+  "activation": {
+    "policy_quiz_questions": 5,
+    "provisional_days": 7,
+    "grace_days_once": 3,
+    "required_actions": 3,
+    "required_action_formats": 2,
+    "early_approval_events": [
+      "valid_referred_registration",
+      "verified_sales_opportunity",
+      "first_successful_payment"
+    ],
+    "first_qualified_sale_active_window_days": 90
+  },
+  "attribution": {
+    "click_to_registration_days": 30,
+    "registration_to_first_payment_days": 90,
+    "manual_extension_days_once_max": 30,
+    "absolute_max_days": 120,
+    "lock_on_registration": true,
+    "manual_post_payment_claim_default": false
+  },
+  "launch": {
+    "base_commission_usd_minor": {
+      "starter": {
+        "monthly": 2500,
+        "annual": 12000
+      },
+      "growth": {
+        "monthly": 10000,
+        "annual": 60000
+      },
+      "scale": {
+        "monthly": 30000,
+        "annual": 150000
+      }
+    },
+    "accelerators": [
+      {
+        "mrr_threshold_usd_minor": 50000,
+        "rate_bps": 500
+      },
+      {
+        "mrr_threshold_usd_minor": 150000,
+        "rate_bps": 1000
+      },
+      {
+        "mrr_threshold_usd_minor": 500000,
+        "rate_bps": 1500
+      }
+    ],
+    "direct_referral_usd_minor": {
+      "starter": {
+        "monthly": 500,
+        "annual": 1500
+      },
+      "growth": {
+        "monthly": 2000,
+        "annual": 5000
+      },
+      "scale": {
+        "monthly": 7500,
+        "annual": 15000
+      }
+    },
+    "team_tiers": [
+      {
+        "sales_threshold_usd_minor": 500000,
+        "reward_usd_minor": 5000
+      },
+      {
+        "sales_threshold_usd_minor": 1500000,
+        "reward_usd_minor": 20000
+      },
+      {
+        "sales_threshold_usd_minor": 4000000,
+        "reward_usd_minor": 60000
+      },
+      {
+        "sales_threshold_usd_minor": 10000000,
+        "reward_usd_minor": 150000
+      },
+      {
+        "sales_threshold_usd_minor": 25000000,
+        "reward_usd_minor": 375000
+      },
+      {
+        "sales_threshold_usd_minor": 60000000,
+        "reward_usd_minor": 900000
+      }
+    ],
+    "cold_start": {
+      "first_qualified_customer_within_days": 30,
+      "first_customer_reward_usd_minor": 1000,
+      "three_direct_affiliates_first_sale_reward_usd_minor": 3000,
+      "leader_personal_orders_required": 2
+    }
+  },
+  "evergreen": {
+    "base_commission_usd_minor": {
+      "starter": {
+        "monthly": 1500,
+        "annual": 10000
+      },
+      "growth": {
+        "monthly": 7500,
+        "annual": 50000
+      },
+      "scale": {
+        "monthly": 25000,
+        "annual": 120000
+      }
+    },
+    "accelerators": [
+      {
+        "mrr_threshold_usd_minor": 100000,
+        "rate_bps": 300
+      },
+      {
+        "mrr_threshold_usd_minor": 300000,
+        "rate_bps": 600
+      },
+      {
+        "mrr_threshold_usd_minor": 1000000,
+        "rate_bps": 1000
+      }
+    ],
+    "direct_referral": {
+      "rate_bps": 50,
+      "cap_usd_minor": 7500
+    },
+    "team_tiers": [
+      {
+        "sales_threshold_usd_minor": 500000,
+        "reward_usd_minor": 5000
+      },
+      {
+        "sales_threshold_usd_minor": 2000000,
+        "reward_usd_minor": 20000
+      },
+      {
+        "sales_threshold_usd_minor": 5000000,
+        "reward_usd_minor": 50000
+      },
+      {
+        "sales_threshold_usd_minor": 15000000,
+        "reward_usd_minor": 150000
+      },
+      {
+        "sales_threshold_usd_minor": 40000000,
+        "reward_usd_minor": 400000
+      },
+      {
+        "sales_threshold_usd_minor": 100000000,
+        "reward_usd_minor": 1000000
+      }
+    ],
+    "max_total_incentive_bps": 1100
+  },
+  "direct_referral_requirements": {
+    "one_generation_only": true,
+    "invitee_must_be_approved": true,
+    "invitee_first_qualified_external_sale": true,
+    "inviter_personal_qualified_orders_in_sale_month": 1,
+    "one_reward_per_invitee": true
+  },
+  "team_requirements": {
+    "one_generation_only": true,
+    "leader_personal_orders_required": 2,
+    "leader_orders_must_be_independent_customers": true,
+    "highest_tier_only": true,
+    "exclude_leader_sales": true,
+    "exclude_commissions_and_rewards": true
+  },
+  "annual_schedules_days": {
+    "starter": [
+      30,
+      90
+    ],
+    "growth": [
+      30,
+      120,
+      210,
+      300
+    ],
+    "scale": [
+      30,
+      60,
+      90,
+      120,
+      150,
+      180
+    ]
+  },
+  "risk_reserve": {
+    "day_30_release_bps": 8000,
+    "day_60_release_bps": 2000,
+    "subsequent_installments_after_day_60_release_bps": 10000
+  },
+  "payout": {
+    "default_provider": "payoneer_manual",
+    "minimum_payable_usd_minor": 5000,
+    "scheduled_day_of_month": 28,
+    "account_change_freeze_hours": 72,
+    "payout_pin_required": true,
+    "email_otp_required": true,
+    "reauth_required": true
+  },
+  "compliance": {
+    "max_unanswered_followups": 1,
+    "affiliate_disclosure_required": true,
+    "stop_contact_global_enforcement": true,
+    "manual_b2b_calling_allowed": true,
+    "organic_content_allowed": true
+  },
+  "telegram": {
+    "channel_name": "Secwyn India Affiliate Updates",
+    "channel_username": "HUMANOPS_REQUIRED",
+    "channel_chat_id": "HUMANOPS_REQUIRED",
+    "bot_secret_reference": "HUMANOPS_REQUIRED",
+    "language": "en",
+    "timezone": "Asia/Kolkata",
+    "max_scheduled_posts_per_day": 1,
+    "max_event_posts_per_day": 5,
+    "default_scheduled_time_local": "12:30",
+    "qualified_win_requires_consent": true,
+    "payout_notice_requires_paid_and_reconciled": true
+  },
+  "rounding": {
+    "mode": "HALF_UP",
+    "minor_unit": 2,
+    "money_storage": "integer_minor_units"
+  },
+  "guards": {
+    "monthly_incentive_warning_bps": 2500,
+    "monthly_incentive_stop_new_promotions_bps": 3000,
+    "evergreen_max_incentive_bps": 1100,
+    "retention_target_min_bps": 8000
+  }
+}

@@ -1,0 +1,66 @@
+请执行附件中的《Secwyn India Affiliate Full Implementation Codex Handoff》完整任务。
+
+硬性要求：
+
+1. 先进入：
+   cd D:\ai-saas-mvp
+
+2. 只允许单独一个 Agent 完成。不得启动子 Agent，不得采用主 Agent + Reviewer，不得多 Agent 并行。
+
+3. 先解压并逐字阅读：
+   - 00_README_FIRST.md
+   - docs/00_MASTER_IMPLEMENTATION_TASK.md
+   - docs/01_SOURCE_OF_TRUTH_AND_CONFLICT_RULES.md
+   - docs/24_NO_GO_GATES.md
+   - docs/26_DEFINITION_OF_DONE.md
+   然后按 README 顺序读取全部文件、machine/ 和 references/。不得只读摘要。
+
+4. 写入前先完成 E0 只读审查：
+   - branch、HEAD、git status、最近 commits、远端；
+   - Next.js、Supabase、Creem、Vercel、测试；
+   - 已有 referral、payment webhook、ledger、Auth、RLS、admin、feature flags；
+   - 当前 Production 与用户确认状态；
+   - 可复用能力、隔离能力、文件白名单、数据库对象白名单和风险清单。
+   E0 后继续，不要中途停下来。
+
+5. 完整实现 Affiliate 平台，不得只做公开页或壳。架构必须是：
+   模块化单体 + 纯 Affiliate Core + Program Adapter + 不可变 Rule Version + 只追加 Ledger + Transactional Outbox + Capability Registry + Feature Flags + Shadow Mode。
+
+6. 佣金和付款最高优先：
+   - 前端不得提交佣金金额、套餐、Affiliate ID、团队或 Payable；
+   - 金额使用整数最小单位和统一 HALF_UP；
+   - 三层幂等、唯一约束、事务、并发；
+   - 不可变 Decision、只追加 Ledger、独立 Audit Calculator；
+   - 退款、拒付、Clawback、年付分期、30/60 天准备金；
+   - A 永远不能从 C 获利；
+   - 每日对账、Payout Gate、Kill Switch；
+   - Shadow 和对账未通过，不得启用真实付款。
+
+7. 话术、资料、模板、FAQ、培训和素材必须后台可编辑、版本化、可预览、审批、定时、回滚、批量导入导出。不得写死在 React。规则变化必须触发 Content Impact Checker 和 Telegram 同步提醒。
+
+8. Telegram 必须实现：
+   - 每日 Approved 英文话术卡片或素材；
+   - Qualified Sale 才能发喜报；
+   - Paid + Reconciled Batch 才能发结算通告；
+   - 隐私同意、匿名/别名、幂等、防重复、重试、Dead Letter、审计和暂停；
+   - Bot 不计算佣金、不读取原始支付/KYC；
+   - 当前 6 条频道消息和前两条置顶状态进入同步；
+   - Bot Token、chat_id、创建 Bot、管理员权限属于 HumanOps。
+
+9. Feature Flags 默认全部关闭。启用顺序：
+   Public → Application → Activation → Attribution → Commission Shadow → Real Commission → Team → Payout → Telegram。
+   不得直接开 Production 真实佣金或付款。
+
+10. 不得修改 Secwyn 当前价格、50 次免费检测、订阅权益、检测/报告主链、支付合同或已修复功能。Affiliate 故障不得影响客户付款、订阅、登录和检测。
+
+11. Production Migration、Production Secrets、Telegram Bot、Creem/Payoneer 真实操作、Production Flags、真实喜报和真实 rollout 必须停在 HumanOps Gate。其余本地、测试、Preview、mock、RLS、Shadow 应自动完成。
+
+12. 测试必须包括 Unit、Integration、RLS、E2E、Replay、Concurrency、Property-Based、Mutation、Golden Vectors、退款/拒付、规则边界、跨月、跨 Program、Telegram 幂等、权限和 Kill Switch。0 skipped，0 only，0 安全 TODO。不得为过测试修改旧 Golden Vector。
+
+13. 仓库与附件冲突时，不得回滚新修复。只读核实，优先兼容迁移和 Adapter，无法判断时 Fail Closed，并在最终报告列证据。
+
+14. 内部可创建原子 commits，但不要每做一小步就停下来。最终严格使用 `docs/21_FINAL_REPORT_TEMPLATE.md` 一次汇报。
+
+15. PASS 只能表示 0 个已知 Critical/High、硬门禁通过、真实外部操作仍由 HumanOps 控制。不得声称绝对无漏洞。
+
+现在开始，连续执行，直到完整 Definition of Done 或仅剩 HumanOps 外部门禁。

@@ -17,6 +17,8 @@ import {
   verifyCreemWebhookSignature,
 } from "@/lib/creem";
 import { markReferralFirstPayment } from "@/lib/referral-rewards";
+import { affiliateFlagEnabled } from "@/modules/affiliate";
+import { enqueueAffiliateEvent } from "@/modules/affiliate/application/outbox";
 import { grantSubscriptionCycle, revokeSubscriptionTransactionCredits } from "@/lib/subscription-credits";
 import { getE8Flags } from "@/lib/e8/flags";
 import { safeE8ErrorCode } from "@/lib/e8/creem";
@@ -948,6 +950,51 @@ export async function POST(req: NextRequest) {
           console.warn("[e8-creem][subscription-sidecar-failed]", {
             eventType: eventType || "unknown",
             code: safeE8ErrorCode(error),
+          });
+        }
+      });
+    }
+    if (affiliateFlagEnabled(process.env, "AFFILIATE_ATTRIBUTION")) {
+      after(async () => {
+        try {
+          const providerEventId =
+            typeof event?.id === "string"
+              ? event.id
+              : typeof event?.object?.id === "string"
+                ? `${eventType}:${event.object.id}`
+                : null;
+          if (!providerEventId) return;
+
+          const affiliateContext = extractCheckoutUserAndPlan(event);
+          await Promise.race([
+            enqueueAffiliateEvent({
+              aggregateType: "payment_event",
+              aggregateId: providerEventId,
+              eventType: `affiliate.payment.${eventType || "unknown"}`,
+              sourceId: providerEventId,
+              payload: {
+                eventType: eventType || "unknown",
+                providerEventId,
+                userId: affiliateContext.userId,
+                transactionId: extractPaymentIdentifiers(event).transactionId,
+                refundAmountMinor:
+                  eventType === "refund.created"
+                    ? classifyCreemRefund(event).refundAmountMinor
+                    : null,
+                occurredAt:
+                  typeof event?.created_at === "string"
+                    ? event.created_at
+                    : new Date().toISOString(),
+              },
+            }),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error("AFFILIATE_OUTBOX_TIMEOUT")), 500),
+            ),
+          ]);
+        } catch (error) {
+          console.warn("[affiliate][payment-sidecar-failed]", {
+            eventType: eventType || "unknown",
+            code: error instanceof Error ? error.message : "AFFILIATE_OUTBOX_FAILED",
           });
         }
       });

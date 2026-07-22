@@ -1,0 +1,12 @@
+import { notFound, redirect } from "next/navigation";
+import { affiliateFlagEnabled } from "@/modules/affiliate";
+import { requireAffiliateUser, loadAffiliateBalance, loadAffiliateMembership } from "@/modules/affiliate/application/server";
+
+export default async function AffiliatePortalPage() {
+  if (!affiliateFlagEnabled(process.env, "AFFILIATE_PROVISIONAL_ACTIVATION")) notFound();
+  let user;
+  try { user = await requireAffiliateUser(); } catch { redirect("/login?next=/affiliate/portal"); }
+  const membership = await loadAffiliateMembership(user.id);
+  const balance = membership ? await loadAffiliateBalance(membership.id) : 0n;
+  return <main className="mx-auto min-h-screen max-w-6xl px-6 py-12 text-slate-900 dark:text-slate-100"><p className="text-xs font-semibold uppercase tracking-[.25em]">Affiliate Portal</p><h1 className="mt-4 text-4xl font-semibold">Your Secwyn affiliate workspace</h1>{!membership ? <section className="mt-8 rounded-3xl border border-slate-300 p-7 dark:border-slate-700"><h2 className="text-xl font-semibold">Application received or not yet activated</h2><p className="mt-2 text-slate-600 dark:text-slate-300">Membership becomes available only after review. No commission or payout is created before approval.</p></section> : <div className="mt-8 grid gap-5 md:grid-cols-3"><section className="rounded-3xl border border-slate-300 p-6 dark:border-slate-700"><p className="text-sm text-slate-500">Status</p><p className="mt-2 text-2xl font-semibold capitalize">{membership.status}</p></section><section className="rounded-3xl border border-slate-300 p-6 dark:border-slate-700"><p className="text-sm text-slate-500">Tracked ledger balance</p><p className="mt-2 text-2xl font-semibold">${(Number(balance)/100).toFixed(2)}</p><p className="mt-2 text-xs text-slate-500">Not payable until reconciliation and payout gates pass.</p></section><section className="rounded-3xl border border-slate-300 p-6 dark:border-slate-700"><p className="text-sm text-slate-500">Affiliate code</p><p className="mt-2 font-mono text-lg">{membership.affiliate_code}</p></section></div>}<section className="mt-8 rounded-3xl border border-amber-300 bg-amber-50 p-6 dark:border-amber-800 dark:bg-amber-950/20"><h2 className="font-semibold">Shadow-mode safety</h2><p className="mt-2 text-sm">Real commission and payout remain disabled until reconciliation evidence and HumanOps gates are complete.</p></section></main>;
+}

@@ -8,6 +8,6 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["tests/bulk-run-*.test.ts", "tests/google-sheets-bulk-run-contract.test.ts", "tests/supabase-secret-contract.test.ts", "tests/e8-*.test.ts"],
+    include: ["tests/bulk-run-*.test.ts", "tests/google-sheets-bulk-run-contract.test.ts", "tests/supabase-secret-contract.test.ts", "tests/e8-*.test.ts", "tests/affiliate-*.test.ts"],
   },
 });

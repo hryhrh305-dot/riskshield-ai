@@ -1,0 +1,325 @@
+{
+  "schema_version": "1.0.0",
+  "events": [
+    {
+      "name": "CustomerRegistered",
+      "producer": "existing_app",
+      "consumer": "affiliate",
+      "purpose": "Lock attributed registration.",
+      "required_envelope": [
+        "event_id",
+        "event_version",
+        "occurred_at",
+        "program_id",
+        "correlation_id",
+        "causation_id",
+        "idempotency_key",
+        "payload"
+      ]
+    },
+    {
+      "name": "CheckoutPaid",
+      "producer": "payment_adapter",
+      "consumer": "affiliate",
+      "purpose": "Start verified sale qualification.",
+      "required_envelope": [
+        "event_id",
+        "event_version",
+        "occurred_at",
+        "program_id",
+        "correlation_id",
+        "causation_id",
+        "idempotency_key",
+        "payload"
+      ]
+    },
+    {
+      "name": "RefundCreated",
+      "producer": "payment_adapter",
+      "consumer": "affiliate",
+      "purpose": "Create reversal/cancel schedules.",
+      "required_envelope": [
+        "event_id",
+        "event_version",
+        "occurred_at",
+        "program_id",
+        "correlation_id",
+        "causation_id",
+        "idempotency_key",
+        "payload"
+      ]
+    },
+    {
+      "name": "ChargebackCreated",
+      "producer": "payment_adapter",
+      "consumer": "affiliate",
+      "purpose": "Create reversal or clawback.",
+      "required_envelope": [
+        "event_id",
+        "event_version",
+        "occurred_at",
+        "program_id",
+        "correlation_id",
+        "causation_id",
+        "idempotency_key",
+        "payload"
+      ]
+    },
+    {
+      "name": "AffiliateApplicationSubmitted",
+      "producer": "affiliate_public",
+      "consumer": "affiliate",
+      "purpose": "Create application.",
+      "required_envelope": [
+        "event_id",
+        "event_version",
+        "occurred_at",
+        "program_id",
+        "correlation_id",
+        "causation_id",
+        "idempotency_key",
+        "payload"
+      ]
+    },
+    {
+      "name": "AffiliateProvisionalStarted",
+      "producer": "affiliate",
+      "consumer": "affiliate",
+      "purpose": "Start seven-day clock.",
+      "required_envelope": [
+        "event_id",
+        "event_version",
+        "occurred_at",
+        "program_id",
+        "correlation_id",
+        "causation_id",
+        "idempotency_key",
+        "payload"
+      ]
+    },
+    {
+      "name": "AffiliateApproved",
+      "producer": "affiliate",
+      "consumer": "affiliate",
+      "purpose": "Enable approved portal and referral.",
+      "required_envelope": [
+        "event_id",
+        "event_version",
+        "occurred_at",
+        "program_id",
+        "correlation_id",
+        "causation_id",
+        "idempotency_key",
+        "payload"
+      ]
+    },
+    {
+      "name": "AffiliateExpired",
+      "producer": "affiliate",
+      "consumer": "affiliate",
+      "purpose": "Stop new attribution and commission.",
+      "required_envelope": [
+        "event_id",
+        "event_version",
+        "occurred_at",
+        "program_id",
+        "correlation_id",
+        "causation_id",
+        "idempotency_key",
+        "payload"
+      ]
+    },
+    {
+      "name": "AttributionLocked",
+      "producer": "affiliate",
+      "consumer": "affiliate",
+      "purpose": "Immutable customer attribution.",
+      "required_envelope": [
+        "event_id",
+        "event_version",
+        "occurred_at",
+        "program_id",
+        "correlation_id",
+        "causation_id",
+        "idempotency_key",
+        "payload"
+      ]
+    },
+    {
+      "name": "SaleQualified",
+      "producer": "affiliate",
+      "consumer": "affiliate",
+      "purpose": "Allow qualified commission state.",
+      "required_envelope": [
+        "event_id",
+        "event_version",
+        "occurred_at",
+        "program_id",
+        "correlation_id",
+        "causation_id",
+        "idempotency_key",
+        "payload"
+      ]
+    },
+    {
+      "name": "CommissionDecisionCreated",
+      "producer": "affiliate",
+      "consumer": "affiliate",
+      "purpose": "Immutable decision.",
+      "required_envelope": [
+        "event_id",
+        "event_version",
+        "occurred_at",
+        "program_id",
+        "correlation_id",
+        "causation_id",
+        "idempotency_key",
+        "payload"
+      ]
+    },
+    {
+      "name": "CommissionQualified",
+      "producer": "affiliate",
+      "consumer": "affiliate",
+      "purpose": "Eligible for reserve/schedule.",
+      "required_envelope": [
+        "event_id",
+        "event_version",
+        "occurred_at",
+        "program_id",
+        "correlation_id",
+        "causation_id",
+        "idempotency_key",
+        "payload"
+      ]
+    },
+    {
+      "name": "CommissionReversed",
+      "producer": "affiliate",
+      "consumer": "affiliate",
+      "purpose": "Refund or invalidity.",
+      "required_envelope": [
+        "event_id",
+        "event_version",
+        "occurred_at",
+        "program_id",
+        "correlation_id",
+        "causation_id",
+        "idempotency_key",
+        "payload"
+      ]
+    },
+    {
+      "name": "PayoutBatchPaid",
+      "producer": "payout",
+      "consumer": "affiliate_telegram",
+      "purpose": "Payout notice after reconciliation.",
+      "required_envelope": [
+        "event_id",
+        "event_version",
+        "occurred_at",
+        "program_id",
+        "correlation_id",
+        "causation_id",
+        "idempotency_key",
+        "payload"
+      ]
+    },
+    {
+      "name": "ContentPublished",
+      "producer": "affiliate_content",
+      "consumer": "affiliate_telegram",
+      "purpose": "Refresh approved pool.",
+      "required_envelope": [
+        "event_id",
+        "event_version",
+        "occurred_at",
+        "program_id",
+        "correlation_id",
+        "causation_id",
+        "idempotency_key",
+        "payload"
+      ]
+    },
+    {
+      "name": "QualifiedWinReady",
+      "producer": "affiliate",
+      "consumer": "affiliate_telegram",
+      "purpose": "Eligible win after consent.",
+      "required_envelope": [
+        "event_id",
+        "event_version",
+        "occurred_at",
+        "program_id",
+        "correlation_id",
+        "causation_id",
+        "idempotency_key",
+        "payload"
+      ]
+    },
+    {
+      "name": "TelegramPublicationRequested",
+      "producer": "affiliate_telegram",
+      "consumer": "affiliate_telegram",
+      "purpose": "Queue publication.",
+      "required_envelope": [
+        "event_id",
+        "event_version",
+        "occurred_at",
+        "program_id",
+        "correlation_id",
+        "causation_id",
+        "idempotency_key",
+        "payload"
+      ]
+    },
+    {
+      "name": "TelegramPublicationSucceeded",
+      "producer": "affiliate_telegram",
+      "consumer": "affiliate",
+      "purpose": "Record message.",
+      "required_envelope": [
+        "event_id",
+        "event_version",
+        "occurred_at",
+        "program_id",
+        "correlation_id",
+        "causation_id",
+        "idempotency_key",
+        "payload"
+      ]
+    },
+    {
+      "name": "TelegramPublicationFailed",
+      "producer": "affiliate_telegram",
+      "consumer": "affiliate",
+      "purpose": "Retry/dead letter.",
+      "required_envelope": [
+        "event_id",
+        "event_version",
+        "occurred_at",
+        "program_id",
+        "correlation_id",
+        "causation_id",
+        "idempotency_key",
+        "payload"
+      ]
+    },
+    {
+      "name": "IntegrityIncidentOpened",
+      "producer": "affiliate",
+      "consumer": "admin_alert",
+      "purpose": "Pause based on severity.",
+      "required_envelope": [
+        "event_id",
+        "event_version",
+        "occurred_at",
+        "program_id",
+        "correlation_id",
+        "causation_id",
+        "idempotency_key",
+        "payload"
+      ]
+    }
+  ]
+}

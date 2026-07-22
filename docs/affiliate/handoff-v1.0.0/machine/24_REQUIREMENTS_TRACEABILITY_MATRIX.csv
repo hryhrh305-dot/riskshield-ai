@@ -1,0 +1,61 @@
+requirement_id,requirement,source,acceptance_evidence
+REQ-001,Single Agent only,docs/00_MASTER_IMPLEMENTATION_TASK.md,Final report states no subagents
+REQ-002,Module monolith boundary,docs/03_ARCHITECTURE.md,Architecture/import tests
+REQ-003,Pure Affiliate Domain,docs/03_ARCHITECTURE.md,Forbidden import test
+REQ-004,Program isolation,docs/03_ARCHITECTURE.md,Cross-program RLS tests
+REQ-005,Immutable Rule Version,docs/07_PROGRAM_RULES_AND_VERSIONING.md,Update/delete denied
+REQ-006,Launch 12 months per Program,machine/25_RULES_MANIFEST.json,Boundary golden tests
+REQ-007,Evergreen switch,machine/25_RULES_MANIFEST.json,Rule boundary tests
+REQ-008,30-day click registration,machine/25_RULES_MANIFEST.json,Attribution tests
+REQ-009,90+30 payment window,machine/25_RULES_MANIFEST.json,Attribution tests
+REQ-010,7-day Provisional,machine/25_RULES_MANIFEST.json,State machine E2E
+REQ-011,"3 actions, 2 formats",machine/25_RULES_MANIFEST.json,Activation tests
+REQ-012,90-day first sale active requirement,machine/25_RULES_MANIFEST.json,Expiry tests
+REQ-013,One generation only,docs/09_COMMISSION_INTEGRITY_AND_ANTI_ABUSE.md,A/B/C tests
+REQ-014,Launch base commission,machine/25_RULES_MANIFEST.json,Golden vectors
+REQ-015,Evergreen base commission,machine/25_RULES_MANIFEST.json,Golden vectors
+REQ-016,Accelerators,machine/25_RULES_MANIFEST.json,Boundary/property tests
+REQ-017,Direct referral,machine/25_RULES_MANIFEST.json,Golden and one-per-B tests
+REQ-018,Team rewards,machine/25_RULES_MANIFEST.json,Month close/tier tests
+REQ-019,Cold-start rewards,machine/25_RULES_MANIFEST.json,Launch only tests
+REQ-020,Evergreen 11% cap,machine/25_RULES_MANIFEST.json,Property test
+REQ-021,Integer money and HALF_UP,docs/08_COMMISSION_ENGINE.md,Static and golden tests
+REQ-022,Three-layer idempotency,docs/09_COMMISSION_INTEGRITY_AND_ANTI_ABUSE.md,Replay/concurrency
+REQ-023,Canonical customer,docs/09_COMMISSION_INTEGRITY_AND_ANTI_ABUSE.md,Multi-account tests
+REQ-024,Self-referral block,docs/09_COMMISSION_INTEGRITY_AND_ANTI_ABUSE.md,Adversarial tests
+REQ-025,Immutable Commission Decision,docs/08_COMMISSION_ENGINE.md,DB mutation denied
+REQ-026,Append-only Ledger,docs/09_COMMISSION_INTEGRITY_AND_ANTI_ABUSE.md,DB update/delete denied
+REQ-027,Independent audit calculator,docs/09_COMMISSION_INTEGRITY_AND_ANTI_ABUSE.md,Primary vs audit
+REQ-028,30/60 reserve,machine/25_RULES_MANIFEST.json,Reserve vectors
+REQ-029,Annual schedules,machine/25_RULES_MANIFEST.json,Schedule vectors
+REQ-030,Refund/reversal/clawback,docs/08_COMMISSION_ENGINE.md,Refund/chargeback tests
+REQ-031,Payout minimum $50,machine/25_RULES_MANIFEST.json,Batch tests
+REQ-032,Payout day 28,machine/25_RULES_MANIFEST.json,Scheduler tests
+REQ-033,72-hour account freeze,machine/25_RULES_MANIFEST.json,Security tests
+REQ-034,Payout PIN/OTP/Reauth,machine/25_RULES_MANIFEST.json,Authorization tests
+REQ-035,Transactional Outbox,docs/10_EVENT_OUTBOX_AND_API.md,Atomicity/replay tests
+REQ-036,Affiliate failure cannot break payment,docs/03_ARCHITECTURE.md,Fault integration test
+REQ-037,Content admin no-deploy updates,docs/11_CONTENT_OPERATIONS_LAYER.md,Publish/cache test
+REQ-038,Content version and rollback,docs/11_CONTENT_OPERATIONS_LAYER.md,Version tests
+REQ-039,Dynamic variables,docs/11_CONTENT_OPERATIONS_LAYER.md,Unresolved variable rejection
+REQ-040,Content Impact Checker,docs/11_CONTENT_OPERATIONS_LAYER.md,Dependency tests
+REQ-041,Batch import/export,docs/11_CONTENT_OPERATIONS_LAYER.md,Round-trip tests
+REQ-042,Emergency Deprecate,docs/11_CONTENT_OPERATIONS_LAYER.md,Immediate hide tests
+REQ-043,Six Telegram slots,docs/20_TELEGRAM_CURRENT_MESSAGES.md,Seed/sync tests
+REQ-044,Daily English Telegram content,docs/12_TELEGRAM_AUTOMATION_LAYER.md,Scheduler mock
+REQ-045,Qualified Win only,docs/12_TELEGRAM_AUTOMATION_LAYER.md,Pending/test/fraud tests
+REQ-046,Payout notice paid+reconciled,docs/12_TELEGRAM_AUTOMATION_LAYER.md,Payout event tests
+REQ-047,Telegram consent/privacy,docs/12_TELEGRAM_AUTOMATION_LAYER.md,Consent tests
+REQ-048,Telegram idempotency,docs/12_TELEGRAM_AUTOMATION_LAYER.md,100 replay tests
+REQ-049,Telegram unknown delivery,docs/12_TELEGRAM_AUTOMATION_LAYER.md,Timeout test
+REQ-050,Bot token secret,docs/12_TELEGRAM_AUTOMATION_LAYER.md,Secret scan
+REQ-051,Feature flags default off,docs/18_FEATURE_FLAGS_CANARY_ROLLBACK.md,Config tests
+REQ-052,Shadow mode,docs/17_SHADOW_RECONCILIATION_PAYOUT_GATES.md,30 sample evidence
+REQ-053,Daily reconciliation,docs/17_SHADOW_RECONCILIATION_PAYOUT_GATES.md,Invariant tests
+REQ-054,Kill switches,docs/09_COMMISSION_INTEGRITY_AND_ANTI_ABUSE.md,Kill switch tests
+REQ-055,RLS and role separation,docs/06_DATABASE_SCHEMA_RLS_AND_MIGRATIONS.md,RLS matrix
+REQ-056,No regression to 50 free checks,docs/01_SOURCE_OF_TRUTH_AND_CONFLICT_RULES.md,Existing tests
+REQ-057,No pricing/entitlement change,docs/02_CURRENT_BASELINE_AND_SCOPE.md,Diff and smoke
+REQ-058,HumanOps production gates,docs/19_HUMANOPS_OPERATOR_GUIDE.md,Final checklist
+REQ-059,No skipped/only/security TODO,docs/15_TEST_STRATEGY_AND_ACCEPTANCE.md,Test scan
+REQ-060,No absolute vulnerability claim,00_README_FIRST.md,Final wording

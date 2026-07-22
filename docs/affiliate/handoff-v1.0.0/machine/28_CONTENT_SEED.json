@@ -1,0 +1,154 @@
+{
+  "schema_version": "1.0.0",
+  "program_id": "secwyn",
+  "country": "IN",
+  "locale": "en",
+  "telegram_message_slots": [
+    {
+      "slot": "TG_SECWYN_INDIA_WELCOME",
+      "status": "published",
+      "pinned": true,
+      "telegram_message_id": null,
+      "body": "Welcome to Secwyn India Affiliate Updates\n\nThis is the official Telegram channel for Secwyn’s India Affiliate Program.\n\nHere you will receive:\n\n• Official commission updates;\n• Approved promotion scripts;\n• Affiliate rules and compliance guidance;\n• Activation and training instructions;\n• Payment and qualification notices;\n• Product updates relevant to affiliates;\n• Anti-scam alerts.\n\nImportant disclosures:\n\n• This is an independent commission-only opportunity;\n• There is no base salary;\n• There is no guaranteed income;\n• There is no joining fee;\n• No product purchase is required;\n• Secwyn does not collect application payments through Telegram;\n• Cold email, automated DMs and spam are prohibited.\n\nOfficial website:\nhttps://www.secwyn.com\n\nOfficial support:\nsupport@secwyn.com"
+    },
+    {
+      "slot": "TG_SECWYN_INDIA_ANTI_SCAM",
+      "status": "published",
+      "pinned": true,
+      "telegram_message_id": null,
+      "body": "Secwyn Anti-Scam Notice\n\nSecwyn will never:\n\n• Charge a joining fee;\n• Require you to purchase a product to become an affiliate;\n• Ask for your password or Payout PIN;\n• Ask you to transfer money through Telegram;\n• Guarantee monthly earnings;\n• Ask you to send cold email or spam;\n• Ask you to submit banking information in a Telegram chat;\n• Ask you to pay an administrator through UPI, crypto or gift cards.\n\nUse only the official Secwyn website and support email:\n\nhttps://www.secwyn.com\nsupport@secwyn.com\n\nAffiliate applications and payout settings must be completed only through the official Secwyn website."
+    },
+    {
+      "slot": "TG_SECWYN_INDIA_COMMISSIONS",
+      "status": "published",
+      "pinned": false,
+      "telegram_message_id": null,
+      "body": "Secwyn India Affiliate Launch Commissions\n\nCommission is paid only for a qualified customer’s first successful subscription payment.\n\nStarter\nMonthly subscription: $25 commission\nAnnual subscription: $120 commission\n\nGrowth\nMonthly subscription: $100 commission\nAnnual subscription: $600 commission\n\nScale\nMonthly subscription: $300 commission\nAnnual subscription: $1,500 commission\n\nImportant:\n\n• No commission is paid for views, likes, clicks or free registrations;\n• All commissions are subject to attribution, qualification, refund and fraud review;\n• Renewals and later plan changes do not create a second first-sale commission;\n• USD is the official accounting currency;\n• Approximate INR values may be displayed for reference;\n• Earnings are not guaranteed."
+    },
+    {
+      "slot": "TG_SECWYN_INDIA_ACTIVATION",
+      "status": "published",
+      "pinned": false,
+      "telegram_message_id": null,
+      "body": "How to Become an Approved Secwyn Affiliate\n\nStep 1\nComplete the short product and policy confirmation.\n\nStep 2\nEnter the seven-day Provisional Affiliate period.\n\nStep 3\nComplete three qualified promotional actions using at least two approved formats.\n\nExamples:\n• One relevant social media post;\n• One relevant one-to-one professional conversation;\n• One approved community share;\n• One product demonstration;\n• One manual B2B call;\n• One valid referral registration.\n\nStep 4\nUnlock Approved Affiliate status.\n\nA Provisional Affiliate may also be approved early after generating:\n• A valid referral registration;\n• A verified sales opportunity;\n• A successful first customer payment.\n\nNo joining fee.\nNo required purchase.\nNo guaranteed income."
+    },
+    {
+      "slot": "TG_SECWYN_INDIA_CHANNEL_RULES",
+      "status": "published",
+      "pinned": false,
+      "telegram_message_id": null,
+      "body": "Secwyn Approved Promotion Channels\n\nAllowed:\n• Relevant one-to-one LinkedIn or X conversations;\n• Organic social media content;\n• Product demonstrations and tutorials;\n• Permitted professional communities;\n• Relevant WhatsApp or Telegram conversations;\n• Manual B2B telephone calls;\n• Existing professional relationships.\n\nProhibited:\n• Cold email;\n• Automated direct messages;\n• Bulk WhatsApp or Telegram messages;\n• Scraped contact lists;\n• Robocalls or prerecorded calls;\n• Brand impersonation;\n• PPC bidding on Secwyn brand terms;\n• Misleading product or income claims;\n• Repeated contact after someone asks you to stop.\n\nSecwyn affiliates must always promote honestly and respect Stop Contact requests."
+    },
+    {
+      "slot": "TG_SECWYN_INDIA_ATTRIBUTION",
+      "status": "published",
+      "pinned": false,
+      "telegram_message_id": null,
+      "body": "Secwyn Affiliate Attribution Rules\n\nClick-to-registration window:\nA customer must create a Secwyn account within 30 days after a qualifying referral-link click.\n\nFirst-payment window:\nAn attributed customer must complete their first qualifying payment within 90 days after registration.\n\nA documented active B2B sales opportunity may receive one administrator-approved extension of up to 30 additional days.\n\nImportant:\n• Renewals do not create another first-sale commission;\n• Switching from monthly to annual billing does not create a second commission;\n• Refunds, chargebacks, fraud and incorrect attribution may cancel or reverse commission;\n• Referral attribution cannot be manually transferred without a valid review."
+    }
+  ],
+  "approved_scripts": [
+    {
+      "slug": "linkedin-first-contact-outbound-agency",
+      "channel": "linkedin_dm",
+      "audience": "outbound_agency",
+      "stage": "first_contact",
+      "body": "Hi [Name], I noticed your team works with outbound campaigns. Secwyn provides a second-line pre-send risk and audit layer that helps teams review higher-risk contacts before sending. It does not guarantee deliverability or inbox placement, but it provides evidence, clear decisions and recommended actions. Would a short overview be useful?\n\nAffiliate disclosure: I may earn a commission if you purchase through my referral link."
+    },
+    {
+      "slug": "one-follow-up",
+      "channel": "social_dm",
+      "audience": "b2b",
+      "stage": "follow_up",
+      "body": "Hi [Name], just following up once in case a short Secwyn overview would be useful for your team. No problem if this is not relevant, and I will not follow up again without your reply.\n\nAffiliate disclosure: I may earn a commission if you purchase through my referral link."
+    },
+    {
+      "slug": "stop-contact",
+      "channel": "all_one_to_one",
+      "audience": "b2b",
+      "stage": "stop_contact",
+      "body": "Understood. I will not contact you again about Secwyn. Thank you for letting me know."
+    },
+    {
+      "slug": "official-follow-up",
+      "channel": "all",
+      "audience": "b2b",
+      "stage": "handoff",
+      "body": "I do not want to give you inaccurate information. I will refer this question to the official Secwyn team."
+    },
+    {
+      "slug": "product-boundary",
+      "channel": "all",
+      "audience": "b2b",
+      "stage": "education",
+      "body": "Secwyn is a second-line pre-send risk and audit layer. Its findings can support review decisions and recommended actions, but they do not guarantee that an address exists, that a message will be delivered, or that it will reach the inbox."
+    },
+    {
+      "slug": "affiliate-disclosure",
+      "channel": "all",
+      "audience": "all",
+      "stage": "disclosure",
+      "body": "Affiliate disclosure: I may earn a commission if you purchase through my link. I am an independent Secwyn affiliate, not an employee."
+    }
+  ],
+  "telegram_templates": [
+    {
+      "slug": "daily-approved-script",
+      "type": "daily_script",
+      "requires_approval": true,
+      "body": "DAILY APPROVED SCRIPT\n\nChannel:\n{{content.channel_label}}\n\nUse case:\n{{content.use_case}}\n\nScript:\n\n{{content.body}}"
+    },
+    {
+      "slug": "verified-win",
+      "type": "qualified_win",
+      "requires_approval": true,
+      "body": "VERIFIED WIN\n\n{{win.public_identity}} generated a qualified {{sale.plan_label}} {{sale.billing_cycle_label}} customer sale.\n\nBase commission scheduled:\n{{commission.base_display}}\n\nStatus:\nQualified and scheduled under the applicable commission review rules.\n\nThis result is not typical or guaranteed. Earnings depend on qualified customer sales."
+    },
+    {
+      "slug": "payout-update",
+      "type": "payout_notice",
+      "requires_approval": true,
+      "body": "SECWYN AFFILIATE PAYOUT UPDATE\n\nThe {{payout.month_label}} affiliate payout batch has been processed.\n\nThis batch includes commissions that completed qualification, refund and fraud review before the payout cutoff.\n\nPlease check your affiliate dashboard for your personal payout status.\n\nFor privacy and security, individual payout account details are never published in this channel."
+    },
+    {
+      "slug": "new-resource",
+      "type": "resource",
+      "requires_approval": true,
+      "body": "NEW APPROVED RESOURCE\n\n{{content.title}}\n\n{{content.summary}}\n\nOpen the Affiliate Portal to view or download the current approved version."
+    }
+  ],
+  "faq_seed": [
+    {
+      "q": "Is this a salaried job?",
+      "a": "No. This is an independent commission-only affiliate opportunity. There is no salary or guaranteed income."
+    },
+    {
+      "q": "Is there a joining fee?",
+      "a": "No. Secwyn does not charge a joining fee and does not require a product purchase to apply."
+    },
+    {
+      "q": "When is commission created?",
+      "a": "Only after a qualified customer's first successful subscription payment, subject to attribution, refund, fraud and eligibility review."
+    },
+    {
+      "q": "Can I send cold email?",
+      "a": "No. Secwyn affiliates may not use cold email, automated direct messages or bulk WhatsApp or Telegram messages."
+    },
+    {
+      "q": "Can I earn from multiple levels?",
+      "a": "No. Rewards are limited to one direct generation. An inviter cannot earn from the invitee's invitees."
+    },
+    {
+      "q": "What is the attribution window?",
+      "a": "A customer must register within 30 days of a valid referral click and normally make the first qualifying payment within 90 days after registration."
+    },
+    {
+      "q": "When are payouts processed?",
+      "a": "Eligible balances of at least $50 are scheduled for the monthly payout process, normally on the 28th, subject to review and account verification."
+    },
+    {
+      "q": "Does Secwyn guarantee deliverability?",
+      "a": "No. Secwyn provides evidence, decisions and recommended actions, but does not guarantee address existence, delivery or inbox placement."
+    }
+  ]
+}

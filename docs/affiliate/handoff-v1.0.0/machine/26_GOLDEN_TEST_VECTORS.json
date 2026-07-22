@@ -1,0 +1,824 @@
+{
+  "schema_version": "1.0.0",
+  "currency": "USD",
+  "rounding": "HALF_UP",
+  "rules": [
+    "Do not edit old expected values to make changed code pass.",
+    "Rule changes require a new fixture version and explicit rationale.",
+    "All amount fields are integer minor units."
+  ],
+  "vectors": [
+    {
+      "id": "base_launch_starter_monthly",
+      "category": "base_commission",
+      "input": {
+        "phase": "launch",
+        "plan": "starter",
+        "billing": "monthly"
+      },
+      "expected_usd_minor": 2500
+    },
+    {
+      "id": "base_launch_starter_annual",
+      "category": "base_commission",
+      "input": {
+        "phase": "launch",
+        "plan": "starter",
+        "billing": "annual"
+      },
+      "expected_usd_minor": 12000
+    },
+    {
+      "id": "base_launch_growth_monthly",
+      "category": "base_commission",
+      "input": {
+        "phase": "launch",
+        "plan": "growth",
+        "billing": "monthly"
+      },
+      "expected_usd_minor": 10000
+    },
+    {
+      "id": "base_launch_growth_annual",
+      "category": "base_commission",
+      "input": {
+        "phase": "launch",
+        "plan": "growth",
+        "billing": "annual"
+      },
+      "expected_usd_minor": 60000
+    },
+    {
+      "id": "base_launch_scale_monthly",
+      "category": "base_commission",
+      "input": {
+        "phase": "launch",
+        "plan": "scale",
+        "billing": "monthly"
+      },
+      "expected_usd_minor": 30000
+    },
+    {
+      "id": "base_launch_scale_annual",
+      "category": "base_commission",
+      "input": {
+        "phase": "launch",
+        "plan": "scale",
+        "billing": "annual"
+      },
+      "expected_usd_minor": 150000
+    },
+    {
+      "id": "base_evergreen_starter_monthly",
+      "category": "base_commission",
+      "input": {
+        "phase": "evergreen",
+        "plan": "starter",
+        "billing": "monthly"
+      },
+      "expected_usd_minor": 1500
+    },
+    {
+      "id": "base_evergreen_starter_annual",
+      "category": "base_commission",
+      "input": {
+        "phase": "evergreen",
+        "plan": "starter",
+        "billing": "annual"
+      },
+      "expected_usd_minor": 10000
+    },
+    {
+      "id": "base_evergreen_growth_monthly",
+      "category": "base_commission",
+      "input": {
+        "phase": "evergreen",
+        "plan": "growth",
+        "billing": "monthly"
+      },
+      "expected_usd_minor": 7500
+    },
+    {
+      "id": "base_evergreen_growth_annual",
+      "category": "base_commission",
+      "input": {
+        "phase": "evergreen",
+        "plan": "growth",
+        "billing": "annual"
+      },
+      "expected_usd_minor": 50000
+    },
+    {
+      "id": "base_evergreen_scale_monthly",
+      "category": "base_commission",
+      "input": {
+        "phase": "evergreen",
+        "plan": "scale",
+        "billing": "monthly"
+      },
+      "expected_usd_minor": 25000
+    },
+    {
+      "id": "base_evergreen_scale_annual",
+      "category": "base_commission",
+      "input": {
+        "phase": "evergreen",
+        "plan": "scale",
+        "billing": "annual"
+      },
+      "expected_usd_minor": 120000
+    },
+    {
+      "id": "accelerator_launch_tier_1",
+      "category": "accelerator",
+      "input": {
+        "phase": "launch",
+        "monthly_base_commission_usd_minor": 100000,
+        "qualified_new_mrr_usd_minor": 50000
+      },
+      "expected_rate_bps": 500,
+      "expected_usd_minor": 5000
+    },
+    {
+      "id": "accelerator_launch_just_below_1",
+      "category": "accelerator_boundary",
+      "input": {
+        "phase": "launch",
+        "monthly_base_commission_usd_minor": 100000,
+        "qualified_new_mrr_usd_minor": 49999
+      },
+      "expected_rule": "resolve_previous_tier_or_zero"
+    },
+    {
+      "id": "accelerator_launch_tier_2",
+      "category": "accelerator",
+      "input": {
+        "phase": "launch",
+        "monthly_base_commission_usd_minor": 100000,
+        "qualified_new_mrr_usd_minor": 150000
+      },
+      "expected_rate_bps": 1000,
+      "expected_usd_minor": 10000
+    },
+    {
+      "id": "accelerator_launch_just_below_2",
+      "category": "accelerator_boundary",
+      "input": {
+        "phase": "launch",
+        "monthly_base_commission_usd_minor": 100000,
+        "qualified_new_mrr_usd_minor": 149999
+      },
+      "expected_rule": "resolve_previous_tier_or_zero"
+    },
+    {
+      "id": "accelerator_launch_tier_3",
+      "category": "accelerator",
+      "input": {
+        "phase": "launch",
+        "monthly_base_commission_usd_minor": 100000,
+        "qualified_new_mrr_usd_minor": 500000
+      },
+      "expected_rate_bps": 1500,
+      "expected_usd_minor": 15000
+    },
+    {
+      "id": "accelerator_launch_just_below_3",
+      "category": "accelerator_boundary",
+      "input": {
+        "phase": "launch",
+        "monthly_base_commission_usd_minor": 100000,
+        "qualified_new_mrr_usd_minor": 499999
+      },
+      "expected_rule": "resolve_previous_tier_or_zero"
+    },
+    {
+      "id": "accelerator_evergreen_tier_1",
+      "category": "accelerator",
+      "input": {
+        "phase": "evergreen",
+        "monthly_base_commission_usd_minor": 100000,
+        "qualified_new_mrr_usd_minor": 100000
+      },
+      "expected_rate_bps": 300,
+      "expected_usd_minor": 3000
+    },
+    {
+      "id": "accelerator_evergreen_just_below_1",
+      "category": "accelerator_boundary",
+      "input": {
+        "phase": "evergreen",
+        "monthly_base_commission_usd_minor": 100000,
+        "qualified_new_mrr_usd_minor": 99999
+      },
+      "expected_rule": "resolve_previous_tier_or_zero"
+    },
+    {
+      "id": "accelerator_evergreen_tier_2",
+      "category": "accelerator",
+      "input": {
+        "phase": "evergreen",
+        "monthly_base_commission_usd_minor": 100000,
+        "qualified_new_mrr_usd_minor": 300000
+      },
+      "expected_rate_bps": 600,
+      "expected_usd_minor": 6000
+    },
+    {
+      "id": "accelerator_evergreen_just_below_2",
+      "category": "accelerator_boundary",
+      "input": {
+        "phase": "evergreen",
+        "monthly_base_commission_usd_minor": 100000,
+        "qualified_new_mrr_usd_minor": 299999
+      },
+      "expected_rule": "resolve_previous_tier_or_zero"
+    },
+    {
+      "id": "accelerator_evergreen_tier_3",
+      "category": "accelerator",
+      "input": {
+        "phase": "evergreen",
+        "monthly_base_commission_usd_minor": 100000,
+        "qualified_new_mrr_usd_minor": 1000000
+      },
+      "expected_rate_bps": 1000,
+      "expected_usd_minor": 10000
+    },
+    {
+      "id": "accelerator_evergreen_just_below_3",
+      "category": "accelerator_boundary",
+      "input": {
+        "phase": "evergreen",
+        "monthly_base_commission_usd_minor": 100000,
+        "qualified_new_mrr_usd_minor": 999999
+      },
+      "expected_rule": "resolve_previous_tier_or_zero"
+    },
+    {
+      "id": "direct_referral_launch_starter_monthly",
+      "category": "direct_referral",
+      "input": {
+        "phase": "launch",
+        "plan": "starter",
+        "billing": "monthly"
+      },
+      "expected_usd_minor": 500
+    },
+    {
+      "id": "direct_referral_evergreen_starter_monthly",
+      "category": "direct_referral",
+      "input": {
+        "phase": "evergreen",
+        "qualified_sale_usd_minor": 19900
+      },
+      "expected_usd_minor": 100
+    },
+    {
+      "id": "direct_referral_launch_starter_annual",
+      "category": "direct_referral",
+      "input": {
+        "phase": "launch",
+        "plan": "starter",
+        "billing": "annual"
+      },
+      "expected_usd_minor": 1500
+    },
+    {
+      "id": "direct_referral_evergreen_starter_annual",
+      "category": "direct_referral",
+      "input": {
+        "phase": "evergreen",
+        "qualified_sale_usd_minor": 218900
+      },
+      "expected_usd_minor": 1095
+    },
+    {
+      "id": "direct_referral_launch_growth_monthly",
+      "category": "direct_referral",
+      "input": {
+        "phase": "launch",
+        "plan": "growth",
+        "billing": "monthly"
+      },
+      "expected_usd_minor": 2000
+    },
+    {
+      "id": "direct_referral_evergreen_growth_monthly",
+      "category": "direct_referral",
+      "input": {
+        "phase": "evergreen",
+        "qualified_sale_usd_minor": 99900
+      },
+      "expected_usd_minor": 500
+    },
+    {
+      "id": "direct_referral_launch_growth_annual",
+      "category": "direct_referral",
+      "input": {
+        "phase": "launch",
+        "plan": "growth",
+        "billing": "annual"
+      },
+      "expected_usd_minor": 5000
+    },
+    {
+      "id": "direct_referral_evergreen_growth_annual",
+      "category": "direct_referral",
+      "input": {
+        "phase": "evergreen",
+        "qualified_sale_usd_minor": 1098900
+      },
+      "expected_usd_minor": 5495
+    },
+    {
+      "id": "direct_referral_launch_scale_monthly",
+      "category": "direct_referral",
+      "input": {
+        "phase": "launch",
+        "plan": "scale",
+        "billing": "monthly"
+      },
+      "expected_usd_minor": 7500
+    },
+    {
+      "id": "direct_referral_evergreen_scale_monthly",
+      "category": "direct_referral",
+      "input": {
+        "phase": "evergreen",
+        "qualified_sale_usd_minor": 399900
+      },
+      "expected_usd_minor": 2000
+    },
+    {
+      "id": "direct_referral_launch_scale_annual",
+      "category": "direct_referral",
+      "input": {
+        "phase": "launch",
+        "plan": "scale",
+        "billing": "annual"
+      },
+      "expected_usd_minor": 15000
+    },
+    {
+      "id": "direct_referral_evergreen_scale_annual",
+      "category": "direct_referral",
+      "input": {
+        "phase": "evergreen",
+        "qualified_sale_usd_minor": 4398900
+      },
+      "expected_usd_minor": 7500
+    },
+    {
+      "id": "team_launch_tier_1",
+      "category": "team_reward",
+      "input": {
+        "phase": "launch",
+        "team_qualified_sales_usd_minor": 500000,
+        "leader_personal_independent_orders": 2
+      },
+      "expected_usd_minor": 5000
+    },
+    {
+      "id": "team_launch_tier_1_leader_ineligible",
+      "category": "team_reward",
+      "input": {
+        "phase": "launch",
+        "team_qualified_sales_usd_minor": 500000,
+        "leader_personal_independent_orders": 1
+      },
+      "expected_usd_minor": 0
+    },
+    {
+      "id": "team_launch_tier_2",
+      "category": "team_reward",
+      "input": {
+        "phase": "launch",
+        "team_qualified_sales_usd_minor": 1500000,
+        "leader_personal_independent_orders": 2
+      },
+      "expected_usd_minor": 20000
+    },
+    {
+      "id": "team_launch_tier_2_leader_ineligible",
+      "category": "team_reward",
+      "input": {
+        "phase": "launch",
+        "team_qualified_sales_usd_minor": 1500000,
+        "leader_personal_independent_orders": 1
+      },
+      "expected_usd_minor": 0
+    },
+    {
+      "id": "team_launch_tier_3",
+      "category": "team_reward",
+      "input": {
+        "phase": "launch",
+        "team_qualified_sales_usd_minor": 4000000,
+        "leader_personal_independent_orders": 2
+      },
+      "expected_usd_minor": 60000
+    },
+    {
+      "id": "team_launch_tier_3_leader_ineligible",
+      "category": "team_reward",
+      "input": {
+        "phase": "launch",
+        "team_qualified_sales_usd_minor": 4000000,
+        "leader_personal_independent_orders": 1
+      },
+      "expected_usd_minor": 0
+    },
+    {
+      "id": "team_launch_tier_4",
+      "category": "team_reward",
+      "input": {
+        "phase": "launch",
+        "team_qualified_sales_usd_minor": 10000000,
+        "leader_personal_independent_orders": 2
+      },
+      "expected_usd_minor": 150000
+    },
+    {
+      "id": "team_launch_tier_4_leader_ineligible",
+      "category": "team_reward",
+      "input": {
+        "phase": "launch",
+        "team_qualified_sales_usd_minor": 10000000,
+        "leader_personal_independent_orders": 1
+      },
+      "expected_usd_minor": 0
+    },
+    {
+      "id": "team_launch_tier_5",
+      "category": "team_reward",
+      "input": {
+        "phase": "launch",
+        "team_qualified_sales_usd_minor": 25000000,
+        "leader_personal_independent_orders": 2
+      },
+      "expected_usd_minor": 375000
+    },
+    {
+      "id": "team_launch_tier_5_leader_ineligible",
+      "category": "team_reward",
+      "input": {
+        "phase": "launch",
+        "team_qualified_sales_usd_minor": 25000000,
+        "leader_personal_independent_orders": 1
+      },
+      "expected_usd_minor": 0
+    },
+    {
+      "id": "team_launch_tier_6",
+      "category": "team_reward",
+      "input": {
+        "phase": "launch",
+        "team_qualified_sales_usd_minor": 60000000,
+        "leader_personal_independent_orders": 2
+      },
+      "expected_usd_minor": 900000
+    },
+    {
+      "id": "team_launch_tier_6_leader_ineligible",
+      "category": "team_reward",
+      "input": {
+        "phase": "launch",
+        "team_qualified_sales_usd_minor": 60000000,
+        "leader_personal_independent_orders": 1
+      },
+      "expected_usd_minor": 0
+    },
+    {
+      "id": "team_evergreen_tier_1",
+      "category": "team_reward",
+      "input": {
+        "phase": "evergreen",
+        "team_qualified_sales_usd_minor": 500000,
+        "leader_personal_independent_orders": 2
+      },
+      "expected_usd_minor": 5000
+    },
+    {
+      "id": "team_evergreen_tier_1_leader_ineligible",
+      "category": "team_reward",
+      "input": {
+        "phase": "evergreen",
+        "team_qualified_sales_usd_minor": 500000,
+        "leader_personal_independent_orders": 1
+      },
+      "expected_usd_minor": 0
+    },
+    {
+      "id": "team_evergreen_tier_2",
+      "category": "team_reward",
+      "input": {
+        "phase": "evergreen",
+        "team_qualified_sales_usd_minor": 2000000,
+        "leader_personal_independent_orders": 2
+      },
+      "expected_usd_minor": 20000
+    },
+    {
+      "id": "team_evergreen_tier_2_leader_ineligible",
+      "category": "team_reward",
+      "input": {
+        "phase": "evergreen",
+        "team_qualified_sales_usd_minor": 2000000,
+        "leader_personal_independent_orders": 1
+      },
+      "expected_usd_minor": 0
+    },
+    {
+      "id": "team_evergreen_tier_3",
+      "category": "team_reward",
+      "input": {
+        "phase": "evergreen",
+        "team_qualified_sales_usd_minor": 5000000,
+        "leader_personal_independent_orders": 2
+      },
+      "expected_usd_minor": 50000
+    },
+    {
+      "id": "team_evergreen_tier_3_leader_ineligible",
+      "category": "team_reward",
+      "input": {
+        "phase": "evergreen",
+        "team_qualified_sales_usd_minor": 5000000,
+        "leader_personal_independent_orders": 1
+      },
+      "expected_usd_minor": 0
+    },
+    {
+      "id": "team_evergreen_tier_4",
+      "category": "team_reward",
+      "input": {
+        "phase": "evergreen",
+        "team_qualified_sales_usd_minor": 15000000,
+        "leader_personal_independent_orders": 2
+      },
+      "expected_usd_minor": 150000
+    },
+    {
+      "id": "team_evergreen_tier_4_leader_ineligible",
+      "category": "team_reward",
+      "input": {
+        "phase": "evergreen",
+        "team_qualified_sales_usd_minor": 15000000,
+        "leader_personal_independent_orders": 1
+      },
+      "expected_usd_minor": 0
+    },
+    {
+      "id": "team_evergreen_tier_5",
+      "category": "team_reward",
+      "input": {
+        "phase": "evergreen",
+        "team_qualified_sales_usd_minor": 40000000,
+        "leader_personal_independent_orders": 2
+      },
+      "expected_usd_minor": 400000
+    },
+    {
+      "id": "team_evergreen_tier_5_leader_ineligible",
+      "category": "team_reward",
+      "input": {
+        "phase": "evergreen",
+        "team_qualified_sales_usd_minor": 40000000,
+        "leader_personal_independent_orders": 1
+      },
+      "expected_usd_minor": 0
+    },
+    {
+      "id": "team_evergreen_tier_6",
+      "category": "team_reward",
+      "input": {
+        "phase": "evergreen",
+        "team_qualified_sales_usd_minor": 100000000,
+        "leader_personal_independent_orders": 2
+      },
+      "expected_usd_minor": 1000000
+    },
+    {
+      "id": "team_evergreen_tier_6_leader_ineligible",
+      "category": "team_reward",
+      "input": {
+        "phase": "evergreen",
+        "team_qualified_sales_usd_minor": 100000000,
+        "leader_personal_independent_orders": 1
+      },
+      "expected_usd_minor": 0
+    },
+    {
+      "id": "annual_schedule_launch_starter",
+      "category": "annual_schedule",
+      "input": {
+        "phase": "launch",
+        "plan": "starter",
+        "total_usd_minor": 12000
+      },
+      "expected": [
+        {
+          "day": 30,
+          "amount_usd_minor": 6000
+        },
+        {
+          "day": 90,
+          "amount_usd_minor": 6000
+        }
+      ],
+      "expected_sum_usd_minor": 12000
+    },
+    {
+      "id": "annual_schedule_launch_growth",
+      "category": "annual_schedule",
+      "input": {
+        "phase": "launch",
+        "plan": "growth",
+        "total_usd_minor": 60000
+      },
+      "expected": [
+        {
+          "day": 30,
+          "amount_usd_minor": 15000
+        },
+        {
+          "day": 120,
+          "amount_usd_minor": 15000
+        },
+        {
+          "day": 210,
+          "amount_usd_minor": 15000
+        },
+        {
+          "day": 300,
+          "amount_usd_minor": 15000
+        }
+      ],
+      "expected_sum_usd_minor": 60000
+    },
+    {
+      "id": "annual_schedule_launch_scale",
+      "category": "annual_schedule",
+      "input": {
+        "phase": "launch",
+        "plan": "scale",
+        "total_usd_minor": 150000
+      },
+      "expected": [
+        {
+          "day": 30,
+          "amount_usd_minor": 25000
+        },
+        {
+          "day": 60,
+          "amount_usd_minor": 25000
+        },
+        {
+          "day": 90,
+          "amount_usd_minor": 25000
+        },
+        {
+          "day": 120,
+          "amount_usd_minor": 25000
+        },
+        {
+          "day": 150,
+          "amount_usd_minor": 25000
+        },
+        {
+          "day": 180,
+          "amount_usd_minor": 25000
+        }
+      ],
+      "expected_sum_usd_minor": 150000
+    },
+    {
+      "id": "duplicate_webhook",
+      "category": "eligibility_zero",
+      "input": {
+        "condition": "duplicate_event"
+      },
+      "expected_usd_minor": 0,
+      "expected_status": "rejected_or_manual_review"
+    },
+    {
+      "id": "test_payment",
+      "category": "eligibility_zero",
+      "input": {
+        "condition": "test_environment"
+      },
+      "expected_usd_minor": 0,
+      "expected_status": "rejected_or_manual_review"
+    },
+    {
+      "id": "pending_checkout",
+      "category": "eligibility_zero",
+      "input": {
+        "condition": "payment_not_succeeded"
+      },
+      "expected_usd_minor": 0,
+      "expected_status": "rejected_or_manual_review"
+    },
+    {
+      "id": "renewal",
+      "category": "eligibility_zero",
+      "input": {
+        "condition": "not_first_qualified_payment"
+      },
+      "expected_usd_minor": 0,
+      "expected_status": "rejected_or_manual_review"
+    },
+    {
+      "id": "upgrade",
+      "category": "eligibility_zero",
+      "input": {
+        "condition": "not_first_qualified_payment"
+      },
+      "expected_usd_minor": 0,
+      "expected_status": "rejected_or_manual_review"
+    },
+    {
+      "id": "monthly_to_annual",
+      "category": "eligibility_zero",
+      "input": {
+        "condition": "not_first_qualified_payment"
+      },
+      "expected_usd_minor": 0,
+      "expected_status": "rejected_or_manual_review"
+    },
+    {
+      "id": "self_referral",
+      "category": "eligibility_zero",
+      "input": {
+        "condition": "strong_block_signal"
+      },
+      "expected_usd_minor": 0,
+      "expected_status": "rejected_or_manual_review"
+    },
+    {
+      "id": "second_generation",
+      "category": "eligibility_zero",
+      "input": {
+        "condition": "relationship_depth_gt_1"
+      },
+      "expected_usd_minor": 0,
+      "expected_status": "rejected_or_manual_review"
+    },
+    {
+      "id": "suspended_affiliate",
+      "category": "eligibility_zero",
+      "input": {
+        "condition": "membership_ineligible"
+      },
+      "expected_usd_minor": 0,
+      "expected_status": "rejected_or_manual_review"
+    },
+    {
+      "id": "expired_affiliate",
+      "category": "eligibility_zero",
+      "input": {
+        "condition": "membership_ineligible"
+      },
+      "expected_usd_minor": 0,
+      "expected_status": "rejected_or_manual_review"
+    },
+    {
+      "id": "refund_before_qualification",
+      "category": "refund",
+      "input": {
+        "pending_commission_usd_minor": 60000,
+        "refund_before_payable": true
+      },
+      "expected_net_ledger_usd_minor": 0,
+      "expected_entry": "reversal"
+    },
+    {
+      "id": "chargeback_after_paid",
+      "category": "clawback",
+      "input": {
+        "paid_commission_usd_minor": 150000,
+        "chargeback_after_paid": true
+      },
+      "expected_future_balance_delta_usd_minor": -150000,
+      "expected_entry": "clawback"
+    },
+    {
+      "id": "reserve_30_60",
+      "category": "risk_reserve",
+      "input": {
+        "installment_usd_minor": 10000
+      },
+      "expected_day_30_usd_minor": 8000,
+      "expected_day_60_usd_minor": 2000
+    },
+    {
+      "id": "evergreen_referral_cap",
+      "category": "direct_referral",
+      "input": {
+        "phase": "evergreen",
+        "qualified_sale_usd_minor": 5000000
+      },
+      "expected_usd_minor": 7500
+    }
+  ]
+}
