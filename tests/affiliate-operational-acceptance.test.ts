@@ -134,6 +134,17 @@ describe("Affiliate Preview operational acceptance contracts", () => {
     expect(migration).toContain("interval '30 days'");
   });
 
+  it("fixes the search path for every Affiliate integrity trigger", () => {
+    const migration = read("supabase/migrations/202607220004_affiliate_trigger_search_path_hardening.sql");
+    for (const name of [
+      "affiliate_prevent_delete",
+      "affiliate_prevent_mutation",
+      "affiliate_protect_payout_item",
+      "affiliate_protect_published_content",
+      "affiliate_protect_terminal_sale",
+    ]) expect(migration).toContain(`alter function public.${name}() set search_path=public`);
+  });
+
   it("keeps the private Telegram canary route Preview-only and fixed-target", () => {
     const route = read("src/app/api/admin/affiliate/telegram-canary/route.ts");
     expect(route).toContain("isAffiliatePreviewRuntime");

@@ -28,3 +28,12 @@ Runtime mutation result: 6/6 direct update/delete probes rejected.
 ## Isolation caveat
 
 This evidence is from the isolated Preview database. Production migration remains a separate HumanOps review and authorization gate.
+
+## Operational Acceptance Hardening
+
+- The isolated Preview database contains only synthetic `.invalid` test identities and no Production customer copy.
+- Approved user A could read exactly one own membership, zero other memberships and zero Ledger entries.
+- Anonymous direct table access failed closed with permission denied.
+- Five trigger functions were hardened additively with `search_path=public`: delete prevention, mutation prevention, payout-item protection, published-content protection and terminal-sale protection.
+- Supabase security advisor after migration: Affiliate Critical 0, Error 0, Warning 0. Fifty-four Affiliate informational notices reflect intentional RLS-enabled, service-only tables.
+- The migration was applied only to the isolated Preview database. Production database changes: 0.

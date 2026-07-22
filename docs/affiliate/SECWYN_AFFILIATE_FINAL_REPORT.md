@@ -125,3 +125,14 @@ See `SECWYN_AFFILIATE_IMPLEMENTATION_TRACEABILITY.md`, `SECWYN_AFFILIATE_FRESH_D
 ## 17. Final Git State
 
 Only the Affiliate feature branch is pushed. Main and Production remain untouched. `.env.local`, database credentials, Vercel secrets, Supabase temporary state and the two pre-existing C2 documents are excluded. Exact ending HEAD and remote synchronization are recorded after the final push.
+
+## 18. Operational Acceptance Addendum
+
+- Operational task requested baseline: `feed1e530e18e97cee06ce9518b6f8d0a67f7360`; implementation continued from the newer reviewed branch baseline and did not rewrite history.
+- Preview-only safe capabilities were enabled with the Kill Switch released; Real Commission, Team Rewards, Payout Creation, Payout Execution and every Telegram publication flag remained disabled.
+- Eight synthetic `.invalid` users exercised applicant, provisional, approved A/B/C, super-admin, content-operator and compliance-reviewer roles in the isolated Preview project.
+- Browser acceptance passed for application/quiz, provisional activation, approved portal, A-B-C privacy, admin separation and the content lifecycle.
+- A real private Telegram canary was attempted only against the configured test target. Target verification failed closed before delivery: HTTP 503, zero attempts, zero sends and no unknown delivery. It remains the only operational HumanOps gate.
+- Real Commission: 0. Real Payout: 0. Real Telegram: 0. Production changes: 0.
+- Full validation: 461/461 Vitest tests passed, 72 routes built, changed-file lint passed, npm production audit found zero vulnerabilities, and the Affiliate TypeScript delta remained zero against the inherited 120-error repository baseline.
+- Verdict remains `PASS WITH HUMANOPS GATES`; it does not claim absolute security or zero possible vulnerabilities.
