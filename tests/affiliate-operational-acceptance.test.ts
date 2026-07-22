@@ -113,6 +113,12 @@ describe("Affiliate Preview operational acceptance contracts", () => {
     expect(route).toContain("p_request_id");
   });
 
+  it("protects Affiliate content mutations with same-origin CSRF validation", () => {
+    const route = read("src/app/api/admin/affiliate/content/route.ts");
+    expect(route).toContain("assertAffiliateSameOrigin(request)");
+    expect(route.match(/assertAffiliateSameOrigin\(request\)/g)).toHaveLength(2);
+  });
+
   it("adds transactional activation, grace and attribution-extension commands", () => {
     const migration = read("supabase/migrations/202607220003_affiliate_preview_operational_acceptance.sql");
     expect(migration).toContain("affiliate_record_activation_evidence");

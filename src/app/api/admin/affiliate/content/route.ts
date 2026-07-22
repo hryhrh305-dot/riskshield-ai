@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { affiliateOperationalFlagEnabled, checkContentImpact } from "@/modules/affiliate";
+import { affiliateOperationalFlagEnabled, assertAffiliateSameOrigin, checkContentImpact } from "@/modules/affiliate";
 import { requireAffiliateOperator, type AffiliateOperatorRole } from "@/modules/affiliate/application/server";
 
 async function requireContentRole(allowed:readonly AffiliateOperatorRole[]) {
   if(!affiliateOperationalFlagEnabled(process.env,"AFFILIATE_CONTENT_ADMIN")) throw new Error("NOT_FOUND");
   try{return (await requireAffiliateOperator(allowed)).user;}catch(error){if(error instanceof Error&&error.message==="AFFILIATE_AUTH_REQUIRED") throw error;throw new Error("FORBIDDEN");}
 }
-function contentError(error:unknown,fallback:string){const code=error instanceof Error?error.message:"";return NextResponse.json({error:code==="NOT_FOUND"?"Not found.":code==="FORBIDDEN"?"Forbidden.":code==="AFFILIATE_AUTH_REQUIRED"?"Authentication required.":fallback},{status:code==="NOT_FOUND"?404:code==="FORBIDDEN"?403:code==="AFFILIATE_AUTH_REQUIRED"?401:500});}
+function contentError(error:unknown,fallback:string){const code=error instanceof Error?error.message:"";return NextResponse.json({error:code==="NOT_FOUND"?"Not found.":code==="FORBIDDEN"?"Forbidden.":code==="AFFILIATE_AUTH_REQUIRED"?"Authentication required.":code==="AFFILIATE_CSRF_REJECTED"?"Request origin could not be verified.":fallback},{status:code==="NOT_FOUND"?404:code==="FORBIDDEN"||code==="AFFILIATE_CSRF_REJECTED"?403:code==="AFFILIATE_AUTH_REQUIRED"?401:500});}
 
 export async function GET() {
   try {
@@ -22,6 +22,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    assertAffiliateSameOrigin(request);
     const user = await requireContentRole(["content_editor","program_manager","super_admin"]);
     const input = await request.json();
     if (typeof input.contentKey !== "string" || typeof input.body !== "object" || !input.body) return NextResponse.json({ error: "Invalid content." }, { status: 400 });
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request:Request){
   try{
+    assertAffiliateSameOrigin(request);
     const input=await request.json();
     if(typeof input.versionId!=="string"||!["approve","schedule","publish","retire","rollback","resolve_impact"].includes(input.action)) return NextResponse.json({error:"Invalid action."},{status:400});
     const reviewActions=["approve","resolve_impact"];
