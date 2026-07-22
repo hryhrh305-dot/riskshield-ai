@@ -17,7 +17,7 @@
 | E12 | payout tables, immutable snapshots, pure payout gate | $50, 72h, reconciliation, reauth/PIN/OTP, kill switch | Code/schema ready; real Payoneer HumanOps |
 | E13 | four Affiliate test suites plus existing full Vitest | 49 files / 442 tests, no skipped/only; representative critical mutations killed | Complete locally |
 | E14 | `affiliate-shadow-acceptance.test.ts`, shadow and reconciliation jobs | 12 combinations, 5 refunds, 2 chargebacks, 3 referral, 2 accelerator, 2 team, switch/freeze, 100 replay, concurrency | Simulation complete; real 30-event Shadow gated |
-| E15 | Operator guide and flags-off local smoke | `/` and `/pricing` 200; Affiliate surfaces/API 404 | Local complete; Preview DB/deploy gated |
+| E15 | Operator guide, flags-off local smoke and Vercel Preview | `/` and `/pricing` 200 locally; Affiliate surfaces/API 404 locally; branch Preview `READY` | Code Preview complete; Preview DB migration/RLS probes gated |
 | E16 | lint, typecheck delta, tests, build, diff/secret/flag scans | recorded in Final Report | Complete except DB runtime/dependency audit network gate |
 | E17 | `SECWYN_AFFILIATE_FINAL_REPORT.md` | Template-aligned evidence | Complete |
 

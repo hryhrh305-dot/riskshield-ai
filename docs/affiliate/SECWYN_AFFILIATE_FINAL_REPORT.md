@@ -71,7 +71,7 @@ The deterministic simulation covers 12 base combinations, five refund cases, two
 
 ## 12. Preview / Deployment
 
-No Production migration, secrets, flags, Telegram, Creem/Payoneer action, payout, announcement or rollout occurred. A flags-off local production build/smoke passed. Preview URL/deployment and isolated Preview database were not available in the local environment and remain HumanOps-gated.
+The dedicated branch was pushed and its flags-off Vercel Preview deployment reached `READY`. Stable branch alias: `https://riskshield-api-git-codex-secwyn-india-affil-9d0799-hrh-projects.vercel.app`. No Preview database migration or Affiliate environment configuration was applied, so runtime database/RLS probes remain HumanOps-gated. No Production migration, secrets, flags, Telegram, Creem/Payoneer action, payout, announcement or rollout occurred. The local flags-off production smoke also passed.
 
 ## 13. Rollback
 
@@ -101,4 +101,4 @@ See `SECWYN_AFFILIATE_IMPLEMENTATION_TRACEABILITY.md`, the original machine CSV 
 
 ## 17. Final Git State
 
-Implementation is prepared on the dedicated branch. Final commit/push state is reported in the chat handoff. The two existing C2 untracked documents remain unmodified and excluded. Production actions performed: **none**.
+Implementation is committed and pushed on `codex/secwyn-india-affiliate-full`. Final commit/push state is reported in the chat handoff. The two existing C2 untracked documents remain unmodified and excluded. Production actions performed: **none**.
