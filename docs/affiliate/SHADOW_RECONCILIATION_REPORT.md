@@ -1,24 +1,24 @@
 # Affiliate Shadow and reconciliation report
 
-## Deterministic simulation
+## Database Shadow pack
 
-The local test suite verifies all supplied Golden vectors and the full Launch/Evergreen plan matrix, integer minor-unit arithmetic, HALF_UP rounding, annual schedules, 30/60-day reserves, refunds, chargebacks, referral depth, self-referral, replay, concurrent calculation and payout gates.
+- Scenarios executed in real isolated PostgreSQL: 36.
+- Plans: Starter, Growth and Scale.
+- Intervals: monthly and annual.
+- Phases: Launch and Evergreen.
+- Primary/Audit mismatch: 0.
+- Shadow Ledger entries remain excluded from payable balances.
 
-The Shadow worker now records a sale and decision through one transactional RPC. Reversals use a separate transactional RPC that validates replay content, locks the sale and decision, prevents cumulative clawback above the original decision, and handles partial refunds without incorrectly terminalizing the sale.
+## Replay and concurrency
 
-Daily reconciliation compares:
+- Same payment event ×100: one Sale, one Decision, one Ledger entry, one Outbox event.
+- Same refund event ×100: one Clawback.
+- Same chargeback event ×100: one Clawback.
+- Cumulative Clawback cannot exceed the original Decision.
+- 100 Outbox workers claimed 100 distinct rows.
 
-- non-pending sales and decisions;
-- gross decisions plus negative reversal/clawback entries;
-- net ledger amount;
-- approved/paid/reconciled payout totals;
-- open High/Critical incidents.
+## Reconciliation
 
-## Runtime status
+Reconciliation compares source sales, Decisions, net Ledger, Payout batches and open High/Critical incidents. Results are immutable. A same-day retry reads and returns the stored result instead of updating financial evidence.
 
-Preview Shadow events processed: 0.
-
-Reason: the isolated Preview migration has not been applied because the migration transport is unavailable. The ordered Shadow flag remains false. No real commission, team reward or payout was created.
-
-The rollout gate remains a minimum 30-event representative Preview sample with zero unexplained Primary/Audit or reconciliation mismatch.
-
+Real Commission, reserve release, team reward and payout remain disabled. A prolonged representative Shadow window is still required before any Production activation.

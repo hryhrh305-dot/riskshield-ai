@@ -13,7 +13,7 @@
 2. Confirm the migration history contains exactly the Affiliate migration and that all new public objects start with `affiliate_`.
 3. Run schema, RLS, grant, immutable-trigger, uniqueness, replay, and two-worker claim probes from `DATABASE_RLS_EVIDENCE.md`.
 4. Publish the immutable rule schedule through `affiliate_publish_rule_schedule` using the same UTC value as `AFFILIATE_PROGRAM_LAUNCH_START_AT`. Version 1 covers the first 12 months; version 2 starts immediately afterward.
-5. Dry-run `node scripts/seed-affiliate-content.mjs`; use `--apply` only when `AFFILIATE_CONTENT_SEED_TARGET=preview`.
+5. Dry-run `node scripts/seed-affiliate-content.mjs`. Use `--apply` only with branch-scoped Preview Supabase variables and `AFFILIATE_CONTENT_SEED_TARGET=preview`; use `--apply-preview-db` only with the temporary isolated Preview database URL and remove that URL immediately after acceptance.
 6. Verify 25 content records and seven Telegram message slots. The existing real channel remains paused and unverified; message 11 remains marked for replacement.
 
 ## Ordered Preview activation

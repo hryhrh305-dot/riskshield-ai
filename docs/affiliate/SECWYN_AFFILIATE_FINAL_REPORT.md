@@ -1,108 +1,127 @@
+# Secwyn India Affiliate Full Implementation
+
+- Package version: v1.0.0
+- Package date: 2026-07-22
+- Target repository: `D:\ai-saas-mvp`
+- Execution: **single Agent only**
+- Delivery: full implementation, isolated Preview validation, Shadow readiness, HumanOps-gated production activation
+- Safety: fail closed, immutable rules and ledger, no real payout or production enablement
+
 # Codex Final Report
 
 ## 1. Verdict
 
-`FAIL CLOSED — PREVIEW DATABASE RUNTIME GATE BLOCKED`. Local implementation, security, tests, build and flags-off compatibility pass. The isolated Preview migration could not be delivered because the Supabase migration management transport fails even for a one-statement DDL probe. This is not a claim of absolute security or zero possible vulnerabilities.
+`PASS WITH HUMANOPS GATES`. No known Affiliate-specific Critical or High issue remains after the isolated Preview runtime pass. This is not a claim of absolute security or zero possible vulnerabilities.
 
 ## 2. Progress
 
-Affiliate Core, Program Adapter, immutable rules, applications, attribution, content operations, Telegram policy/worker, transactional commission decisions and reversals, append-only ledger, reconciliation, payout gates, Affiliate/Leader/Admin surfaces and tests are implemented. Production enabled: **No**.
+Affiliate Core, Program Adapter, immutable rules, application/activation, attribution, transactional commission decisions, independent audit, append-only ledger, reconciliation, payout gates, versioned content, Telegram policy/queue, admin surfaces and Preview database are implemented. Production enabled: **No**. Real commission, payout and production Telegram remain disabled.
 
 ## 3. Baseline
 
-- Root: `D:/ai-saas-mvp`
-- Starting main HEAD: `e78b0c3447733938eac3177ad02bee24f573b269`
-- Work branch: `codex/secwyn-india-affiliate-full`
-- Baseline implementation commit: `a35c4a9a3225d15b350ffb343e05e1c45887d562`
-- Remote branch matched the baseline before this hardening pass.
-- Package manager/runtime: npm, Node 24, Next.js 16.2.9.
-- Two pre-existing C2 documents remain untouched and excluded.
+- Git root: `D:/ai-saas-mvp`
+- Branch: `codex/secwyn-india-affiliate-full`
+- Starting HEAD: `924068743f03769a1e321f0bfecf9895407d5ddf`
+- Remote branch matched the starting HEAD.
+- Runtime: Node 24, npm, Next.js 16.2.9, Supabase CLI 2.109.1.
+- Vercel project: `riskshield-api`, Preview branch scope only.
+- Two pre-existing C2 documents remained untouched and excluded from every commit.
 
 ## 4. E0-E17 Implemented Scope
 
-See `SECWYN_AFFILIATE_IMPLEMENTATION_TRACEABILITY.md`. All local code phases are complete. Preview database/RLS/seed/Shadow runtime evidence remains blocked by the external migration transport.
+The migration-chain root cause, Fresh Database replay, real PostgreSQL RLS/immutability/concurrency, 36-event Shadow pack, content lifecycle, idempotent seed, Preview configuration, tests, build, reports and sensitive-file cleanup were completed. Production migration, Production flags, real commission, real payout, real Telegram and Production deployment remain HumanOps-only.
 
 ## 5. Files / Migrations / Tables / Policies / Indexes / Flags
 
-- One additive and currently unapplied migration.
-- 60 `affiliate_` tables, 18 Affiliate functions, seven explicit policies, complete RLS/revoke loop, six named indexes plus generated foreign-key indexes and inline uniqueness constraints.
-- Existing customer payment/credits/detection paths remain unchanged; payment facts enter Affiliate asynchronously and failure-isolated.
-- All capability flags default false and the kill switch remains true.
+- 17 ordered migrations replay from an empty Supabase database without SQL Editor steps or migration repair.
+- The baseline migration restores repository-backed core tables required by historical migrations.
+- A forward-only runtime hardening migration protects provider sale facts, outbox identity/payload, reconciliation results and payout snapshots.
+- Actual runtime schema: 60 Affiliate tables, 20 Affiliate functions, 12 service-role-only SECURITY DEFINER functions, 60/60 Affiliate tables with RLS.
+- Vercel reported 23 Sensitive variables, all Preview-only and branch-scoped; 20 are Affiliate variables and three are isolated Supabase variables.
+- Real commission, team reward, payout execution and real Telegram flags remain closed.
 
 ## 6. Commission Evidence
 
-- Launch/Evergreen Plan × Billing base combinations use integer USD minor units and HALF_UP.
-- Launch lasts exactly 12 months from the program launch time; Evergreen starts immediately afterward.
-- Accelerator, direct referral, team, cold-start, annual schedules and 30/60-day reserve rules are deterministic.
-- A transactional RPC creates the qualified sale, immutable decision, independent audit, schedules/ledger and outbox together.
-- Reversal RPCs are idempotent, cumulative-clawback bounded and partial-refund aware.
-- The full supplied Golden vector set remains unchanged and passing.
+- Launch/Evergreen Starter, Growth and Scale monthly/annual rules use integer USD minor units and HALF_UP.
+- Launch covers exactly 12 service months; Evergreen begins immediately afterward.
+- Golden vectors remain unchanged.
+- The database Shadow pack executed 36 scenarios with Primary/Audit mismatch `0`.
+- One payment replayed 100 times produced one Sale, one Decision, one Ledger entry and one Outbox event.
+- Refund and chargeback each replayed 100 times produced one bounded Clawback apiece.
+- Database generation constraints and domain guards prevent A from benefiting from C.
 
 ## 7. Security
 
-- Server session/role authorization, RLS and service-only sensitive writes.
-- Browser inputs never choose commission, Product ID, plan entitlement, Affiliate identity or payable state.
-- One canonical first customer, attribution generation exactly one, and self/A-to-C benefit rejection.
-- Immutable published rule/decision/audit/history and append-only financial ledger.
-- Provider, business-decision and command/publication idempotency layers plus database uniqueness and transactional locks.
-- Payout requires matched reconciliation, 72-hour freeze, verified identity, reauthentication, PIN/OTP, no open High/Critical incident and cleared kill switch.
-- Repository dependency audit reports zero vulnerabilities.
+- Owner RLS exposes one user's membership and hides the other user's membership.
+- `anon` cannot read private Affiliate tables; `authenticated` cannot write the Ledger.
+- All privileged transactional RPCs have a fixed `search_path` and service-role-only execute ACL.
+- Six direct mutation attempts against Provider Sale, Decision, Ledger, Reconciliation and Outbox were rejected.
+- Outbox and Telegram claims use `FOR UPDATE SKIP LOCKED`; 100 workers produced 100 unique claims with no duplicate ownership.
+- Daily Telegram content, content publish and rule publish concurrency each resolved to one business outcome.
+- Payout remains gated by reconciliation, minimum balance, 72-hour account freeze, reauthentication, PIN/OTP, incident state and kill switch.
+- No secret, database URL, token, Project Ref or customer row is recorded in this report.
 
 ## 8. Content
 
-Versioned content, approval/publishing role separation, variables, schedule, preview, rollback, import/export, emergency retirement, localization/assets and Content Impact records are implemented. The Preview seeder dry-run contains 25 content records and seven Telegram slots. Applying the seed is gated on the Preview database migration.
+- Seed contains 24 versioned content records and seven Telegram message slots.
+- Running the seed twice preserved 24 records and seven slots.
+- The first two slots retain pinned state; message 7 remains `Update Required` and has no Preview URL substituted into the real-channel record.
+- Real PostgreSQL workflow passed Draft → Impact Review → Approve → Publish → Rollback Draft without a code change or deployment.
+- Published content is immutable; rollback creates a new linked draft.
 
 ## 9. Telegram
 
-Daily content, qualified wins and paid+reconciled notices have distinct gates. The worker uses an atomic database claim with worker ownership, bounded retry, dead letter and no blind retry after unknown delivery. Daily content is unique by channel/local date. No real message was sent; Bot/channel administration remains HumanOps.
+- Local policy tests cover approved content, consent, qualified wins, paid+reconciled payout notices, retry, dead letter and unknown delivery.
+- Real PostgreSQL concurrency produced unique worker claims and one daily record per channel/date.
+- The real channel record remains paused and unverified; real channel sends: `0`.
+- Vercel confirms Bot/Chat variables exist as Sensitive branch-scoped Preview variables, but does not expose their values to the agent. An external private-channel delivery therefore remains a HumanOps gate rather than weakening Secret handling.
 
 ## 10. Tests
 
-- `npm test`: 49 files, 445 tests, all passed; zero skipped/only.
-- Targeted ESLint on modified TS/TSX: passed.
-- `npx tsc --noEmit`: 120 pre-existing repository errors; Affiliate delta zero.
-- `npm run build`: passed; 71 routes/pages generated.
+- `npm test`: 49 files, 445/445 tests passed; zero skipped/only.
+- Real PostgreSQL: RLS, ACL, immutability, 36 Shadow scenarios, payment/refund/chargeback replay and multi-worker claims passed.
+- `npm run build`: passed; 71 pages/routes generated.
+- Targeted ESLint: passed.
+- `npx tsc --noEmit`: existing baseline 120 errors; changed-file delta 0.
 - `git diff --check`: passed.
-- `npm audit --audit-level=high`: zero vulnerabilities.
-- Actual Preview PostgreSQL/RLS runtime: not run; migration transport blocked.
+- `npm audit --omit=dev`: 0 known vulnerabilities.
+- Supabase `db lint --level error`: passed.
 
 ## 11. Shadow / Reconciliation
 
-Simulation covers the supplied Golden set, all base combinations, refund/chargeback, referral, accelerator, team, rule switch, payout freeze, replay and concurrent calculation. Real Preview 30-event Shadow and daily reconciliation remain required before Real Commission.
+36 real PostgreSQL synthetic scenarios completed with mismatch `0`. Shadow entries remain excluded from payable balances. Reconciliation results are immutable; same-day replays return the stored result rather than mutating it. Real Commission remains disabled.
 
 ## 12. Preview / Deployment
 
-Vercel has 23 Sensitive variables scoped to Preview and the Affiliate branch only; Production contains no Affiliate variables. The user-triggered redeploy after saving variables targeted the old Production `main` deployment rather than the Affiliate branch, so it did not activate or ship Affiliate code.
-
-The hardened branch was subsequently pushed and its refreshed Preview reached `READY`. `/` and `/pricing` returned 200. Affiliate public, portal, admin, Shadow and Telegram endpoints returned 404, proving all operational flags remain closed. The Preview error-log query returned no entries.
-
-The isolated Supabase project was selected by name with its reference masked. Migration history is empty after repeated management-transport failures, proving no partial database change. Production Supabase was never selected or changed.
+- Stable branch alias: `https://riskshield-api-git-codex-secwyn-india-affil-9d0799-hrh-projects.vercel.app`
+- Target: Preview only; Production deployment not performed.
+- Existing Secwyn customer flows remain outside the Affiliate failure domain.
+- Exact deployment commit and READY evidence are recorded in the final chat handoff after push.
 
 ## 13. Rollback
 
-Set `AFFILIATE_KILL_SWITCH=true`, keep all flags false and redeploy Preview. Revert application code with a normal Git revert if required. The additive migration uses forward fixes rather than destructive down migration. Never delete ledger, decision, payout or provider history; use compensating entries.
+Set `AFFILIATE_KILL_SWITCH=true`, keep all ordered flags false and redeploy Preview. Use normal `git revert` for application changes. Migrations are additive and use forward fixes; never delete or rewrite provider, Decision, Ledger, Reconciliation or Payout history.
 
 ## 14. HumanOps Checklist
 
-1. Restore the Supabase migration management transport and apply the existing migration to the isolated Preview project.
-2. Run the recorded RLS, grant, immutable, replay and concurrency probes.
-3. Publish the immutable rule schedule and apply the Preview content seed.
-4. Redeploy Preview with kill switch true and all flags false, then enable only the safe ordered Preview flags.
-5. Complete at least 30 representative Shadow events and zero-mismatch reconciliation.
-6. Separately configure/approve Telegram Bot/channel administration and payout provider/KYC.
-7. Request separate authorization for any Production migration, secret, flag, real commission, payout or announcement.
+1. Confirm the one synthetic message in **Secwyn Affiliate Bot Test** only after an operator performs the private-channel delivery gate.
+2. Keep message 7 as `Update Required` until the Production Application Page is separately approved.
+3. Approve any Production migration, Production Secret, Production flag or Production deployment separately.
+4. Run a prolonged Shadow observation period before Real Commission.
+5. Complete provider/KYC/Payoneer controls before any real payout.
+6. Keep real Telegram publication last in the rollout sequence.
 
 ## 15. Known Risks
 
-- Database constraints and RLS are structurally tested but not yet exercised in PostgreSQL runtime.
-- External Telegram delivery and provider permissions remain unproven.
-- Full repository TypeScript has 120 inherited baseline errors outside Affiliate scope.
-- No known Affiliate-specific Critical/High issue remains in local review, but runtime gates prevent PASS.
+- External private Telegram delivery is not agent-verifiable because Vercel correctly keeps Sensitive values opaque.
+- Full-repository TypeScript retains 120 inherited baseline errors; Affiliate changed-file delta is zero.
+- The Fresh Database baseline is intentionally conservative and must receive a separate Production schema-diff review before any Production migration.
+- No real payment, customer, commission or payout scenario was used in Preview.
 
 ## 16. Traceability
 
-See `SECWYN_AFFILIATE_IMPLEMENTATION_TRACEABILITY.md`, `DATABASE_RLS_EVIDENCE.md`, `SHADOW_RECONCILIATION_REPORT.md`, `TELEGRAM_TEST_REPORT.md`, and the original machine traceability CSV.
+See `SECWYN_AFFILIATE_IMPLEMENTATION_TRACEABILITY.md`, `SECWYN_AFFILIATE_FRESH_DATABASE_REPLAY_REPORT.md`, `SECWYN_AFFILIATE_PREVIEW_RUNTIME_ACCEPTANCE_REPORT.md`, `DATABASE_RLS_EVIDENCE.md`, `SHADOW_RECONCILIATION_REPORT.md`, `TELEGRAM_TEST_REPORT.md`, and the package machine traceability CSV.
 
 ## 17. Final Git State
 
-The hardened implementation is committed and pushed only to `codex/secwyn-india-affiliate-full`. Main and Production business configuration remain untouched. The two pre-existing C2 untracked documents remain unmodified and uncommitted. Exact ending commit and Preview deployment are recorded in the chat handoff.
+Only the Affiliate feature branch is pushed. Main and Production remain untouched. `.env.local`, database credentials, Vercel secrets, Supabase temporary state and the two pre-existing C2 documents are excluded. Exact ending HEAD and remote synchronization are recorded after the final push.

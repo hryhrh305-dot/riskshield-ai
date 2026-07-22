@@ -9,6 +9,7 @@ src/lib/env.ts
 .vercel
 outputs/
 .codex-temp/
+supabase/.temp/
 
 # Codex crash recovery backups
 .codex-crash-recovery/

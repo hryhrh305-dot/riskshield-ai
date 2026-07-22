@@ -1,28 +1,30 @@
 # Affiliate database and RLS evidence
 
-## Static migration evidence
+## Fresh replay
 
-- One additive migration: `202607220001_india_affiliate_platform.sql`.
-- 60 `affiliate_` tables and 18 Affiliate functions.
-- Seven explicit owner/public policies plus a complete RLS/revoke loop.
-- Anonymous/authenticated direct access is revoked except for narrowly defined owner/public reads and application insertion.
-- Financial, operator, publication-claim, rule-publication and transactional write RPCs are service-role only.
-- Published rules, decisions, audits, ledger entries, schedules, paid/reconciled payout snapshots, and published content are protected from destructive mutation.
-- Provider transaction, decision fingerprint, ledger key, application, attribution, content, and Telegram daily uniqueness are enforced in PostgreSQL.
-- Foreign-key supporting indexes are generated for every single-column Affiliate foreign key.
+- 17 migrations apply from an empty isolated Preview database.
+- No SQL Editor DDL, migration repair, linked project or Production database was used.
+- Actual schema: 60 Affiliate tables and 20 Affiliate functions.
+- Every Affiliate table has RLS enabled.
 
-## Runtime evidence
+## Role matrix
 
-Runtime result: **not yet available**.
+- Authenticated user A saw exactly their own membership and zero rows for user B.
+- `anon` was denied private membership reads.
+- `authenticated` was denied direct Ledger insertion.
+- Sensitive writes remain service-role only; the application revalidates authenticated sessions and operator roles server-side.
+- Operator duties separate content editor/reviewer/publisher from Affiliate administration. Payout operations remain closed.
 
-The isolated Preview project was verified empty before execution. `apply_migration` repeatedly failed at the Supabase management transport layer, including a one-statement `create extension if not exists pgcrypto` probe. `list_migrations` subsequently returned an empty list. No DDL was sent through `execute_sql`, because bypassing the migration runner would weaken auditability.
+## SECURITY DEFINER
 
-Required after transport recovery:
+All 12 SECURITY DEFINER Affiliate functions have a fixed `search_path=public`. Their ACL contains the owner and `service_role`, with no `public`, `anon` or `authenticated` execute grant.
 
-1. Apply the migration through the migration runner.
-2. Verify all tables have RLS enabled and public/anon grants are absent.
-3. Test anonymous, authenticated owner, authenticated non-owner and service-role access.
-4. Test immutable triggers, all unique constraints and invalid state transitions.
-5. Run concurrent application review, decision, reversal, outbox and Telegram claims.
-6. Confirm only one worker owns each claimed record and duplicate requests replay without duplicate financial rows.
+## Immutability
 
+Database triggers reject destructive changes to published rules/content, Decisions, audits, Ledger, schedules, payout snapshots, Provider Sale identity/facts, Reconciliation results and Outbox identity/payload. Operational Outbox claim/status fields remain updateable so workers can process events without rewriting the event fact.
+
+Runtime mutation result: 6/6 direct update/delete probes rejected.
+
+## Isolation caveat
+
+This evidence is from the isolated Preview database. Production migration remains a separate HumanOps review and authorization gate.

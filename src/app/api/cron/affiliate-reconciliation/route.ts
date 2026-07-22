@@ -19,7 +19,12 @@ export async function POST(request:Request){
   const queryError=sales.error||decisions.error||ledger.error||reversals.error||batches.error||incidents.error;if(queryError) return NextResponse.json({error:"Reconciliation unavailable."},{status:503});
   const decisionAmount=sum(decisions.data||[]);const reversalAmount=sum(reversals.data||[]);const expectedNet=decisionAmount+reversalAmount;const ledgerAmount=sum(ledger.data||[]);const payoutAmount=sum(batches.data||[]);const matched=(sales.count||0)===(decisions.data||[]).length&&expectedNet===ledgerAmount&&(incidents.count||0)===0;
   const evidence={sales:sales.count||0,decisions:(decisions.data||[]).length,decisionAmountMinor:decisionAmount.toString(),reversalAmountMinor:reversalAmount.toString(),expectedNetMinor:expectedNet.toString(),ledgerAmountMinor:ledgerAmount.toString(),payoutAmountMinor:payoutAmount.toString(),openHighSeverityIncidents:incidents.count||0};
-  const {error}=await admin.from("affiliate_reconciliations").upsert({program_id:"secwyn-india",reconciliation_date:today,source_count:sales.count||0,decision_count:(decisions.data||[]).length,ledger_amount_minor:ledgerAmount.toString(),payout_amount_minor:payoutAmount.toString(),status:matched?"matched":"blocked",evidence},{onConflict:"program_id,reconciliation_date"});
+  const {error}=await admin.from("affiliate_reconciliations").insert({program_id:"secwyn-india",reconciliation_date:today,source_count:sales.count||0,decision_count:(decisions.data||[]).length,ledger_amount_minor:ledgerAmount.toString(),payout_amount_minor:payoutAmount.toString(),status:matched?"matched":"blocked",evidence});
+  if(error?.code==="23505"){
+    const {data:existing,error:existingError}=await admin.from("affiliate_reconciliations").select("status,evidence").eq("program_id","secwyn-india").eq("reconciliation_date",today).single();
+    if(existingError||!existing) return NextResponse.json({error:"Reconciliation replay unavailable."},{status:503});
+    return NextResponse.json({status:existing.status,evidence:existing.evidence,replayed:true});
+  }
   if(error) return NextResponse.json({error:"Reconciliation write failed."},{status:503});
   return NextResponse.json({status:matched?"matched":"blocked",evidence});
 }
