@@ -21,4 +21,3 @@ export function assertTelegramPublicationAllowed(item: TelegramPublication) {
 export function telegramIdempotencyKey(item: TelegramPublication) {
   return `telegram:${item.kind}:${item.id}`;
 }
-

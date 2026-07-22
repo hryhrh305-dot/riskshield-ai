@@ -16,4 +16,3 @@ export type AffiliateCapability = (typeof AFFILIATE_CAPABILITIES)[keyof typeof A
 export function hasCapability(grants: readonly string[], requested: AffiliateCapability) {
   return grants.includes(requested);
 }
-

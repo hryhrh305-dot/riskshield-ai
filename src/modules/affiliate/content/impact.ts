@@ -8,4 +8,3 @@ export function checkContentImpact(previous: string, next: string) {
     changedFinancialTokens: Object.freeze(changed),
   });
 }
-

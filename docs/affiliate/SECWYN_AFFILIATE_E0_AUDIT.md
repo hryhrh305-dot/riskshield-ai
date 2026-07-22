@@ -1,9 +1,9 @@
 # Secwyn India Affiliate — E0 read-only audit
 
-Date: 2026-07-22  
-Start HEAD: `e78b0c3447733938eac3177ad02bee24f573b269`  
-Start branch: `main`  
-Remote: existing Secwyn GitHub origin (historical `riskshield` repository name)  
+Date: 2026-07-22
+Start HEAD: `e78b0c3447733938eac3177ad02bee24f573b269`
+Start branch: `main`
+Remote: existing Secwyn GitHub origin (historical `riskshield` repository name)
 Repository identity: `D:/ai-saas-mvp`, Secwyn, not Flowwyn.
 
 ## Working tree boundary
@@ -45,4 +45,3 @@ Affiliate is an additive modular monolith under `src/modules/affiliate`, with on
 ## HumanOps-only gates
 
 Production migration, Production flags, secrets, Telegram bot/channel administration, real Creem/Payoneer operations, real announcements and payout remain prohibited until separately authorized.
-

@@ -24,4 +24,3 @@ export function evaluatePayoutGate(input: PayoutGateInput) {
   if (input.balance.amountMinor < input.minimumMinor) reasons.push("BELOW_MINIMUM");
   return Object.freeze({ allowed: reasons.length === 0, reasons: Object.freeze(reasons) });
 }
-

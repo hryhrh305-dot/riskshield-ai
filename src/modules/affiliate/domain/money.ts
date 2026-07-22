@@ -20,4 +20,3 @@ export function parseUsdDecimal(input: string): Money {
 }
 
 export const serializeMoney = (money: Money) => ({ amountMinor: money.amountMinor.toString(), currency: money.currency });
-

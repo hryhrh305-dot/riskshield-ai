@@ -16,4 +16,3 @@ export function verifyAffiliateClick(token:string){
   return {code:payload.code,clickedAt:payload.clickedAt,source:payload.source,channelCode:payload.channelCode};
 }
 export function canonicalAffiliateCustomerId(userId:string){return createHmac("sha256",key()).update(`customer:${userId}`).digest("hex");}
-
