@@ -34,6 +34,12 @@ create table if not exists public.affiliate_memberships (
   public_alias text, created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
   unique(program_id,user_id), unique(program_id,affiliate_code)
 );
+create table if not exists public.affiliate_operator_roles (
+  id uuid primary key default gen_random_uuid(), program_id text not null references public.affiliate_programs(id), user_id uuid not null,
+  role text not null check(role in ('content_editor','compliance_reviewer','program_manager','publisher','affiliate_admin','super_admin')),
+  granted_by uuid, created_at timestamptz not null default now(), revoked_at timestamptz,
+  unique(program_id,user_id,role)
+);
 create table if not exists public.affiliate_profiles (
   membership_id uuid primary key references public.affiliate_memberships(id), display_name text, country_code text not null check(country_code='IN'),
   timezone text not null default 'Asia/Kolkata', preferred_locale text not null default 'en', profile_data jsonb not null default '{}', updated_at timestamptz not null default now()
@@ -232,8 +238,10 @@ create table if not exists public.affiliate_telegram_channels (
 );
 create table if not exists public.affiliate_telegram_publications (
   id uuid primary key default gen_random_uuid(), channel_id uuid not null references public.affiliate_telegram_channels(id), content_version_id uuid references public.affiliate_content_versions(id),
-  publication_type text not null, subject_ref text, scheduled_at timestamptz, status text not null default 'pending', attempt_count integer not null default 0,
-  external_message_ref text, idempotency_key text not null unique, last_error text, created_at timestamptz not null default now()
+  publication_type text not null, subject_ref text, scheduled_at timestamptz not null default now(), local_publication_date date,
+  status text not null default 'pending', attempt_count integer not null default 0, locked_at timestamptz, locked_by text,
+  external_message_ref text, idempotency_key text not null unique, last_error text, created_at timestamptz not null default now(),
+  check(publication_type<>'daily_content' or local_publication_date is not null)
 );
 create table if not exists public.affiliate_telegram_schedules (
   id uuid primary key default gen_random_uuid(), channel_id uuid not null references public.affiliate_telegram_channels(id), timezone text not null default 'Asia/Kolkata',
@@ -256,11 +264,14 @@ create table if not exists public.affiliate_telegram_win_consents (
   approved_alias text, updated_at timestamptz not null default now()
 );
 create table if not exists public.affiliate_telegram_message_slots (
-  id uuid primary key default gen_random_uuid(), channel_id uuid not null references public.affiliate_telegram_channels(id), slot integer not null check(slot between 1 and 6),
-  content_version_id uuid references public.affiliate_content_versions(id), pinned boolean not null default false, status text not null default 'pending_sync', unique(channel_id,slot)
+  id uuid primary key default gen_random_uuid(), channel_id uuid not null references public.affiliate_telegram_channels(id), slot integer not null check(slot between 1 and 7),
+  content_version_id uuid references public.affiliate_content_versions(id), pinned boolean not null default false,
+  published boolean not null default false, external_message_ref text, external_message_url text,
+  replacement_required boolean not null default false,
+  status text not null default 'pending_sync', unique(channel_id,slot)
 );
 create table if not exists public.affiliate_outbox_events (
-  id uuid primary key default gen_random_uuid(), program_id text not null, aggregate_type text not null, aggregate_id text not null,
+  id uuid primary key default gen_random_uuid(), program_id text not null references public.affiliate_programs(id), aggregate_type text not null, aggregate_id text not null,
   event_type text not null, event_version integer not null default 1, payload jsonb not null, idempotency_key text not null,
   status text not null default 'pending', available_at timestamptz not null default now(), attempt_count integer not null default 0,
   locked_at timestamptz, locked_by text, processed_at timestamptz, created_at timestamptz not null default now(), unique(program_id,idempotency_key)
@@ -284,6 +295,24 @@ create index if not exists affiliate_ledger_balance_idx on public.affiliate_ledg
 create index if not exists affiliate_content_publish_idx on public.affiliate_content_versions(status,publish_at);
 create index if not exists affiliate_sales_customer_idx on public.affiliate_sales(program_id,canonical_customer_id,paid_at);
 create unique index if not exists affiliate_sales_first_customer_uidx on public.affiliate_sales(program_id,canonical_customer_id);
+create unique index if not exists affiliate_telegram_daily_uidx on public.affiliate_telegram_publications(channel_id,local_publication_date)
+  where publication_type='daily_content';
+
+-- Every single-column Affiliate foreign key receives a supporting index before runtime traffic.
+do $$ declare item record; begin
+  for item in
+    select rel.relname as table_name, att.attname as column_name
+    from pg_constraint con
+    join pg_class rel on rel.oid=con.conrelid
+    join pg_namespace nsp on nsp.oid=rel.relnamespace
+    join pg_attribute att on att.attrelid=con.conrelid and att.attnum=con.conkey[1]
+    where con.contype='f' and nsp.nspname='public' and rel.relname like 'affiliate\_%' escape E'\\'
+      and array_length(con.conkey,1)=1
+  loop
+    execute format('create index if not exists %I on public.%I (%I)',
+      left(item.table_name||'_'||item.column_name||'_fkey_idx',63),item.table_name,item.column_name);
+  end loop;
+end $$;
 
 create or replace function public.affiliate_prevent_mutation() returns trigger language plpgsql as $$ begin raise exception 'AFFILIATE_IMMUTABLE'; end $$;
 create or replace function public.affiliate_prevent_delete() returns trigger language plpgsql as $$ begin raise exception 'AFFILIATE_APPEND_ONLY'; end $$;
@@ -300,12 +329,20 @@ drop trigger if exists affiliate_schedule_immutable on public.affiliate_commissi
 create trigger affiliate_schedule_immutable before update or delete on public.affiliate_commission_schedules for each row execute function public.affiliate_prevent_mutation();
 drop trigger if exists affiliate_team_decision_immutable on public.affiliate_team_reward_decisions;
 create trigger affiliate_team_decision_immutable before update or delete on public.affiliate_team_reward_decisions for each row execute function public.affiliate_prevent_mutation();
-create or replace function public.affiliate_protect_payout_batch() returns trigger language plpgsql as $$ begin if old.status<>'draft' and (old.amount_minor<>new.amount_minor or old.snapshot_hash<>new.snapshot_hash or old.period_start<>new.period_start or old.period_end<>new.period_end) then raise exception 'AFFILIATE_PAYOUT_SNAPSHOT_IMMUTABLE'; end if; return new; end $$;
+create or replace function public.affiliate_protect_payout_batch() returns trigger language plpgsql as $$
+begin
+  if tg_op='DELETE' then raise exception 'AFFILIATE_PAYOUT_BATCH_IMMUTABLE'; end if;
+  if old.status in ('paid','reconciled') then raise exception 'AFFILIATE_PAYOUT_BATCH_IMMUTABLE'; end if;
+  if old.status<>'draft' and (old.amount_minor<>new.amount_minor or old.snapshot_hash<>new.snapshot_hash or old.period_start<>new.period_start or old.period_end<>new.period_end) then raise exception 'AFFILIATE_PAYOUT_SNAPSHOT_IMMUTABLE'; end if;
+  return new;
+end $$;
 drop trigger if exists affiliate_payout_batch_immutable on public.affiliate_payout_batches;
-create trigger affiliate_payout_batch_immutable before update on public.affiliate_payout_batches for each row execute function public.affiliate_protect_payout_batch();
-create or replace function public.affiliate_protect_payout_item() returns trigger language plpgsql as $$ begin if old.batch_id<>new.batch_id or old.affiliate_id<>new.affiliate_id or old.amount_minor<>new.amount_minor or old.idempotency_key<>new.idempotency_key then raise exception 'AFFILIATE_PAYOUT_ITEM_IMMUTABLE'; end if; return new; end $$;
+create trigger affiliate_payout_batch_immutable before update or delete on public.affiliate_payout_batches for each row execute function public.affiliate_protect_payout_batch();
+create or replace function public.affiliate_protect_payout_item() returns trigger language plpgsql as $$ begin if tg_op='DELETE' then raise exception 'AFFILIATE_PAYOUT_ITEM_IMMUTABLE'; end if; if old.batch_id<>new.batch_id or old.affiliate_id<>new.affiliate_id or old.amount_minor<>new.amount_minor or old.idempotency_key<>new.idempotency_key then raise exception 'AFFILIATE_PAYOUT_ITEM_IMMUTABLE'; end if; return new; end $$;
 drop trigger if exists affiliate_payout_item_immutable on public.affiliate_payout_items;
-create trigger affiliate_payout_item_immutable before update on public.affiliate_payout_items for each row execute function public.affiliate_protect_payout_item();
+create trigger affiliate_payout_item_immutable before update or delete on public.affiliate_payout_items for each row execute function public.affiliate_protect_payout_item();
+drop trigger if exists affiliate_commission_audit_immutable on public.affiliate_commission_audits;
+create trigger affiliate_commission_audit_immutable before update or delete on public.affiliate_commission_audits for each row execute function public.affiliate_prevent_mutation();
 drop trigger if exists affiliate_audit_append_only on public.affiliate_audit_log;
 create trigger affiliate_audit_append_only before update or delete on public.affiliate_audit_log for each row execute function public.affiliate_prevent_delete();
 create or replace function public.affiliate_protect_published_content() returns trigger language plpgsql as $$
@@ -319,7 +356,7 @@ create trigger affiliate_content_immutable before update or delete on public.aff
 
 do $$ declare item text; begin
   foreach item in array array[
-    'affiliate_programs','affiliate_rule_versions','affiliate_program_capabilities','affiliate_program_channels','affiliate_applications','affiliate_memberships','affiliate_profiles','affiliate_policy_acceptances','affiliate_quiz_attempts','affiliate_activation_actions','affiliate_activation_events',
+    'affiliate_programs','affiliate_rule_versions','affiliate_program_capabilities','affiliate_program_channels','affiliate_applications','affiliate_memberships','affiliate_operator_roles','affiliate_profiles','affiliate_policy_acceptances','affiliate_quiz_attempts','affiliate_activation_actions','affiliate_activation_events',
     'affiliate_links','affiliate_click_events','affiliate_attributions','affiliate_customer_identity_links','affiliate_attribution_adjustments','affiliate_referral_relationships','affiliate_sales','affiliate_commission_decisions','affiliate_commission_audits','affiliate_commission_schedules','affiliate_commission_adjustments','affiliate_integrity_incidents','affiliate_ledger_entries',
     'affiliate_payout_accounts','affiliate_payout_security','affiliate_payout_batches','affiliate_payout_items','affiliate_payout_attempts','affiliate_reconciliations','affiliate_teams',
     'affiliate_team_members','affiliate_team_months','affiliate_team_reward_decisions','affiliate_compliance_cases','affiliate_policy_violations','affiliate_stop_contact_hashes','affiliate_content_items','affiliate_content_versions','affiliate_content_blocks','affiliate_content_approvals','affiliate_content_impacts','affiliate_content_publications','affiliate_content_localizations','affiliate_content_assets','affiliate_content_usage_events','affiliate_content_sync_targets',
@@ -394,6 +431,8 @@ begin
   if p_action not in ('approve_provisional','reject','suspend') or length(btrim(p_reason))<3 then raise exception 'AFFILIATE_REVIEW_INVALID'; end if;
   select * into v_application from public.affiliate_applications where id=p_application_id for update;
   if not found then raise exception 'AFFILIATE_APPLICATION_NOT_FOUND'; end if;
+  if p_action in ('approve_provisional','reject') and v_application.status<>'submitted' then raise exception 'AFFILIATE_APPLICATION_NOT_REVIEWABLE'; end if;
+  if p_action='suspend' and v_application.status not in ('provisional','approved') then raise exception 'AFFILIATE_APPLICATION_NOT_SUSPENDABLE'; end if;
   if p_action='approve_provisional' then
     if p_affiliate_code is null or p_affiliate_code='' then raise exception 'AFFILIATE_CODE_REQUIRED'; end if;
     if not exists(select 1 from public.affiliate_policy_acceptances where application_id=p_application_id)
@@ -405,12 +444,39 @@ begin
     update public.affiliate_applications set status='provisional',review_reason=p_reason,updated_at=v_now where id=p_application_id;
   else
     update public.affiliate_applications set status=case when p_action='reject' then 'rejected' else 'suspended' end,review_reason=p_reason,updated_at=v_now where id=p_application_id;
+    if p_action='suspend' then update public.affiliate_memberships set status='suspended',updated_at=v_now where program_id=v_application.program_id and user_id=v_application.user_id; end if;
   end if;
   insert into public.affiliate_audit_log(actor_id,action,object_type,object_id,reason,correlation_id) values(p_actor_id,p_action,'affiliate_application',p_application_id::text,p_reason,p_correlation_id);
   insert into public.affiliate_outbox_events(program_id,aggregate_type,aggregate_id,event_type,payload,idempotency_key)
-  values(v_application.program_id,'application',p_application_id::text,'affiliate.application.'||p_action,jsonb_build_object('applicationId',p_application_id,'membershipId',v_membership.id,'correlationId',p_correlation_id),'review:'||p_application_id||':'||p_action)
+  values(v_application.program_id,'application',p_application_id::text,'affiliate.application.'||p_action,jsonb_build_object('applicationId',p_application_id,'membershipId',v_membership.id,'correlationId',p_correlation_id),'review:'||p_application_id||':'||p_action||':'||extract(epoch from v_application.updated_at)::bigint)
   on conflict(program_id,idempotency_key) do nothing;
   return jsonb_build_object('applicationId',p_application_id,'membershipId',v_membership.id,'status',p_action);
+end $$;
+
+create or replace function public.affiliate_publish_rule_schedule(
+  p_program_id text,p_launch_start_at timestamptz,p_actor_id uuid,p_correlation_id text
+) returns jsonb language plpgsql security definer set search_path=public as $$
+declare v_launch public.affiliate_rule_versions; v_evergreen public.affiliate_rule_versions; v_launch_end timestamptz;
+begin
+  if p_program_id<>'secwyn-india' or p_launch_start_at is null or p_actor_id is null or coalesce(btrim(p_correlation_id),'')='' then raise exception 'AFFILIATE_RULE_PUBLISH_INVALID'; end if;
+  v_launch_end:=p_launch_start_at+interval '12 months';
+  select * into v_launch from public.affiliate_rule_versions where program_id=p_program_id and version=1 for update;
+  select * into v_evergreen from public.affiliate_rule_versions where program_id=p_program_id and version=2 for update;
+  if v_launch.id is null or v_evergreen.id is null then raise exception 'AFFILIATE_RULE_SCHEDULE_INCOMPLETE'; end if;
+  if v_launch.status='published' and v_evergreen.status='published' then
+    if v_launch.effective_from<>p_launch_start_at or v_launch.effective_until<>v_launch_end or v_evergreen.effective_from<>v_launch_end or v_evergreen.effective_until is not null then raise exception 'AFFILIATE_RULE_SCHEDULE_CONFLICT'; end if;
+    return jsonb_build_object('programId',p_program_id,'status','published','replayed',true);
+  end if;
+  if v_launch.status<>'approved' or v_evergreen.status<>'approved' then raise exception 'AFFILIATE_RULES_NOT_APPROVED'; end if;
+  update public.affiliate_rule_versions set status='published',effective_from=p_launch_start_at,effective_until=v_launch_end where id=v_launch.id;
+  update public.affiliate_rule_versions set status='published',effective_from=v_launch_end,effective_until=null where id=v_evergreen.id;
+  update public.affiliate_programs set launch_start_at=p_launch_start_at,status='shadow' where id=p_program_id;
+  insert into public.affiliate_outbox_events(program_id,aggregate_type,aggregate_id,event_type,payload,idempotency_key)
+  values(p_program_id,'affiliate_program',p_program_id,'affiliate.rules.published',jsonb_build_object('programId',p_program_id,'launchStartAt',p_launch_start_at,'evergreenStartAt',v_launch_end,'correlationId',p_correlation_id),'rule-schedule:'||p_program_id||':'||extract(epoch from p_launch_start_at)::bigint)
+  on conflict(program_id,idempotency_key) do nothing;
+  insert into public.affiliate_audit_log(actor_id,action,object_type,object_id,after_state,correlation_id)
+  values(p_actor_id,'publish_rule_schedule','affiliate_program',p_program_id,jsonb_build_object('launchStartAt',p_launch_start_at,'evergreenStartAt',v_launch_end),p_correlation_id);
+  return jsonb_build_object('programId',p_program_id,'status','published','replayed',false);
 end $$;
 
 create or replace function public.affiliate_lock_attribution(
@@ -459,7 +525,7 @@ begin
   values(p_decision_id,p_program_id,p_sale_id,p_affiliate_id,p_rule_version_id,'USD',p_amount_minor,'shadow',p_reason,p_schedule,p_fingerprint,p_calculator_version)
   on conflict(program_id,sale_id) do nothing;
   select * into v_decision from public.affiliate_commission_decisions where program_id=p_program_id and sale_id=p_sale_id;
-  if v_decision.fingerprint<>p_fingerprint then raise exception 'AFFILIATE_DECISION_CONFLICT'; end if;
+  if v_decision.fingerprint<>p_fingerprint or v_decision.status<>'shadow' or v_decision.affiliate_id<>p_affiliate_id or v_decision.rule_version_id<>p_rule_version_id or v_decision.amount_minor<>p_amount_minor then raise exception 'AFFILIATE_DECISION_CONFLICT'; end if;
   insert into public.affiliate_commission_audits(decision_id,calculator_version,expected_amount_minor,expected_schedule,matched)
   values(v_decision.id,p_calculator_version||':audit',p_audit_amount_minor,p_audit_schedule,true) on conflict do nothing;
   for v_item in select value from jsonb_array_elements(p_schedule) loop
@@ -470,6 +536,9 @@ begin
     v_index:=v_index+1;
   end loop;
   if v_scheduled_total<>p_amount_minor then raise exception 'AFFILIATE_SCHEDULE_TOTAL_MISMATCH'; end if;
+  insert into public.affiliate_outbox_events(program_id,aggregate_type,aggregate_id,event_type,payload,idempotency_key)
+  values(p_program_id,'commission_decision',v_decision.id::text,'affiliate.commission.shadow_recorded',jsonb_build_object('decisionId',v_decision.id,'correlationId',p_correlation_id),'decision:'||v_decision.id||':shadow')
+  on conflict(program_id,idempotency_key) do nothing;
   return jsonb_build_object('decisionId',v_decision.id,'status','shadow');
 end $$;
 
@@ -484,10 +553,11 @@ begin
   insert into public.affiliate_commission_decisions(id,program_id,sale_id,affiliate_id,rule_version_id,currency,amount_minor,status,reason,schedule,fingerprint,calculator_version)
   values(p_decision_id,p_program_id,p_sale_id,p_affiliate_id,p_rule_version_id,'USD',p_amount_minor,'held',p_reason,p_schedule,p_fingerprint,p_calculator_version) on conflict(program_id,sale_id) do nothing;
   select * into v_decision from public.affiliate_commission_decisions where program_id=p_program_id and sale_id=p_sale_id;
-  if v_decision.fingerprint<>p_fingerprint or v_decision.status<>'held' then raise exception 'AFFILIATE_DECISION_CONFLICT'; end if;
+  if v_decision.fingerprint<>p_fingerprint or v_decision.status<>'held' or v_decision.affiliate_id<>p_affiliate_id or v_decision.rule_version_id<>p_rule_version_id or v_decision.amount_minor<>p_amount_minor then raise exception 'AFFILIATE_DECISION_CONFLICT'; end if;
   insert into public.affiliate_commission_audits(decision_id,calculator_version,expected_amount_minor,expected_schedule,matched)
   values(v_decision.id,p_calculator_version||':audit',p_audit_amount_minor,p_audit_schedule,true) on conflict do nothing;
   for v_item in select value from jsonb_array_elements(p_schedule) loop
+    if v_item->'amount'->>'currency'<>'USD' or (v_item->'amount'->>'amountMinor')::bigint<0 then raise exception 'AFFILIATE_INVALID_SCHEDULE'; end if;
     v_total:=v_total+(v_item->'amount'->>'amountMinor')::bigint;
     insert into public.affiliate_commission_schedules(decision_id,installment,release_at,amount_minor,status)
     values(v_decision.id,v_index,(v_item->>'releaseAt')::timestamptz,(v_item->'amount'->>'amountMinor')::bigint,'held') on conflict(decision_id,installment) do nothing;
@@ -496,7 +566,61 @@ begin
     v_index:=v_index+1;
   end loop;
   if v_total<>p_amount_minor then raise exception 'AFFILIATE_SCHEDULE_TOTAL_MISMATCH'; end if;
+  insert into public.affiliate_outbox_events(program_id,aggregate_type,aggregate_id,event_type,payload,idempotency_key)
+  values(p_program_id,'commission_decision',v_decision.id::text,'affiliate.commission.held_recorded',jsonb_build_object('decisionId',v_decision.id,'correlationId',p_correlation_id),'decision:'||v_decision.id||':held')
+  on conflict(program_id,idempotency_key) do nothing;
   return jsonb_build_object('decisionId',v_decision.id,'status','held');
+end $$;
+
+create or replace function public.affiliate_record_sale_decision(
+  p_mode text,p_sale_id uuid,p_program_id text,p_attribution_id uuid,p_provider text,p_provider_transaction_id text,
+  p_canonical_customer_id text,p_plan text,p_billing_interval text,p_gross_amount_minor bigint,p_paid_at timestamptz,p_raw_event_ref text,
+  p_decision_id uuid,p_affiliate_id uuid,p_rule_version_id uuid,p_amount_minor bigint,p_reason text,p_schedule jsonb,
+  p_fingerprint text,p_calculator_version text,p_audit_amount_minor bigint,p_audit_schedule jsonb,p_correlation_id text
+) returns jsonb language plpgsql security definer set search_path=public as $$
+declare v_sale public.affiliate_sales; v_result jsonb;
+begin
+  if p_mode not in ('shadow','real') or p_program_id<>'secwyn-india' or p_provider<>'creem' or p_gross_amount_minor<=0 then raise exception 'AFFILIATE_SALE_INPUT_INVALID'; end if;
+  insert into public.affiliate_sales(id,program_id,attribution_id,provider,provider_transaction_id,canonical_customer_id,plan,billing_interval,currency,gross_amount_minor,paid_at,status,raw_event_ref)
+  values(p_sale_id,p_program_id,p_attribution_id,p_provider,p_provider_transaction_id,p_canonical_customer_id,p_plan,p_billing_interval,'USD',p_gross_amount_minor,p_paid_at,'qualified',p_raw_event_ref)
+  on conflict(program_id,provider,provider_transaction_id) do nothing;
+  select * into v_sale from public.affiliate_sales where program_id=p_program_id and provider=p_provider and provider_transaction_id=p_provider_transaction_id for update;
+  if not found or v_sale.status<>'qualified' or v_sale.attribution_id<>p_attribution_id or v_sale.canonical_customer_id<>p_canonical_customer_id or v_sale.plan<>p_plan or v_sale.billing_interval<>p_billing_interval or v_sale.gross_amount_minor<>p_gross_amount_minor then raise exception 'AFFILIATE_SALE_CONFLICT'; end if;
+  if p_mode='shadow' then
+    v_result:=public.affiliate_record_shadow_decision(p_decision_id,p_program_id,v_sale.id,p_affiliate_id,p_rule_version_id,p_amount_minor,p_reason,p_schedule,p_fingerprint,p_calculator_version,p_audit_amount_minor,p_audit_schedule,p_correlation_id);
+  else
+    v_result:=public.affiliate_record_real_decision(p_decision_id,p_program_id,v_sale.id,p_affiliate_id,p_rule_version_id,p_amount_minor,p_reason,p_schedule,p_fingerprint,p_calculator_version,p_audit_amount_minor,p_audit_schedule,p_correlation_id);
+  end if;
+  return v_result||jsonb_build_object('saleId',v_sale.id);
+end $$;
+
+create or replace function public.affiliate_record_reversal(
+  p_program_id text,p_sale_id uuid,p_affiliate_id uuid,p_decision_id uuid,p_provider_event_id text,
+  p_reversal_type text,p_reversed_gross_minor bigint,p_clawback_minor bigint,p_posting_state text,p_correlation_id text
+) returns jsonb language plpgsql security definer set search_path=public as $$
+declare v_sale public.affiliate_sales; v_decision public.affiliate_commission_decisions; v_existing public.affiliate_ledger_entries; v_prior_clawback bigint:=0; v_prior_reversed_gross bigint:=0;
+begin
+  if p_program_id<>'secwyn-india' or p_reversal_type not in ('refund','chargeback') or p_reversed_gross_minor<=0 or p_clawback_minor<0 or p_posting_state not in ('shadow','payable') then raise exception 'AFFILIATE_REVERSAL_INPUT_INVALID'; end if;
+  select * into v_sale from public.affiliate_sales where id=p_sale_id and program_id=p_program_id for update;
+  select * into v_decision from public.affiliate_commission_decisions where id=p_decision_id and sale_id=p_sale_id and affiliate_id=p_affiliate_id for update;
+  if not found or v_sale.id is null or p_clawback_minor>v_decision.amount_minor then raise exception 'AFFILIATE_REVERSAL_CONFLICT'; end if;
+  select * into v_existing from public.affiliate_ledger_entries where program_id=p_program_id and idempotency_key='reversal:'||p_provider_event_id;
+  if found then
+    if v_existing.decision_id<>p_decision_id or v_existing.amount_minor<>-p_clawback_minor or v_existing.metadata->>'reason'<>p_reversal_type then raise exception 'AFFILIATE_REVERSAL_IDEMPOTENCY_CONFLICT'; end if;
+    return jsonb_build_object('saleId',p_sale_id,'status',p_reversal_type,'replayed',true);
+  end if;
+  select coalesce(sum(-amount_minor),0),coalesce(sum((metadata->>'reversedGrossMinor')::bigint),0)
+    into v_prior_clawback,v_prior_reversed_gross from public.affiliate_ledger_entries
+    where program_id=p_program_id and decision_id=p_decision_id and entry_type in ('clawback','reversal') and amount_minor<=0;
+  if v_prior_clawback+p_clawback_minor>v_decision.amount_minor then raise exception 'AFFILIATE_CLAWBACK_EXCEEDS_DECISION'; end if;
+  insert into public.affiliate_ledger_entries(program_id,affiliate_id,decision_id,entry_type,currency,amount_minor,effective_at,posting_state,idempotency_key,correlation_id,metadata)
+  values(p_program_id,p_affiliate_id,p_decision_id,'clawback','USD',-p_clawback_minor,now(),p_posting_state,'reversal:'||p_provider_event_id,p_correlation_id,jsonb_build_object('status',p_posting_state,'reason',p_reversal_type,'reversedGrossMinor',p_reversed_gross_minor))
+  on conflict(program_id,idempotency_key) do nothing;
+  if p_reversal_type='chargeback' or v_prior_reversed_gross+p_reversed_gross_minor>=v_sale.gross_amount_minor then update public.affiliate_sales set status=case when p_reversal_type='chargeback' then 'chargeback' else 'refunded' end where id=p_sale_id; end if;
+  insert into public.affiliate_outbox_events(program_id,aggregate_type,aggregate_id,event_type,payload,idempotency_key)
+  values(p_program_id,'sale',p_sale_id::text,'affiliate.sale.'||p_reversal_type,jsonb_build_object('saleId',p_sale_id,'decisionId',p_decision_id,'correlationId',p_correlation_id),'reversal:'||p_provider_event_id)
+  on conflict(program_id,idempotency_key) do nothing;
+  return jsonb_build_object('saleId',p_sale_id,'status',p_reversal_type);
 end $$;
 
 create or replace function public.affiliate_claim_outbox(p_worker text,p_limit integer default 25)
@@ -506,21 +630,42 @@ begin
   where e.id in(select id from public.affiliate_outbox_events where status='pending' and available_at<=now() order by created_at for update skip locked limit greatest(1,least(p_limit,100))) returning e.*;
 end $$;
 
+create or replace function public.affiliate_claim_telegram_publications(p_worker text,p_types text[],p_limit integer default 5)
+returns setof public.affiliate_telegram_publications language plpgsql security definer set search_path=public as $$
+begin
+  if p_worker is null or btrim(p_worker)='' or coalesce(array_length(p_types,1),0)=0 then raise exception 'AFFILIATE_TELEGRAM_CLAIM_INVALID'; end if;
+  return query update public.affiliate_telegram_publications p
+    set status='processing',locked_at=now(),locked_by=p_worker
+    where p.id in(
+      select id from public.affiliate_telegram_publications
+      where status='pending' and scheduled_at<=now() and publication_type=any(p_types) and attempt_count<5
+      order by scheduled_at for update skip locked limit greatest(1,least(p_limit,10))
+    ) returning p.*;
+end $$;
+
 revoke all on function public.affiliate_claim_idempotency(text,text,text,timestamptz) from public,anon,authenticated;
 revoke all on function public.affiliate_submit_application(uuid,jsonb,text,text,integer,text,text,text) from public,anon,authenticated;
 revoke all on function public.affiliate_review_application(uuid,uuid,text,text,text,text) from public,anon,authenticated;
+revoke all on function public.affiliate_publish_rule_schedule(text,timestamptz,uuid,text) from public,anon,authenticated;
 revoke all on function public.affiliate_lock_attribution(uuid,uuid,text,timestamptz,text,text,text,text) from public,anon,authenticated;
 revoke all on function public.affiliate_publish_content(uuid,uuid,text) from public,anon,authenticated;
 revoke all on function public.affiliate_record_shadow_decision(uuid,text,uuid,uuid,uuid,bigint,text,jsonb,text,text,bigint,jsonb,text) from public,anon,authenticated;
 revoke all on function public.affiliate_record_real_decision(uuid,text,uuid,uuid,uuid,bigint,text,jsonb,text,text,bigint,jsonb,text) from public,anon,authenticated;
+revoke all on function public.affiliate_record_sale_decision(text,uuid,text,uuid,text,text,text,text,text,bigint,timestamptz,text,uuid,uuid,uuid,bigint,text,jsonb,text,text,bigint,jsonb,text) from public,anon,authenticated;
+revoke all on function public.affiliate_record_reversal(text,uuid,uuid,uuid,text,text,bigint,bigint,text,text) from public,anon,authenticated;
 revoke all on function public.affiliate_claim_outbox(text,integer) from public,anon,authenticated;
+revoke all on function public.affiliate_claim_telegram_publications(text,text[],integer) from public,anon,authenticated;
 grant execute on function public.affiliate_claim_idempotency(text,text,text,timestamptz) to service_role;
 grant execute on function public.affiliate_submit_application(uuid,jsonb,text,text,integer,text,text,text) to service_role;
 grant execute on function public.affiliate_review_application(uuid,uuid,text,text,text,text) to service_role;
+grant execute on function public.affiliate_publish_rule_schedule(text,timestamptz,uuid,text) to service_role;
 grant execute on function public.affiliate_lock_attribution(uuid,uuid,text,timestamptz,text,text,text,text) to service_role;
 grant execute on function public.affiliate_publish_content(uuid,uuid,text) to service_role;
 grant execute on function public.affiliate_record_shadow_decision(uuid,text,uuid,uuid,uuid,bigint,text,jsonb,text,text,bigint,jsonb,text) to service_role;
 grant execute on function public.affiliate_record_real_decision(uuid,text,uuid,uuid,uuid,bigint,text,jsonb,text,text,bigint,jsonb,text) to service_role;
+grant execute on function public.affiliate_record_sale_decision(text,uuid,text,uuid,text,text,text,text,text,bigint,timestamptz,text,uuid,uuid,uuid,bigint,text,jsonb,text,text,bigint,jsonb,text) to service_role;
+grant execute on function public.affiliate_record_reversal(text,uuid,uuid,uuid,text,text,bigint,bigint,text,text) to service_role;
 grant execute on function public.affiliate_claim_outbox(text,integer) to service_role;
+grant execute on function public.affiliate_claim_telegram_publications(text,text[],integer) to service_role;
 
 commit;

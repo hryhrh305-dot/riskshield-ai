@@ -95,6 +95,7 @@ describe("flags, payout, telegram, property and replay safety", () => {
     expect(telegramIdempotencyKey(daily)).toBe("telegram:daily_content:one");
     expect(()=>assertTelegramPublicationAllowed({id:"win",kind:"qualified_sale",consent:true,contentStatus:"approved",saleQualified:false})).toThrow();
     expect(()=>assertTelegramPublicationAllowed({id:"pay",kind:"payout_notice",consent:true,contentStatus:"approved",payoutPaid:true,payoutReconciled:false})).toThrow();
+    expect(assertTelegramPublicationAllowed({...daily,contentStatus:"published"})).toBe(true);
   });
   it("contains six current Telegram slots with first two pinned", () => {
     expect(contentSeed.telegram_message_slots).toHaveLength(6);

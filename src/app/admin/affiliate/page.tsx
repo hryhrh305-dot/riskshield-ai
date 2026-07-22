@@ -1,15 +1,11 @@
 import { notFound, redirect } from "next/navigation";
-import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { isAdminEmail } from "@/lib/admin";
 import { affiliateOperationalFlagEnabled } from "@/modules/affiliate";
+import { requireAffiliateOperator } from "@/modules/affiliate/application/server";
 
 export default async function AffiliateAdminPage() {
   if(!affiliateOperationalFlagEnabled(process.env,"AFFILIATE_ADMIN")) notFound();
-  const supabase = await createServerSupabaseClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) redirect("/login?next=/admin/affiliate");
-  if (!isAdminEmail(data.user.email)) redirect("/dashboard");
+  try{await requireAffiliateOperator(["affiliate_admin","super_admin"]);}catch(error){if(error instanceof Error&&error.message==="AFFILIATE_AUTH_REQUIRED") redirect("/login?next=/admin/affiliate");redirect("/dashboard");}
   const admin = getSupabaseAdminClient();
   const [applications, memberships, outbox, deadLetters, reconciliations] = await Promise.all([
     admin.from("affiliate_applications").select("id", { count: "exact", head: true }),

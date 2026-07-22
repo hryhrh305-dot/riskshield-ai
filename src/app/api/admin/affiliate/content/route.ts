@@ -1,22 +1,18 @@
 import { NextResponse } from "next/server";
 import { createHash } from "node:crypto";
-import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { isAdminEmail } from "@/lib/admin";
 import { affiliateOperationalFlagEnabled, checkContentImpact } from "@/modules/affiliate";
+import { requireAffiliateOperator, type AffiliateOperatorRole } from "@/modules/affiliate/application/server";
 
-async function requireAdmin() {
+async function requireContentRole(allowed:readonly AffiliateOperatorRole[]) {
   if(!affiliateOperationalFlagEnabled(process.env,"AFFILIATE_CONTENT_ADMIN")) throw new Error("NOT_FOUND");
-  const supabase = await createServerSupabaseClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user || !isAdminEmail(data.user.email)) throw new Error("FORBIDDEN");
-  return data.user;
+  try{return (await requireAffiliateOperator(allowed)).user;}catch(error){if(error instanceof Error&&error.message==="AFFILIATE_AUTH_REQUIRED") throw error;throw new Error("FORBIDDEN");}
 }
-function contentError(error:unknown,fallback:string){const code=error instanceof Error?error.message:"";return NextResponse.json({error:code==="NOT_FOUND"?"Not found.":code==="FORBIDDEN"?"Forbidden.":fallback},{status:code==="NOT_FOUND"?404:code==="FORBIDDEN"?403:500});}
+function contentError(error:unknown,fallback:string){const code=error instanceof Error?error.message:"";return NextResponse.json({error:code==="NOT_FOUND"?"Not found.":code==="FORBIDDEN"?"Forbidden.":code==="AFFILIATE_AUTH_REQUIRED"?"Authentication required.":fallback},{status:code==="NOT_FOUND"?404:code==="FORBIDDEN"?403:code==="AFFILIATE_AUTH_REQUIRED"?401:500});}
 
 export async function GET() {
   try {
-    await requireAdmin();
+    await requireContentRole(["content_editor","compliance_reviewer","program_manager","publisher","super_admin"]);
     const admin=getSupabaseAdminClient();
     const {data,error}=await admin.from("affiliate_content_items").select("id,content_key,content_type,locale,affiliate_content_versions(id,version,status,body,variables,checksum,publish_at,published_at,created_at)").eq("program_id","secwyn-india").order("content_key");
     if(error) throw error;
@@ -26,7 +22,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const user = await requireAdmin();
+    const user = await requireContentRole(["content_editor","program_manager","super_admin"]);
     const input = await request.json();
     if (typeof input.contentKey !== "string" || typeof input.body !== "object" || !input.body) return NextResponse.json({ error: "Invalid content." }, { status: 400 });
     const admin = getSupabaseAdminClient();
@@ -45,9 +41,10 @@ export async function POST(request: Request) {
 
 export async function PATCH(request:Request){
   try{
-    const user=await requireAdmin();
     const input=await request.json();
     if(typeof input.versionId!=="string"||!["approve","schedule","publish","retire","rollback","resolve_impact"].includes(input.action)) return NextResponse.json({error:"Invalid action."},{status:400});
+    const reviewActions=["approve","resolve_impact"];
+    const user=await requireContentRole(reviewActions.includes(input.action)?["compliance_reviewer","program_manager","super_admin"]:["publisher","program_manager","super_admin"]);
     const admin=getSupabaseAdminClient();
     const {data:current,error:loadError}=await admin.from("affiliate_content_versions").select("*,affiliate_content_items!inner(program_id)").eq("id",input.versionId).eq("affiliate_content_items.program_id","secwyn-india").single();
     if(loadError||!current) return NextResponse.json({error:"Version not found."},{status:404});

@@ -1,12 +1,24 @@
 import "server-only";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { isAdminEmail } from "@/lib/admin";
+
+export type AffiliateOperatorRole = "content_editor"|"compliance_reviewer"|"program_manager"|"publisher"|"affiliate_admin"|"super_admin";
 
 export async function requireAffiliateUser() {
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) throw new Error("AFFILIATE_AUTH_REQUIRED");
   return data.user;
+}
+
+export async function requireAffiliateOperator(allowedRoles:readonly AffiliateOperatorRole[]) {
+  const user=await requireAffiliateUser();
+  if(isAdminEmail(user.email)&&allowedRoles.includes("super_admin")) return {user,role:"super_admin" as const};
+  const admin=getSupabaseAdminClient();
+  const {data,error}=await admin.from("affiliate_operator_roles").select("role").eq("program_id","secwyn-india").eq("user_id",user.id).is("revoked_at",null).in("role",[...allowedRoles]).limit(1).maybeSingle();
+  if(error||!data) throw new Error("AFFILIATE_OPERATOR_FORBIDDEN");
+  return {user,role:data.role as AffiliateOperatorRole};
 }
 
 export async function loadAffiliateMembership(userId: string) {
