@@ -1,18 +1,22 @@
 # Affiliate No-Go status
 
-The codebase is **not authorized for real commission or payout rollout**. The implementation deliberately fails closed.
+Current verdict: **FAIL CLOSED — Preview runtime database gate incomplete**.
 
-The Production dependency audit on 2026-07-22 is clean after moving SheetJS to its official 0.20.3 distribution and overriding Next's bundled Sharp/PostCSS to patched compatible releases. `npm audit --omit=dev --audit-level=high` reports zero vulnerabilities. The full development-tool audit still reports inherited Critical/High findings in the Vercel CLI toolchain and related transitive packages. Under the handoff's hard No-Go rule, Affiliate cannot receive a PASS verdict until that toolchain is safely upgraded/removed or an updated Source of Truth explicitly accepts a development-only exception. No breaking `npm audit fix --force` was run.
+Local implementation gates pass:
 
-Blocked pending HumanOps:
+- 445/445 Vitest tests pass with no skipped/only tests.
+- Production build generates 71 routes/pages.
+- Modified TypeScript/TSX files pass targeted ESLint.
+- Full repository TypeScript remains at the documented 120-error baseline; Affiliate adds no new error.
+- Full repository `npm audit --audit-level=high` reports zero vulnerabilities.
+- All Affiliate feature flags remain closed and the kill switch remains enabled.
 
-- Production migration application.
-- Production secret entry.
-- Production feature flag changes.
-- Telegram bot creation, token, chat ID, administrator permission and message IDs.
-- Real Creem, Payoneer or payout-provider actions.
-- Real commission, payout, win announcement or public rollout.
+The repository-local Vercel CLI dependency was removed because no application code imports it. Deployment uses the separately maintained global CLI. Safe overrides pin the affected `brace-expansion` and `js-yaml` transitive ranges; no force upgrade was used.
 
-Shadow must reconcile before Real Commission. Real Commission must reconcile before Team. Team must reconcile before Payout. Payout must reconcile before Telegram. Any open Critical/High finding, calculator mismatch, payout mismatch, unknown provider mapping, missing consent or missing idempotency evidence is a No-Go.
+No-Go conditions still present:
 
-Local PostgreSQL/Docker was unavailable during implementation, and the Supabase CLI fetch did not complete. Structural migration tests passed, but actual Preview migration execution and RLS probes remain a mandatory HumanOps/Preview gate; this is not represented as completed.
+- The isolated Preview Supabase migration has not been applied because the management migration transport cannot currently send even a minimal DDL statement. Migration history remains empty, proving no partial write.
+- Live Preview RLS, constraint, replay, concurrency, content seed, Shadow, reconciliation, and Telegram mock-runtime evidence therefore cannot yet be collected.
+- Production migration, Production variables, Production flags, real commission, payout, real Telegram publishing, and provider operations remain HumanOps-only.
+
+Real Commission cannot be enabled until a representative Shadow sample (minimum 30 events) reconciles with zero unexplained mismatch and zero known Critical/High issue. Payout and Telegram gates remain later in the ordered sequence.

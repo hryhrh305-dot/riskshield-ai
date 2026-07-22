@@ -1,36 +1,54 @@
 # Secwyn India Affiliate Operator Guide
 
-## Safe rollout sequence
+## Safety boundary
 
-1. Review and apply `202607220001_india_affiliate_platform.sql` to an isolated Preview database.
-2. Run the content seeder in dry-run mode. Use `--apply` only with `AFFILIATE_CONTENT_SEED_TARGET=preview`.
-3. Keep every Affiliate flag false and `AFFILIATE_KILL_SWITCH=true`; deploy Preview.
-4. Set `AFFILIATE_PROGRAM_LAUNCH_START_AT`, publish immutable Launch/Evergreen rule effective times, then enable flags strictly in order: `AFFILIATE_PUBLIC_PAGE` → `AFFILIATE_APPLICATIONS` → `AFFILIATE_PROVISIONAL_ACTIVATION` → `AFFILIATE_ATTRIBUTION` → `AFFILIATE_COMMISSION_SHADOW`.
-5. Run Golden, replay, concurrency, refund/chargeback and reconciliation checks. Compare primary and independent audit calculators.
-6. `AFFILIATE_COMMISSION_REAL` stays false until Shadow has no unresolved mismatch or Critical/High issue.
-7. `AFFILIATE_TEAM_REWARDS` stays false until direct-generation invariants pass.
-8. `AFFILIATE_PAYOUT_CREATION` and then `AFFILIATE_PAYOUT_EXECUTION` stay false until daily reconciliation, 72-hour frozen batch, verified payout identity and rollback drill pass.
-9. Telegram stays last: Daily → Wins → Payout Notice. Configure its token/chat ID only in the deployment secret store, never in Git or chat.
+- Use only the isolated `secwyn-affiliate-preview` Supabase project and the Vercel Preview scope for `codex/secwyn-india-affiliate-full`.
+- Keep `AFFILIATE_KILL_SWITCH=true` and every Affiliate capability flag `false` until the preceding gate has evidence.
+- Never copy Production users, payments, credentials, or customer data into Preview.
+- Production migration, Production variables, provider changes, real commissions, payouts, and Telegram publishing require separate HumanOps approval.
+
+## Preview database sequence
+
+1. Apply `supabase/migrations/202607220001_india_affiliate_platform.sql` through the migration runner.
+2. Confirm the migration history contains exactly the Affiliate migration and that all new public objects start with `affiliate_`.
+3. Run schema, RLS, grant, immutable-trigger, uniqueness, replay, and two-worker claim probes from `DATABASE_RLS_EVIDENCE.md`.
+4. Publish the immutable rule schedule through `affiliate_publish_rule_schedule` using the same UTC value as `AFFILIATE_PROGRAM_LAUNCH_START_AT`. Version 1 covers the first 12 months; version 2 starts immediately afterward.
+5. Dry-run `node scripts/seed-affiliate-content.mjs`; use `--apply` only when `AFFILIATE_CONTENT_SEED_TARGET=preview`.
+6. Verify 25 content records and seven Telegram message slots. The existing real channel remains paused and unverified; message 11 remains marked for replacement.
+
+## Ordered Preview activation
+
+Enable only one layer at a time and retain evidence before continuing:
+
+1. `AFFILIATE_PUBLIC_PAGE`
+2. `AFFILIATE_APPLICATIONS`
+3. `AFFILIATE_PROVISIONAL_ACTIVATION`
+4. `AFFILIATE_ATTRIBUTION`
+5. `AFFILIATE_COMMISSION_SHADOW`
+6. `AFFILIATE_COMMISSION_REAL`
+7. `AFFILIATE_TEAM_REWARDS`
+8. `AFFILIATE_PAYOUT_CREATION`
+9. `AFFILIATE_PAYOUT_EXECUTION`
+10. `AFFILIATE_TELEGRAM_DAILY`, then wins, then payout notices
+
+Real commission, team rewards, payout, and Telegram remain forbidden during initial Preview acceptance. Shadow must have at least 30 representative events and zero unexplained reconciliation mismatch before any Real Commission request.
+
+## Telegram rules
+
+- Bot token and chat ID stay in the Preview secret store.
+- The worker atomically claims rows with `FOR UPDATE SKIP LOCKED`; only the owning worker may complete them.
+- Unknown delivery is never retried blindly. A daily publication remains unique for its channel and local date even after an unknown delivery result.
+- Daily/rule content must be approved or published. A win requires a qualified sale plus privacy consent. A payout notice requires a paid and reconciled batch.
+- The Bot never calculates commission and never reads raw payment or KYC data.
 
 ## Immediate rollback
 
-Set `AFFILIATE_KILL_SWITCH=true`. This closes every Affiliate capability without affecting customer login, payment, subscription, Credits or detection. Preserve outbox and provider webhooks so already-received facts remain auditable. Do not delete financial records. Correct history with compensating entries.
+Set `AFFILIATE_KILL_SWITCH=true`, then redeploy Preview. Keep every Affiliate flag false. Preserve provider facts, outbox, immutable decisions, and append-only ledger records. Correct financial history only with compensating reversal or adjustment entries.
 
-## Required monitoring
+## Monitoring
 
-- Outbox age, attempts and dead-letter count.
-- Provider events versus sales, decisions, ledger entries and payout items.
-- Primary versus audit calculator mismatch.
-- Duplicate provider transaction/fingerprint attempts.
-- Refund, dispute and chargeback clawbacks.
-- Payout batch freeze age and reconciliation status.
-- Telegram duplicate, retry, dead-letter and pause state.
-
-## HumanOps checklist
-
-- Production migration reviewed and separately authorized.
-- Preview evidence retained; backup/rollback plan confirmed.
-- Telegram bot created, official channel verified, bot made admin, six current messages synchronized and first two pinned.
-- Payout provider account and legal/KYC handling approved.
-- Production flags changed one at a time with evidence between steps.
-- No real win or payout notice until its database status is qualified or paid+reconciled respectively.
+- Outbox age, attempts, locks, dead letters, and unknown delivery.
+- Provider facts versus sales, decisions, schedules, ledger entries, and payout items.
+- Primary versus independent audit calculator mismatches.
+- Duplicate transaction, decision fingerprint, reversal, and Telegram publication attempts.
+- Open High/Critical incidents, reconciliation state, payout freeze age, and kill-switch state.

@@ -2,23 +2,23 @@
 
 | Phase | Implementation evidence | Verification | Activation state |
 |---|---|---|---|
-| E0 | `SECWYN_AFFILIATE_E0_AUDIT.md` | Git/root/baseline and reuse audit | Complete |
-| E1 | `handoff-v1.0.0/` | 39 copied files; manifest hashes previously verified | Complete |
-| E2 | `src/modules/affiliate/` | Pure domain has no React/Next/Supabase imports | Complete |
-| E3 | `202607220001_india_affiliate_platform.sql` | 59 additive `affiliate_` tables, RLS loop, 14 functions, immutable triggers | Preview execution gated |
-| E4 | `programs/registry.ts`, `capabilities.ts`, `rewards.ts` | Launch/Evergreen, 11% Evergreen cap vectors, ordered flags | Complete; launch time HumanOps |
-| E5 | applications API/page and transactional review RPC | India-only, five-question quiz, policy evidence, 7/3/90-day fields | Complete; flags off |
-| E6 | signed click route, attribution API/RPC | 30/90/120-day locks, canonical customer, one generation, self-referral block | Complete; key/flag gated |
-| E7 | commission/audit/reward/payout domains; shadow/release/reconciliation jobs | bigint/HALF_UP, 12 base combinations, refunds/disputes, replay/concurrency | Complete; Real/Payout off |
-| E8 | content schema, Admin editor/API, seeder, impact checker | immutable versions, approval, schedule, rollback, export, Preview seed | Complete; seed gated |
-| E9 | public/apply/rules/anti-scam/Affiliate portal/aggregate-only Leader/Admin/Content Admin pages | server auth, ordered flags, Leader privacy contract and build route evidence | Complete operational surfaces; external data remains gated |
-| E10 | payment sidecar, transactional RPCs, outbox/DLQ workers | canonical payment re-read; Affiliate failures do not roll back payment | Complete |
-| E11 | Telegram policy/port/dispatcher/worker | consent, qualified/paid+reconciled, unknown delivery, retry/DLQ, six slots | Mock complete; Bot HumanOps |
-| E12 | payout tables, immutable snapshots, pure payout gate | $50, 72h, reconciliation, reauth/PIN/OTP, kill switch | Code/schema ready; real Payoneer HumanOps |
-| E13 | four Affiliate test suites plus existing full Vitest | 49 files / 442 tests, no skipped/only; representative critical mutations killed | Complete locally |
-| E14 | `affiliate-shadow-acceptance.test.ts`, shadow and reconciliation jobs | 12 combinations, 5 refunds, 2 chargebacks, 3 referral, 2 accelerator, 2 team, switch/freeze, 100 replay, concurrency | Simulation complete; real 30-event Shadow gated |
-| E15 | Operator guide, flags-off local smoke and Vercel Preview | `/` and `/pricing` 200 locally; Affiliate surfaces/API 404 locally; branch Preview `READY` | Code Preview complete; Preview DB migration/RLS probes gated |
-| E16 | lint, typecheck delta, tests, build, diff/secret/flag scans | recorded in Final Report | Complete except DB runtime/dependency audit network gate |
-| E17 | `SECWYN_AFFILIATE_FINAL_REPORT.md` | Template-aligned evidence | Complete |
+| E0 | `SECWYN_AFFILIATE_E0_AUDIT.md` | Git/root/baseline, reuse and isolation audit | Complete |
+| E1 | `handoff-v1.0.0/` | Package files and machine references retained | Complete |
+| E2 | `src/modules/affiliate/` | Pure domain remains independent from React/Next/Supabase | Complete |
+| E3 | Affiliate migration | 60 additive tables, 18 functions, seven explicit policies, RLS/revoke loop, immutable triggers and FK indexes | Local structural PASS; Preview execution blocked by migration transport |
+| E4 | Registry, capabilities, rule schedule RPC | Launch/Evergreen 12-month boundary, immutable versions, ordered flags and 11% guard | Code PASS; publish call pending Preview DB |
+| E5 | Applications and operator roles | India-only application, policy/quiz evidence, legal review state transitions and separated operator roles | Code PASS; flags off |
+| E6 | Signed click and attribution routes | 30/90/120-day bounds, one canonical first customer, one generation, self-referral block | Code PASS; flags off |
+| E7 | Calculators, transactional decision/reversal RPCs, ledger and payout gates | bigint/HALF_UP, schedules, reserve, refund/chargeback, replay and cumulative clawback guards | Unit/structural PASS; Real/Payout off |
+| E8 | Content schema, Admin editor/API and seeder | Versioning, approval/publish separation, impact checker, schedule/rollback/import/export; 25 records and seven slots | Dry-run PASS; Preview apply pending |
+| E9 | Affiliate, Leader and Admin surfaces | Server auth, role separation and aggregate-only leader contract | Build PASS; flags off |
+| E10 | Payment sidecar and transactional outbox | Canonical payment re-read; Affiliate failure isolated from customer billing | Test PASS |
+| E11 | Telegram policy, adapter and worker | Atomic claim, worker ownership, consent, qualified/paid+reconciled gates, retry/DLQ, unknown-delivery safety | Unit/structural PASS; external Bot and DB runtime pending |
+| E12 | Immutable payout batches/items and payout gate | Minimum, 72-hour freeze, reconciliation, identity, reauth/PIN/OTP and kill switch | Code PASS; payout off |
+| E13 | Affiliate and full regression suites | 49 files / 445 tests; build, lint, diff and dependency audit | PASS locally |
+| E14 | Shadow acceptance suite and reconciliation job | 12 base combinations, refunds, chargebacks, referral, accelerator, team, rule switch, replay and concurrency | Simulation PASS; 30-event Preview runtime pending |
+| E15 | Preview branch and Vercel configuration | Branch deployment and branch-scoped Preview variables; Production has no Affiliate variables | Safe flags-off Preview exists; refreshed branch deployment pending final commit |
+| E16 | Security/quality evidence docs | Local gates complete; DB/runtime reports record the external transport block | Partial, fail closed |
+| E17 | Final report | Template-aligned evidence and explicit HumanOps gates | Updated on final handoff |
 
-The original machine traceability CSV remains unchanged under `handoff-v1.0.0/machine/24_REQUIREMENTS_TRACEABILITY_MATRIX.csv`. Production is not enabled by this implementation.
+The original machine traceability CSV remains unchanged at `handoff-v1.0.0/machine/24_REQUIREMENTS_TRACEABILITY_MATRIX.csv`.
