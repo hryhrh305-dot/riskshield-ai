@@ -14,7 +14,7 @@ export async function GET() {
   try {
     await requireContentRole(["content_editor","compliance_reviewer","program_manager","publisher","super_admin"]);
     const admin=getSupabaseAdminClient();
-    const {data,error}=await admin.from("affiliate_content_items").select("id,content_key,content_type,locale,affiliate_content_versions(id,version,status,body,variables,checksum,publish_at,published_at,created_at)").eq("program_id","secwyn-india").order("content_key");
+    const {data,error}=await admin.from("affiliate_content_items").select("id,content_key,content_type,locale,affiliate_content_versions(id,version,status,body,variables,checksum,publish_at,published_at,created_at,affiliate_content_impacts(status,requires_rule_review,requires_telegram_sync))").eq("program_id","secwyn-india").order("content_key");
     if(error) throw error;
     return NextResponse.json({items:data});
   } catch(error){return contentError(error,"Content export failed.");}

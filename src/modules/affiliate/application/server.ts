@@ -35,6 +35,30 @@ export async function loadAffiliateBalance(membershipId: string) {
   return (data || []).reduce((sum, row) => sum + BigInt(row.amount_minor), 0n);
 }
 
+export async function loadAffiliateApplicationState(userId:string){
+  const admin=getSupabaseAdminClient();
+  const {data:application,error}=await admin.from("affiliate_applications").select("id,status,review_reason,created_at,updated_at").eq("program_id","secwyn-india").eq("user_id",userId).maybeSingle();
+  if(error) throw new Error("AFFILIATE_APPLICATION_UNAVAILABLE");
+  if(!application) return null;
+  const {data:quiz,error:quizError}=await admin.from("affiliate_quiz_attempts").select("score,passed,created_at").eq("application_id",application.id).order("created_at",{ascending:false}).limit(1).maybeSingle();
+  if(quizError) throw new Error("AFFILIATE_APPLICATION_UNAVAILABLE");
+  return {...application,quiz};
+}
+
+export async function loadAffiliateWorkspace(membershipId:string){
+  const admin=getSupabaseAdminClient();
+  const [actions,events,direct,payoutAccount,payoutItems,resources]=await Promise.all([
+    admin.from("affiliate_activation_actions").select("action_type,format,occurred_at").eq("membership_id",membershipId).order("occurred_at",{ascending:false}),
+    admin.from("affiliate_activation_events").select("event_type,format,occurred_at").eq("membership_id",membershipId).order("occurred_at",{ascending:false}),
+    admin.from("affiliate_referral_relationships").select("created_at,affiliate_memberships!affiliate_referral_relationships_invitee_id_fkey(affiliate_code,status)").eq("program_id","secwyn-india").eq("inviter_id",membershipId),
+    admin.from("affiliate_payout_accounts").select("provider,status,verified_at,payout_account_changed_at:updated_at").eq("membership_id",membershipId).maybeSingle(),
+    admin.from("affiliate_payout_items").select("amount_minor,status,created_at,affiliate_payout_batches!inner(period_start,period_end,status,reconciled_at)").eq("affiliate_id",membershipId).order("created_at",{ascending:false}).limit(6),
+    loadPublishedAffiliateContent(["training","resource_link","approved_script","faq"]),
+  ]);
+  if(actions.error||events.error||direct.error||payoutAccount.error||payoutItems.error) throw new Error("AFFILIATE_WORKSPACE_UNAVAILABLE");
+  return {actions:actions.data||[],events:events.data||[],directRelationships:direct.data||[],payoutAccount:payoutAccount.data||null,payoutItems:payoutItems.data||[],resources};
+}
+
 export async function loadAffiliateLeaderSummary(membershipId: string) {
   const admin = getSupabaseAdminClient();
   const { data: team, error: teamError } = await admin
