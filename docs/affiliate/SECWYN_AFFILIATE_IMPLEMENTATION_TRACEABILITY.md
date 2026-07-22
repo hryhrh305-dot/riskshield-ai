@@ -17,7 +17,7 @@
 | E12 | Immutable payout batches/items and payout gate | Minimum, 72-hour freeze, reconciliation, identity, reauth/PIN/OTP and kill switch | Code PASS; payout off |
 | E13 | Affiliate and full regression suites | 49 files / 445 tests; build, lint, diff and dependency audit | PASS locally |
 | E14 | Shadow acceptance suite and reconciliation job | 12 base combinations, refunds, chargebacks, referral, accelerator, team, rule switch, replay and concurrency | Simulation PASS; 30-event Preview runtime pending |
-| E15 | Preview branch and Vercel configuration | Branch deployment and branch-scoped Preview variables; Production has no Affiliate variables | Safe flags-off Preview exists; refreshed branch deployment pending final commit |
+| E15 | Preview branch and Vercel configuration | Branch deployment, 23 branch-scoped Sensitive Preview variables, flags-off HTTP smoke and zero error logs; Production has no Affiliate variables | Refreshed flags-off Preview Ready |
 | E16 | Security/quality evidence docs | Local gates complete; DB/runtime reports record the external transport block | Partial, fail closed |
 | E17 | Final report | Template-aligned evidence and explicit HumanOps gates | Updated on final handoff |
 

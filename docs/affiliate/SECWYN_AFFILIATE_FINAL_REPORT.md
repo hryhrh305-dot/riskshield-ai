@@ -72,7 +72,9 @@ Simulation covers the supplied Golden set, all base combinations, refund/chargeb
 
 ## 12. Preview / Deployment
 
-Vercel variables are scoped to Preview and the Affiliate branch only; Production contains no Affiliate variables. The user-triggered redeploy after saving variables targeted the old Production `main` deployment rather than the Affiliate branch, so it did not activate or ship Affiliate code. A refreshed branch Preview is performed only after the final branch commit; all Affiliate flags remain off.
+Vercel has 23 Sensitive variables scoped to Preview and the Affiliate branch only; Production contains no Affiliate variables. The user-triggered redeploy after saving variables targeted the old Production `main` deployment rather than the Affiliate branch, so it did not activate or ship Affiliate code.
+
+The hardened branch was subsequently pushed and its refreshed Preview reached `READY`. `/` and `/pricing` returned 200. Affiliate public, portal, admin, Shadow and Telegram endpoints returned 404, proving all operational flags remain closed. The Preview error-log query returned no entries.
 
 The isolated Supabase project was selected by name with its reference masked. Migration history is empty after repeated management-transport failures, proving no partial database change. Production Supabase was never selected or changed.
 
